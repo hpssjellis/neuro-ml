@@ -1,7 +1,7 @@
 # neuro-ml
 neuro machine learning
 
-https://hpssjellis.github.io/neuro-ml/
+Website of this README.md file https://hpssjellis.github.io/neuro-ml/
 
 
 
