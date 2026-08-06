@@ -1,6 +1,8 @@
 # neuro-ml
 neuro machine learning
 
+https://hpssjellis.github.io/neuro-ml/
+
 
 
 # Project Proposal: Student-Designed Closed-Loop Electrophysiology Experiments Using High-Density Microelectrode Arrays
