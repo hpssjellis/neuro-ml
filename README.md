@@ -162,3 +162,9 @@ Students will gain experience in:
 - A student co-authored scientific poster or manuscript draft.
 
 This framework allows students to participate meaningfully in advanced neurophysiology research while maintaining rigorous experimental design, quantitative evaluation, and appropriate laboratory supervision.
+
+
+
+
+
+# maxaOne Time Series  ![media/maxone-time-series.png](media/maxone-time-series.png)
