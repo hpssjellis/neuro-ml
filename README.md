@@ -167,4 +167,22 @@ This framework allows students to participate meaningfully in advanced neurophys
 
 
 
-# maxaOne Time Series  ![media/maxone-time-series.png](media/maxone-time-series.png)
+## maxaOne Time Series Note: there is also a live array view
+![media/maxone-time-series.png](media/maxone-time-series.png)
+
+
+## MaxOne sample data tray
+![media/maxone-tray.png](media/maxone-tray.png)
+
+
+## Old Sensor 12-64x64-neuro-electrodes-front.png
+![media/12-64x64-neuro-electrodes-front.png](media/12-64x64-neuro-electrodes-front.png)
+
+
+## Old Sensor 12-64x64-neuro-electrodes-back.png
+![media/****](media/12-64x64-neuro-electrodes-back.png)
+
+
+
+
+
