@@ -1,8 +1,4 @@
----
-canonical: https://hpssjellis.github.io/neuro-ml/
-meta-description: neuro machine learning
-title: neuro-ml | neuro machine learning
----
+
 
 # neuro-ml
 
@@ -342,6 +338,17 @@ That generated the following image:
 
 ## possibly-view02.jpg
 ![/media/possibly-view02.jpg](/media/possibly-view02.jpg)
+
+
+
+#  Cl1 software view
+
+## 
+![/media/cli1-view.png](/media/cli1-view.png)
+
+
+## 
+![/media/cli1-generated.jpg](/media/cli1-generated.jpg)
 
 <br><br>
 <hr>
