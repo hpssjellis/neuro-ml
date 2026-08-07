@@ -197,7 +197,7 @@ This program creates a sustainable research pipeline in which each student cohor
 ![media/maxone-time-series.png](media/maxone-time-series.png)
 
 
-## maxaOne live array view 
+## maxOne live array view 
 ![media/sensor-array.png](media/sensor-array.png)
 
 
