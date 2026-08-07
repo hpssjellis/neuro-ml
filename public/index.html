@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>CL1 59-Electrode Web Experiment</title>
+</head>
+<body style="background:#111;color:white;font-family:Arial;text-align:center;">
+
+<h2>CL1 59-Electrode Closed-Loop Experiment</h2>
+
+<div id="myGrid" style="width:520px;margin:auto;"></div>
+
+<br>
+
+<input type="button" value="Run 5 Hz Experiment" onclick="myRunExperiment()">
+<input type="button" value="Clear" onclick="myClearAll()">
+
+<p>
+Gray = Disabled |
+Blue = Sense |
+Green = Stimulate |
+Red = Spike
+</p>
+
+<div id="myInfo" style="font-size:18px;"></div>
+
+<script>
+const myRows = [6,8,8,8,8,8,8,5]
+let myElectrodes = []
+
+function myCreateGrid(){
+
+  const myGrid = document.getElementById('myGrid')
+  let myIndex = 0
+
+  for(let r=0; r<myRows.length; r++){
+
+    const myRow = document.createElement('div')
+    myRow.style.display = 'flex'
+    myRow.style.justifyContent = 'center'
+    myRow.style.margin = '8px'
+
+    for(let c=0; c<myRows[r]; c++){
+
+      const myCell = document.createElement('div')
+      myCell.id = 'e'+myIndex
+      myCell.innerHTML = myIndex+1
+      myCell.style.width = '42px'
+      myCell.style.height = '42px'
+      myCell.style.borderRadius = '50%'
+      myCell.style.margin = '4px'
+      myCell.style.lineHeight = '42px'
+      myCell.style.fontSize = '11px'
+      myCell.style.cursor = 'pointer'
+      myCell.style.userSelect = 'none'
+      myCell.style.background = '#555'
+
+      myCell.onclick = function(){ myToggle(myIndex) }
+
+      myRow.appendChild(myCell)
+
+      myElectrodes.push({
+        state:0,   // 0 disabled, 1 sense, 2 stimulate
+        firing:false
+      })
+
+      myIndex++
+    }
+
+    myGrid.appendChild(myRow)
+  }
+
+  myUpdateInfo()
+}
+
+function myToggle(myIndex){
+
+  myElectrodes[myIndex].state++
+  if(myElectrodes[myIndex].state > 2) myElectrodes[myIndex].state = 0
+
+  myDraw(myIndex)
+  myUpdateInfo()
+}
+
+function myDraw(myIndex){
+
+  const myCell = document.getElementById('e'+myIndex)
+  const myE = myElectrodes[myIndex]
+
+  if(myE.firing){
+    myCell.style.background = '#ff3030'
+    return
+  }
+
+  if(myE.state == 0){
+    myCell.style.background = '#555'
+  } else if(myE.state == 1){
+    myCell.style.background = '#3399ff'
+  } else {
+    myCell.style.background = '#00cc44'
+  }
+}
+
+function myUpdateInfo(){
+
+  let mySense = 0
+  let myStim = 0
+
+  for(let e of myElectrodes){
+    if(e.state == 1) mySense++
+    if(e.state == 2) myStim++
+  }
+
+  document.getElementById('myInfo').innerHTML =
+    'Sensing: '+mySense+
+    ' | Stimulating: '+myStim+
+    ' | Disabled: '+(59-mySense-myStim)
+}
+
+async function myRunExperiment(){
+
+  let myStimList = []
+  let mySenseList = []
+
+  for(let i=0;i<myElectrodes.length;i++){
+    if(myElectrodes[i].state == 2) myStimList.push(i)
+    if(myElectrodes[i].state == 1) mySenseList.push(i)
+  }
+
+  if(myStimList.length == 0){
+    alert('Select at least one stimulating electrode')
+    return
+  }
+
+  document.getElementById('myInfo').innerHTML =
+    'Running 5 Hz experiment for 3 seconds...'
+
+  for(let cycle=0; cycle<15; cycle++){
+
+    for(let i of myStimList){
+      document.getElementById('e'+i).style.background = '#ffff00'
+    }
+
+    await mySleep(100)
+
+    for(let i of myStimList){
+      myDraw(i)
+    }
+
+    for(let i of mySenseList){
+
+      if(Math.random() < 0.35){
+
+        myElectrodes[i].firing = true
+        myDraw(i)
+      }
+    }
+
+    await mySleep(80)
+
+    for(let i of mySenseList){
+
+      myElectrodes[i].firing = false
+      myDraw(i)
+    }
+
+    await mySleep(20)
+  }
+
+  myUpdateInfo()
+}
+
+function myClearAll(){
+
+  for(let i=0;i<myElectrodes.length;i++){
+
+    myElectrodes[i].state = 0
+    myElectrodes[i].firing = false
+    myDraw(i)
+  }
+
+  myUpdateInfo()
+}
+
+function mySleep(ms){
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+myCreateGrid()
+</script>
+
+</body>
+</html>
