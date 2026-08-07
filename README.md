@@ -191,4 +191,20 @@ This framework allows students to participate meaningfully in advanced neurophys
 
 
 
+## possibly-view01.jpg
+![/media/possibly-view01.jpg](/media/possibly-view01.jpg)
+
+
+Generated using Gemini possibly reproduceable using this prompt and the maxone live array [media/sensor-array.png](media/sensor-array.png) as an input.
+
+Prompt: and insert above image [media/sensor-array.png](media/sensor-array.png) as attached input.
+
+A detailed photograph of a large, modern computer monitor displaying the "MaxLab Live" high-content electrophysiology software interface, based on the layout seen in image_0.png. The screen shows the central sensor grid canvas with the original background of scattered, natural magenta neural activity clusters. Overlaid centrally on the grid is a precise, large circular arrangement of exactly 32 crisp blue stimulation points. Within this circle, four specific, non-adjacent blue points are distinctly colored vibrant green, indicating active stimulation. A prominent 4x3 grid of thin, solid black lines is overlaid across the entire sensor area, creating 12 distinct rectangular analysis zones. The fourth quadrant (bottom-right) of this grid is intensely highlighted, containing a significantly denser cluster of bright red neural activity dots, signifying a specific region of trained, heightened activation in response to the stimulation. All original surrounding software UI elements, toolbars, the Ubuntu launcher on the left, and the text "Flow for high-throughput, high-content electrophysiology" in the upper-left corner are preserved and sharp. The monitor is positioned in a modern lab setting, with blurred out-of-focus lab equipment in the background. The perspective is a three-quarter view of the screen.
+
+That generated the following image
+
+## possibly-view02.jpg
+![/media/possibly-view02.jpg](/media/possibly-view02.jpg)
+
+
 
