@@ -343,11 +343,11 @@ That generated the following image:
 
 #  Cl1 software view
 
-## 
+## Cl1 59 electrode visualization
 ![/media/cl1-solid.jpg](/media/cl1-solid.jpg)
 
 
-## 
+## Generated view of Cl1 data,  not very close to what it might look like but something for now.
 ![/media/cli1-generated.jpg](/media/cli1-generated.jpg)
 
 <br><br>
