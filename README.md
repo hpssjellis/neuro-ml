@@ -221,6 +221,15 @@ This program creates a sustainable research pipeline in which each student cohor
 
 # Gemini Generated images of the possible view from the MaxOne live array interface
 
+1. Blue stimulating electrode not active (For the present running program and for this screen shot)
+2. Green stimulating electrode that are active (possibly with a repeating frequency of stimulation)
+3. Grid shows grouped areas of neurons for planed positive and negative reinforcement studies
+4. Red dots active sensed neuron firing at that time
+Note: All time frames are recorded for student analysis after the fact.  
+
+
+
+
 
 ## possibly-view01.jpg
 ![/media/possibly-view01.jpg](/media/possibly-view01.jpg)
