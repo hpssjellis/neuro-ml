@@ -344,7 +344,7 @@ That generated the following image:
 #  Cl1 software view
 
 ## 
-![/media/cli1-view.png](/media/cli1-view.png)
+![/media/cl1-solid.jpg](/media/cl1-solid.jpg)
 
 
 ## 
