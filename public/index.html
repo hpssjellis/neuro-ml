@@ -55,7 +55,9 @@ function myCreateGrid(){
       myCell.style.userSelect = 'none'
       myCell.style.background = '#555'
 
-      myCell.onclick = function(){ myToggle(myIndex) }
+      // Capture current index safely in closure scope
+      let capturedIndex = myIndex
+      myCell.onclick = function(){ myToggle(capturedIndex) }
 
       myRow.appendChild(myCell)
 
@@ -75,6 +77,8 @@ function myCreateGrid(){
 
 function myToggle(myIndex){
 
+  if(!myElectrodes[myIndex]) return
+
   myElectrodes[myIndex].state++
   if(myElectrodes[myIndex].state > 2) myElectrodes[myIndex].state = 0
 
@@ -86,6 +90,8 @@ function myDraw(myIndex){
 
   const myCell = document.getElementById('e'+myIndex)
   const myE = myElectrodes[myIndex]
+
+  if(!myCell || !myE) return
 
   if(myE.firing){
     myCell.style.background = '#ff3030'
@@ -107,8 +113,8 @@ function myUpdateInfo(){
   let myStim = 0
 
   for(let e of myElectrodes){
-    if(e.state == 1) mySense++
-    if(e.state == 2) myStim++
+    if(e && e.state == 1) mySense++
+    if(e && e.state == 2) myStim++
   }
 
   document.getElementById('myInfo').innerHTML =
@@ -122,9 +128,9 @@ async function myRunExperiment(){
   let myStimList = []
   let mySenseList = []
 
-  for(let i=0;i<myElectrodes.length;i++){
-    if(myElectrodes[i].state == 2) myStimList.push(i)
-    if(myElectrodes[i].state == 1) mySenseList.push(i)
+  for(let i=0; i<myElectrodes.length; i++){
+    if(myElectrodes[i] && myElectrodes[i].state == 2) myStimList.push(i)
+    if(myElectrodes[i] && myElectrodes[i].state == 1) mySenseList.push(i)
   }
 
   if(myStimList.length == 0){
@@ -138,7 +144,8 @@ async function myRunExperiment(){
   for(let cycle=0; cycle<15; cycle++){
 
     for(let i of myStimList){
-      document.getElementById('e'+i).style.background = '#ffff00'
+      let myCell = document.getElementById('e'+i)
+      if(myCell) myCell.style.background = '#ffff00'
     }
 
     await mySleep(100)
@@ -148,20 +155,21 @@ async function myRunExperiment(){
     }
 
     for(let i of mySenseList){
-
       if(Math.random() < 0.35){
-
-        myElectrodes[i].firing = true
-        myDraw(i)
+        if(myElectrodes[i]){
+          myElectrodes[i].firing = true
+          myDraw(i)
+        }
       }
     }
 
     await mySleep(80)
 
     for(let i of mySenseList){
-
-      myElectrodes[i].firing = false
-      myDraw(i)
+      if(myElectrodes[i]){
+        myElectrodes[i].firing = false
+        myDraw(i)
+      }
     }
 
     await mySleep(20)
@@ -172,11 +180,12 @@ async function myRunExperiment(){
 
 function myClearAll(){
 
-  for(let i=0;i<myElectrodes.length;i++){
-
-    myElectrodes[i].state = 0
-    myElectrodes[i].firing = false
-    myDraw(i)
+  for(let i=0; i<myElectrodes.length; i++){
+    if(myElectrodes[i]){
+      myElectrodes[i].state = 0
+      myElectrodes[i].firing = false
+      myDraw(i)
+    }
   }
 
   myUpdateInfo()
@@ -191,3 +200,7 @@ myCreateGrid()
 
 </body>
 </html>
+
+
+[Binding Event Handlers in React](https://www.youtube.com/watch?v=AMqAQ80arXU)
+http://googleusercontent.com/youtube_content/1
