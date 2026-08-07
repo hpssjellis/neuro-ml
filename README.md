@@ -216,7 +216,8 @@ This program creates a sustainable research pipeline in which each student cohor
 
 
 
-<br><br><br><br><br><hr>
+<br><br><br><br><br>  
+<hr>
 
 # Gemini Generated images of the possible view from the MaxOne live array interface
 
