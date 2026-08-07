@@ -9,7 +9,7 @@ Website of this README.md file: [https://hpssjellis.github.io/neuro-ml/](https:/
 Github Repository of this site [https://github.com/hpssjellis/neuro-ml](https://github.com/hpssjellis/neuro-ml)
 
 
-Demo Cl1 webpage [public/index.html](https://hpssjellis.github.io/neuro-ml(https://hpssjellis.github.io/neuro-ml/public/index.html)
+Demo Cl1 webpage [public/index.html](https://hpssjellis.github.io/neuro-ml/public/index.html)
 
 # Project Proposal: Student-Designed Closed-Loop Neuroplasticity Experiments Using Bidirectional and High-Density Microelectrode Arrays
 
