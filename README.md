@@ -167,8 +167,14 @@ This framework allows students to participate meaningfully in advanced neurophys
 
 
 
-## maxaOne Time Series Note: there is also a live array view
+## maxaOne Time Series 
 ![media/maxone-time-series.png](media/maxone-time-series.png)
+
+
+## maxaOne live array view 
+![media/sensor-array.png](media/sensor-array.png)
+
+
 
 
 ## MaxOne sample data tray
