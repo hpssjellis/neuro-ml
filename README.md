@@ -1,221 +1,306 @@
+---
+canonical: https://hpssjellis.github.io/neuro-ml/
+meta-description: neuro machine learning
+title: neuro-ml | neuro machine learning
+---
 
 # neuro-ml
 
 neuro machine learning
 
-Website of this README.md file: [https://hpssjellis.github.io/neuro-ml/](https://hpssjellis.github.io/neuro-ml/)
+Website of this README.md file: https://hpssjellis.github.io/neuro-ml/
 
-# Project Proposal: Student-Designed Closed-Loop Electrophysiology Experiments Using High-Density Microelectrode Arrays
+# Project Proposal: Student-Designed Closed-Loop Neuroplasticity Experiments Using Bidirectional and High-Density Microelectrode Arrays
 
 ## Executive Summary
 
-This project proposes a structured collaboration between secondary-school students and a neuroscience research laboratory using the MaxWell Biosystems **MaxOne High-Density Microelectrode Array (HD-MEA)** platform. The objective is to enable students to design, implement, and analyze quantitatively defined closed-loop electrophysiology experiments under laboratory supervision.
+This project proposes a structured collaboration between secondary-school students and a neuroscience research laboratory using a **dual-platform electrophysiology architecture**: the **Cortical Labs CL1** bidirectional biological computer and the **MaxWell Biosystems MaxOne** High-Density Microelectrode Array (HD-MEA).
 
-Students will develop **spatial stimulation geometries** and **real-time reinforcement algorithms** for cultured human induced pluripotent stem cell (iPSC)-derived neural networks. The scientific objective is to determine how spatiotemporal electrical stimulation influences neural plasticity, functional connectivity, and adaptive network behavior.
+The central objective is to enable students to design, implement, and analyze closed-loop reinforcement-learning experiments in cultured human iPSC-derived neural networks, while providing a scientifically rigorous pathway from rapid educational experimentation to high-resolution electrophysiological validation.
 
-A key feature of the program is a **three-year research pipeline** that aligns with the biological time required for neural cultures while providing students with meaningful experimental feedback during every academic year.
+The project is built around a **translation pipeline**:
 
-This proposal builds directly on a validated body of published work rather than starting from first principles. The MaxOne platform and the closed-loop stimulation/reinforcement paradigm described here are the same class of system used by Cortical Labs (Melbourne, Australia) in their peer-reviewed **DishBrain** research program, beginning with Kagan et al., *Neuron* (2022) and continuing through several follow-up studies (see **References** below). Where possible, this program adopts already-validated electrical stimulation parameters rather than re-deriving safe operating limits, so that student-led innovation is concentrated on stimulation geometry, task/reinforcement design, and real-time software architecture — not on unproven tissue-safety questions.
+1. Students develop and optimize reinforcement algorithms and stimulation strategies on the CL1.
+2. Successful algorithms are transferred to the MaxOne HD-MEA.
+3. High-density recordings reveal the spatial and network mechanisms underlying adaptive behavior.
 
-## Relationship to Published Work (DishBrain / Cortical Labs)
+This dual-platform approach combines the educational accessibility and rapid iteration of the CL1 with the scientific power and spatial resolution of the MaxOne.
 
-The MaxOne HD-MEA and its underlying closed-loop control approach are not novel to this proposal — they are an established research platform. Cortical Labs' original 2022 study cultured human iPSC-derived and rodent cortical neurons on a Maxwell Biosystems HD-MEA of comparable electrode density and demonstrated that a simulated-game closed-loop feedback system produced measurable behavioral adaptation within minutes. Follow-up studies from the same group extended this into direct sample-efficiency comparisons against modern deep reinforcement learning algorithms (DQN, A2C, PPO), and Cortical Labs has since commercialized a related platform (the CL1) with a cloud-deployable API for closed-loop experiments.
+This proposal builds directly on a validated body of published work rather than starting from first principles — specifically Kagan et al., *Neuron* (2022), the original DishBrain study, and the subsequent Cortical Labs research and product line that produced the CL1 (see **References**).
 
-This matters for the proposal in three concrete ways:
+## Why Two Platforms?
 
-1. **Stimulation safety parameters are already characterized.** The original protocol used charge-balanced, positive-first biphasic voltage pulses — the standard low-threshold, tissue-protective waveform for this class of array — with unpredictable "punishment" stimulation delivered around 150 mV at 5 Hz for 4 seconds following a missed response, contrasted against predictable, low-entropy stimulation as the reward signal. Independent characterization of comparable high-density arrays supports safe operating envelopes in the range of roughly ±10 mV to ±1 V per pulse phase, phase durations near 200 μs, well below levels associated with tissue or electrode damage. Students should design *geometry and timing logic* on top of this validated envelope rather than exploring untested voltage/current combinations.
-2. **The "reward" mechanism is predictability, not a simulated neurotransmitter.** In the DishBrain paradigm, positive and negative reinforcement are operationalized as *predictable vs. unpredictable* stimulation patterns, following the free-energy principle (Friston et al.) rather than a dopamine-style reward signal. This is an important conceptual clarification for the "positive and negative reinforcement" language in this proposal's Experimental Platform section — it reframes "reward field" design as *entropy/predictability field* design, which is both more scientifically precise and easier to defend to an ethics board.
-3. **The stimulation/recording control layer is software, not custom hardware.** MaxWell Biosystems' MaxOne system exposes its acquisition and stimulation control through a Python-based API/SDK running on the instrument's control PC. This means the "Software Engineering Team" role in this proposal — real-time closed-loop control, timing validation, metadata logging — is realistically scoped as a Python integration and pipeline-engineering problem sitting on top of vendor-provided hardware control, not a from-scratch embedded systems build. This is a good match for existing WebSerial/WebBLE/embedded-ML pipeline experience already developed for the `webmcu-ai` curriculum, adapted to a Python/desktop context rather than browser/microcontroller.
+The CL1 and MaxOne address different scientific and educational objectives.
+
+### CL1: Bidirectional Closed-Loop Learning
+
+The CL1 is Cortical Labs' commercial biological computer, launched in 2025 as a direct successor to the DishBrain research platform. Verified specifications relevant to this proposal:
+
+- **~59 fully bidirectional electrodes** per unit — every active channel can both stimulate and record, a significant expansion from the 8 input channels used in the original 2022 DishBrain experiment.
+- **Sub-millisecond closed-loop latency**, down from the roughly 5 ms latency of the original DishBrain setup — a meaningful improvement for real-time reinforcement algorithms.
+- **On the order of 200,000 to 800,000 living human-derived neurons** per unit (reported figures vary by source/configuration), grown from stem cells derived from blood or skin samples.
+- **Self-contained life-support bioreactor** (temperature, gas exchange, nutrient/waste management) rated to sustain cultures for **up to six months**, with active electrode charge-balancing to preserve neural health over long-term use.
+- **Python SDK and browser-based tools** via the "Cortical Cloud" platform, enabling remote, code-deployable experiments without owning physical hardware ("Wetware as a Service"); local control is also available through a touchscreen-based operating system (**biOS**).
+- **USB, camera, and actuator peripheral support**, allowing the CL1 to be embedded in broader robotics or sensor-driven experimental setups.
+- Listed at roughly **US$35,000 per unit** as of its 2025 commercial launch, with cloud/remote access as a lower-cost alternative for a school-scale program.
+
+This makes the CL1 an ideal platform for:
+
+- reinforcement-learning experiments
+- adaptive network control
+- real-time feedback
+- online optimization
+- algorithm development
+- student software engineering
+
+Students can directly observe how changes in reinforcement schedules influence network behavior, making the relationship between prediction, stimulation, and learning visually and computationally intuitive — and because remote "Wetware as a Service" access is available, this stage does not necessarily require owning physical hardware.
+
+### MaxOne: High-Density Mechanistic Validation
+
+The MaxOne provides **26,400 electrodes**, enabling:
+
+- spatial propagation mapping
+- wavefront analysis
+- functional connectivity reconstruction
+- regional plasticity measurements
+- high-resolution electrophysiological analysis
+
+Only a small subset of MaxOne electrodes (order of tens, not hundreds) are typically routed as active stimulation sites in published protocols, with the bulk of the array used for recording. The MaxOne is therefore the platform for understanding **why** a successful CL1 algorithm works, at a spatial resolution the CL1's 59 channels cannot provide.
+
+The two systems become complementary rather than redundant: CL1 for algorithm discovery and rapid iteration, MaxOne for mechanistic explanation.
 
 ## Scientific Objective
 
-Determine whether closed-loop electrical reinforcement modifies the electrophysiological behavior of cultured human neural networks recorded on a **26,400-electrode HD-MEA**.
+Determine how programmable bidirectional electrode interactions and spatial stimulation geometries influence adaptive behavior, reinforcement learning, and network plasticity in cultured human neural networks.
 
-The primary hypothesis is that contingent reinforcement following predefined network responses will produce measurable changes in response probability, spike timing, network connectivity, and stimulus-response performance compared with open-loop stimulation controls.
+The project addresses two complementary questions:
 
-This hypothesis has already been supported at a foundational level by the original DishBrain result; the novel contribution of this program is not "whether closed-loop reinforcement works" but rather how spatial stimulation geometry, reinforcement schedule design, and multi-region routing affect the *rate, stability, and generalizability* of that learning — territory the published literature has only begun to explore.
+- **Algorithmic question (CL1):** Which reinforcement strategies produce the fastest and most stable adaptive behavior?
+- **Mechanistic question (MaxOne):** What spatial and network-level electrophysiological changes accompany successful learning?
+
+## Relationship to Published Work (DishBrain / Cortical Labs)
+
+This proposal builds directly on the closed-loop electrophysiology paradigm established by Kagan et al. (*Neuron*, 2022) and subsequent Cortical Labs research. That original study demonstrated that a simulated-game closed-loop feedback system produced measurable behavioral adaptation in cultured neurons within minutes, using a **predictable-versus-unpredictable stimulation** framework grounded in the free-energy principle (Friston et al.) rather than a simulated reward chemical. The CL1 is the direct commercial and technical descendant of that research platform — Cortical Labs' own materials describe its development as evolving from the 2022 DishBrain experiment, with the CL1 later publicly demonstrated running a Doom-based closed-loop task.
+
+The project adopts already-validated stimulation safety parameters and this predictable-versus-unpredictable reinforcement framework, so that students innovate primarily in:
+
+- reinforcement schedule design
+- stimulation geometry
+- adaptive control algorithms
+- network routing
+- software architecture
+
+The CL1 extends the educational implementation of the DishBrain paradigm, while the MaxOne provides the spatial resolution necessary for detailed electrophysiological analysis. Because the underlying stimulation physics (charge-balanced biphasic pulses, safe voltage/frequency envelopes) has already been characterized and productized across both platforms, students are not exploring untested tissue-safety parameters — they are exploring *task, schedule, and geometry design* on top of validated hardware.
+
+## Dual-Platform Experimental Architecture
+
+### Stage 1: Algorithm Development (CL1)
+
+Students implement programmable closed-loop experiments using the CL1.
+
+Example experiments:
+
+- predictable versus unpredictable reinforcement
+- adaptive stimulation policies
+- competing input pathways
+- transfer learning between electrode groups
+- online optimization
+- curriculum learning
+- state-dependent reinforcement
+
+The emphasis is rapid iteration. A typical experimental cycle:
+
+1. Design reinforcement algorithm.
+2. Run a 5–10 minute closed-loop experiment.
+3. Analyze behavioral metrics.
+4. Modify the algorithm.
+5. Repeat.
+
+Multiple experiments can be completed within a school term, and the sub-millisecond latency of the CL1 means the feedback loop is fast enough for students to iterate live during a class period rather than waiting on offline analysis.
+
+### Stage 2: High-Density Validation (MaxOne)
+
+Algorithms that produce significant behavioral adaptation on the CL1 are transferred to the MaxOne.
+
+Students investigate:
+
+- spatial wave propagation
+- response latency distributions
+- regional plasticity
+- functional connectivity
+- information transfer
+- network recruitment patterns
+- long-term stability
+
+This stage converts educational discoveries into mechanistic neuroscience experiments, and benefits from the MaxOne's much longer-running, larger cultures compared to a single CL1 unit's 59-channel footprint.
 
 ## Experimental Platform
 
-The MaxOne HD-MEA enables simultaneous recording and stimulation across a high-density electrode array. A subset of electrodes can be dynamically routed for stimulation and recording, allowing students to design complex **spatial stimulation fields**. Only a small subset of electrodes (order of tens, not hundreds) are typically routed as active stimulation sites in published protocols, with the bulk of the array used for recording — a useful design constraint for students to work within.
+### CL1 Investigations
 
-Students will investigate stimulation geometries such as:
+Students will design network interaction architectures, including:
 
-- Concentric rings
-- Radial spokes
-- Directional gradients
-- Opposing hemispheres
-- Rotating stimulation fields
-- Moving wavefronts
-- Localized predictability/reward fields
+- input/output routing
+- recurrent feedback loops
+- adaptive reinforcement schedules
+- distributed sensory encoding
+- multi-region competition
+- dynamic network control
 
-The educational objective is to give students ownership of experimental design, while the laboratory objective is to develop a high-throughput platform for systematic exploration of spatiotemporal reinforcement strategies in living neural networks.
+### MaxOne Investigations
+
+Students will design spatial stimulation geometries, including:
+
+- concentric rings
+- radial spokes
+- directional gradients
+- opposing hemispheres
+- rotating stimulation fields
+- moving wavefronts
+- localized predictability fields (framed as predictable-vs-unpredictable stimulation zones, per the DishBrain free-energy-principle model, rather than a literal "reward" chemical)
 
 ## Operational Definition of Learning
 
-Learning will be defined operationally as a change in measurable electrophysiological metrics relative to baseline and control conditions.
+Learning will be defined as a measurable change in network behavior relative to baseline and control conditions.
 
-**Primary outcome measures**
+**Behavioral Metrics (CL1)**
 
-- Evoked response probability
-- Spike latency following stimulation
-- Population burst frequency
-- Functional connectivity inferred from spike-train correlations
-- Information transfer between stimulated and output regions
-- Stability of responses across repeated trials
+- response probability
+- response latency
+- adaptive accuracy
+- reinforcement efficiency
+- retention of learned responses
+- transfer between input pathways
 
-## Reinforcement Protocol
+**Electrophysiological Metrics (MaxOne)**
 
-Students will implement programmable reinforcement schedules using charge-balanced biphasic stimulation pulses, adopting parameters already validated in published closed-loop MEA work as a safe starting envelope rather than an open design variable:
+- spike timing
+- population burst dynamics
+- functional connectivity
+- spatial propagation velocity
+- regional recruitment
+- stability of learned network states
 
-- **Pulse shape:** charge-balanced, positive-first biphasic voltage pulses (lowest activation threshold, most tissue-protective, standard practice on this class of array).
-- **Typical phase duration:** on the order of 200 μs.
-- **Typical amplitude range:** roughly ±10 mV to ±1 V per phase, depending on target region and desired activation probability — well inside ranges independently characterized as safe on comparable high-density arrays.
+## Reinforcement Protocol Notes (carried over from validated published parameters)
+
+- **Pulse shape:** charge-balanced, positive-first biphasic voltage pulses — the lowest-activation-threshold, most tissue-protective waveform, and standard practice on both platforms.
 - **Published negative-feedback example (DishBrain, Kagan et al. 2022):** unpredictable stimulation around 150 mV at 5 Hz for approximately 4 seconds following a "miss."
 - **Published positive-feedback logic:** predictable, low-entropy stimulation following a "hit" — reward is defined by predictability, not by a distinct reward waveform.
-
-**Example experimental paradigm**
-
-1. Deliver a spatially defined stimulation pattern.
-2. Evaluate network activity within a predefined post-stimulus window (for example, **5–20 ms**).
-3. Classify responses using predefined electrophysiological criteria.
-4. Deliver contingent reinforcement following successful responses (predictable pattern) or unsuccessful responses (unpredictable pattern), following the validated DishBrain logic above.
-5. Compare reinforcement schedules across experimental conditions.
-
-Reinforcement frequencies (for example, **30 Hz versus 2 Hz**) are treated as **experimental variables** rather than assumed biological learning mechanisms and will be evaluated empirically, building on — rather than replacing — the published baseline protocol.
+- Both the CL1 and MaxOne handle charge-balancing and safe stimulation envelopes at the hardware/firmware level, so student work should be scoped to schedule and geometry design on top of these built-in safety constraints rather than raw electrical parameter selection.
 
 ## Three-Year Research Pipeline
 
-### Year 1: Rapid Stimulation Mapping
+### Year 1: Rapid Closed-Loop Exploration (CL1)
 
-Students focus on **high-throughput experimental design and rapid iteration** using existing laboratory cultures that have completed their primary research purpose but remain electrophysiologically active.
+Students focus on:
 
-The experimental cycle is intentionally short:
+- reinforcement algorithms
+- adaptive control
+- software development
+- behavioral analysis
 
-1. Design a stimulation pattern.
-2. Apply a **5–10 minute closed-loop protocol**.
-3. Record electrophysiological responses.
-4. Analyze the data.
-5. Modify the stimulation program.
+The objective is high-throughput experimentation, feasible even via remote/cloud access to a CL1 unit if a physical unit is not locally available.
 
-Because experiments can be completed quickly, students can test multiple variables within a single school term, including spatial geometry, pulse timing, reinforcement contingency, and response thresholds.
+### Year 2: Longitudinal Learning Studies (CL1 + MaxOne)
 
-The laboratory can schedule **monthly experimental rounds**, allowing students to receive rapid feedback and refine their algorithms throughout the year.
+Selected algorithms are transferred to newly prepared cultures.
 
-### Year 2: Longitudinal Plasticity Experiments
+Students investigate:
 
-Students begin experiments on cultures prepared specifically for the educational research program.
+- acquisition
+- retention
+- transfer
+- stability
+- long-term plasticity
 
-Because cultures are available from the beginning of the academic year, students can initiate stimulation immediately and follow the same network over weeks and months.
+MaxOne validation begins.
 
-Research questions include:
+### Year 3: Mechanistic Neuroscience (MaxOne)
 
-- Predictable versus unpredictable reinforcement schedules
-- Acquisition of stimulus-response behavior
-- Retention of learned responses
-- Changes in functional connectivity
-- Long-term stability of trained networks
+Students analyze combined datasets and investigate:
 
-This phase generates the first **longitudinal plasticity datasets**.
+- spatial plasticity mechanisms
+- connectivity remodeling
+- wave propagation
+- adaptive network architecture
+- automated optimization of stimulation geometries
 
-### Year 3: Next-Generation Experimental Design
-
-Students analyze the combined dataset from previous cohorts and design more sophisticated experiments.
-
-Research directions may include:
-
-- Competing stimulation pathways
-- Spatial reward-field optimization
-- Adaptive reinforcement algorithms
-- Multi-region input/output routing
-- Transfer of learned responses between network regions
-- Automated optimization of stimulation geometries
-
-The emphasis shifts from parameter exploration to **hypothesis-driven experimental design**.
+The emphasis shifts from parameter exploration to hypothesis-driven neuroscience.
 
 ## Continuity Note
 
-This program spans a multi-year biological and educational timeline that may extend past a single teacher's classroom tenure. To remain resilient to staff transitions (including planned retirement from full-time teaching), the program should be structured so that: (1) the software/data pipeline and experimental protocols are documented and version-controlled independently of any one individual, (2) the laboratory partner (family research contact) holds continuity of the biological/instrument side across cohorts, and (3) a designated in-school robotics/computing teacher of record is identified for each academic year, with the original proposer available in an advisory/consulting capacity post-retirement (e.g., via periodic TOC coverage or remote review of student software).
+This program spans a multi-year biological and educational timeline that may extend past a single teacher's classroom tenure. To remain resilient to staff transitions (including planned retirement from full-time teaching), the program should be structured so that: (1) the software/data pipeline and experimental protocols are documented and version-controlled independently of any one individual, (2) the laboratory partner (family research contact) holds continuity of the biological/instrument side across cohorts, and (3) a designated in-school robotics/computing teacher of record is identified for each academic year, with the original proposer available in an advisory/consulting capacity post-retirement (e.g., via periodic TOC coverage or remote review of student software). The CL1's remote "Wetware as a Service" access model may also reduce continuity risk, since a physical unit does not need to remain sited at one school for the CL1-stage work to continue.
 
 ## Student Research Roles
 
-### Experimental Design Team
+### Reinforcement Learning Team
 
-- Design spatial stimulation geometries
-- Define input and output regions
-- Specify reinforcement contingencies
-- Develop experimental controls
+- design adaptive stimulation policies
+- optimize reinforcement schedules
+- analyze behavioral learning
+
+### Network Architecture Team
+
+- define input/output routing
+- design recurrent network structures
+- investigate transfer learning
 
 ### Computational Analysis Team
 
-- Process spike trains
-- Detect evoked responses
-- Compute connectivity metrics
-- Perform statistical analyses
+- process spike trains
+- compute connectivity metrics
+- analyze spatial propagation
+- perform statistical analyses
 
 ### Software Engineering Team
 
-- Implement real-time closed-loop control (likely a Python layer on top of the MaxWell Biosystems control API/SDK)
-- Integrate recording and stimulation pipelines
-- Validate timing precision
-- Log experimental metadata
+- implement real-time closed-loop control (Python, on top of the CL1 SDK and the MaxWell control API)
+- integrate CL1 and MaxOne APIs
+- validate timing precision
+- manage experimental databases
 
-### Laboratory Team (Research Supervision)
+### Laboratory Team
 
-- Cell culture and differentiation
-- Sterile handling
-- Electrode preparation
-- Hardware operation
-- Experimental oversight
+- cell culture
+- sterile handling
+- hardware operation
+- experimental oversight
 
 ## Experimental Controls
 
-A scientifically valid comparison requires parallel control conditions.
+Parallel control conditions will include:
 
-### Open-Loop Control
+- open-loop stimulation
+- random reinforcement
+- sham reinforcement
+- algorithm-transfer controls
+- platform-comparison controls (CL1 versus MaxOne)
 
-Identical stimulation delivered without contingent reinforcement.
-
-### Random Reinforcement Control
-
-Reinforcement delivered with identical frequency but independent of network output.
-
-### Sham Reinforcement Control
-
-Detection algorithms executed without delivery of reinforcement pulses.
-
-These controls distinguish reinforcement-dependent plasticity from spontaneous network drift and stimulation-induced adaptation, and mirror control conditions used in the published DishBrain literature (e.g., feedback-without-sensory-input and sensory-input-without-feedback conditions, which showed no learning).
-
-## Data Analysis
-
-**Primary analysis**
-
-- Within-network comparison before versus after reinforcement
-- Between-group comparison across reinforcement conditions
-
-**Statistical methods**
-
-- Mixed-effects models for repeated measurements
-- Permutation tests for connectivity changes
-- Survival analysis of response persistence
-- False-discovery-rate correction for multiple comparisons
+These controls distinguish reinforcement-dependent plasticity from spontaneous network dynamics and platform-specific artifacts, and mirror the control conditions used in the published DishBrain literature (e.g., feedback-without-sensory-input and sensory-input-without-feedback conditions, which showed no learning).
 
 ## Ethics and Laboratory Oversight
 
 All cell culture, stem-cell differentiation, and electrophysiology experiments will be conducted under the supervision of the host research laboratory and in accordance with institutional biosafety and ethics approvals.
 
-Students will participate in approved activities including experimental design, software development, stimulation-program development, quantitative data analysis, and scientific interpretation. Biological materials will remain under laboratory control at all times. Given that the original DishBrain publication explicitly raised and debated the term "sentience" in relation to cultured neural networks, this proposal should present its framing (predictability/entropy-based reinforcement, not anthropomorphized "reward") clearly and early to any school board, ethics board, or parent-facing materials, to avoid unnecessary controversy grounded in a misunderstanding of the underlying mechanism.
+Students will participate in approved activities including experimental design, software development, stimulation-program development, quantitative data analysis, and scientific interpretation. Biological materials will remain under laboratory control at all times.
+
+Cortical Labs' own Chief Scientific Officer has publicly and directly addressed the ethical implications of this class of research, stating that despite their biological origins, these cultured neuron networks are not considered conscious. Given that the original DishBrain publication explicitly raised and debated the term "sentience" in relation to cultured neural networks, this proposal should present its framing (predictability/entropy-based reinforcement, not anthropomorphized "reward," and the "not conscious" position taken by the platform's own developers) clearly and early to any school board, ethics board, or parent-facing materials, to avoid unnecessary controversy grounded in a misunderstanding of the underlying mechanism.
 
 ## Expected Deliverables
 
-- A validated closed-loop stimulation software framework (Python, built on the MaxWell control API)
+- A validated closed-loop reinforcement-learning software framework
+- A library of adaptive stimulation algorithms
 - A library of spatial stimulation geometries
-- Standardized reinforcement protocols, grounded in published safe parameter ranges
+- A cross-platform translation pipeline (CL1 → MaxOne)
 - An anonymized electrophysiology dataset
-- A statistical comparison of reinforcement and control conditions
+- Mechanistic analyses of adaptive network behavior
 - Student-authored scientific posters, reports, and manuscript contributions
 
-This program creates a sustainable research pipeline in which each student cohort contributes to the next generation of bio-hybrid electrophysiology experiments, while maintaining rigorous experimental design, quantitative analysis, ethical oversight, and continuity across multiple years of investigation.
+## Significance
+
+This project creates a sustainable educational-to-research pipeline in which secondary-school students participate in authentic neuroscience while contributing directly to the development of next-generation bio-hybrid learning experiments.
+
+The CL1 enables students to rapidly explore how neural networks learn. The MaxOne enables researchers to determine how that learning is implemented across space and connectivity. Together, the two platforms transform student-designed reinforcement algorithms into high-resolution investigations of neural plasticity, creating a model that is simultaneously educationally accessible, scientifically rigorous, and capable of generating publishable neuroscience research.
 
 ## maxOne Time Series
 ![media/maxone-time-series.png](media/maxone-time-series.png)
@@ -239,7 +324,7 @@ This program creates a sustainable research pipeline in which each student cohor
 
 1. Blue stimulating electrode not active (For the present running program and for this screen shot)
 2. Green stimulating electrode that are active (possibly with a repeating frequency of stimulation)
-3. Grid shows grouped areas of neurons for planned positive- and negative-reinforcement studies (see note above: "positive/negative" here means predictable vs. unpredictable stimulation, per the DishBrain free-energy-principle framing, not a literal reward chemical)
+3. Grid shows grouped areas of neurons for planned predictable- and unpredictable-reinforcement studies (see note above: "positive/negative" here means predictable vs. unpredictable stimulation, per the DishBrain free-energy-principle framing, not a literal reward chemical)
 4. Red dots active sensed neuron firing at that time
 
 Note: All time frames are recorded for student analysis after the fact.
@@ -270,7 +355,17 @@ That generated the following image:
 - Khajehnejad, M. et al. (2025). *[Dynamic Network Plasticity and Sample Efficiency in Biological Neural Cultures: A Comparative Study with Deep Reinforcement Learning](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12320521/).* Cyborg and Bionic Systems.
 - [Cortical Labs Research page](https://corticallabs.com/research) — full list of published papers, including the CL API real-time closed-loop paper.
 
-**Coverage and context**
+**CL1 platform (specifications and launch coverage)**
+
+- [Cortical Labs — CL1 product page](https://corticallabs.com/cl1) — official specs, Python SDK, Cortical Cloud / Wetware-as-a-Service access.
+- [IEEE Spectrum: "Biological Computer for Sale"](https://spectrum.ieee.org/biological-computer-for-sale) — independent technical coverage confirming the expansion from 8 inputs (DishBrain) to 59 bidirectional electrodes (CL1), and the drop from ~5 ms to sub-millisecond latency.
+- [Cortical Labs CL1 — Good Design Awards project page](https://good-design.org/projects/cortical-labs-cl1/) — design/engineering details, active charge-balancing, biOS touchscreen, peripheral support.
+- [CL1 Biological Computer — Premier's Design Awards entry](https://premiersdesignawards.vic.gov.au/entries/2025/product-design/cortical-labs-cl1-biological-computer) — life-support system, six-month culture viability, Cortical Cloud details.
+- ["Exclusive Look at CL1: One-on-One with Cortical Labs' Chief Scientist"](https://deniseholt.us/exclusive-inside-look-one-on-one-with-cortical-labs-chief-scientist-from-dishbrain-to-cl1/) — Brett Kagan on the Python API and the ethics/consciousness question.
+- ["Researchers teach a biological computer called CL1 ... to play Doom"](https://cerebrodigital.net/en/researchers-teach-a-biological-computer-called-cl1-made-with-human-brain-cells-to-play-doom/) — CL1 Doom demonstration and clarification of what "deploying code" to neurons actually means.
+- [Reply and University of Milan — CL1 research collaboration announcement](https://secure.businesswire.com/news/home/20260128715625/en/Reply-and-the-University-of-Milan-Launch-Experimental-Research-on-Biological-Computing-Based-on-Cortical-Labs-CL1-Platform) — example of an academic partnership built on the CL1 platform, useful as a precedent for a school-lab partnership pitch.
+
+**Coverage and context (original DishBrain result)**
 
 - [UCL News: "Human brain cells in a dish learn to play Pong"](https://www.ucl.ac.uk/news/2022/oct/human-brain-cells-dish-learn-play-pong)
 - [Monash University: "Brain cells in a dish learn to play Pong"](https://www.monash.edu/medicine/news/latest/2022-articles/brain-cells-in-a-dish-learn-to-play-pong)
@@ -285,7 +380,7 @@ That generated the following image:
 
 **Hardware / platform**
 
-- [MaxWell Biosystems](https://www.mxwbio.com) — manufacturer of the MaxOne HD-MEA used in this proposal and in DishBrain.
-- [Cortical Labs CL1 / Cortical Cloud](https://corticallabs.com/cl1) — commercial platform built on the same closed-loop stimulation paradigm, Python-deployable.
+- [MaxWell Biosystems](https://www.mxwbio.com) — manufacturer of the MaxOne HD-MEA used in this proposal and in the original DishBrain research.
+- [Cortical Labs CL1 / Cortical Cloud](https://corticallabs.com/cl1) — commercial platform built on the same closed-loop stimulation paradigm, Python-deployable, available for purchase (~US$35k/unit as of 2025 launch) or remote cloud access.
 
 *This site is open source. [Improve this page](https://github.com/hpssjellis/neuro-ml/edit/main/README.md).*
