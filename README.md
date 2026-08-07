@@ -1,8 +1,3 @@
----
-canonical: https://hpssjellis.github.io/neuro-ml/
-meta-description: neuro machine learning
-title: neuro-ml | neuro machine learning
----
 
 # neuro-ml
 
