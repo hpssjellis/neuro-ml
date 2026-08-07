@@ -3,7 +3,7 @@
 
 neuro machine learning
 
-Website of this README.md file: https://hpssjellis.github.io/neuro-ml/
+Website of this README.md file: [https://hpssjellis.github.io/neuro-ml/](https://hpssjellis.github.io/neuro-ml/)
 
 # Project Proposal: Student-Designed Closed-Loop Electrophysiology Experiments Using High-Density Microelectrode Arrays
 
@@ -265,27 +265,27 @@ That generated the following image:
 
 **Primary published research (DishBrain / Cortical Labs)**
 
-- Kagan, B.J. et al. (2022). *In vitro neurons learn and exhibit sentience when embodied in a simulated game-world.* Neuron. Open access, CC BY 4.0. https://www.cell.com/neuron/fulltext/S0896-6273(22)00806-6
-- Khajehnejad, M., Habibollahi, F., Loeffler, A., Paul, A., Razi, A., Kagan, B.J. (2024). *Biological Neurons Compete with Deep Reinforcement Learning in Sample Efficiency in a Simulated Gameworld.* arXiv:2405.16946. https://arxiv.org/pdf/2405.16946
-- Khajehnejad, M. et al. (2025). *Dynamic Network Plasticity and Sample Efficiency in Biological Neural Cultures: A Comparative Study with Deep Reinforcement Learning.* Cyborg and Bionic Systems. https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12320521/
-- Cortical Labs Research page (full list of published papers, including the CL API real-time closed-loop paper): https://corticallabs.com/research
+- Kagan, B.J. et al. (2022). *[In vitro neurons learn and exhibit sentience when embodied in a simulated game-world](https://www.cell.com/neuron/fulltext/S0896-6273(22)00806-6).* Neuron. Open access, CC BY 4.0.
+- Khajehnejad, M., Habibollahi, F., Loeffler, A., Paul, A., Razi, A., Kagan, B.J. (2024). *[Biological Neurons Compete with Deep Reinforcement Learning in Sample Efficiency in a Simulated Gameworld](https://arxiv.org/pdf/2405.16946).* arXiv:2405.16946.
+- Khajehnejad, M. et al. (2025). *[Dynamic Network Plasticity and Sample Efficiency in Biological Neural Cultures: A Comparative Study with Deep Reinforcement Learning](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12320521/).* Cyborg and Bionic Systems.
+- [Cortical Labs Research page](https://corticallabs.com/research) — full list of published papers, including the CL API real-time closed-loop paper.
 
 **Coverage and context**
 
-- UCL News: "Human brain cells in a dish learn to play Pong" — https://www.ucl.ac.uk/news/2022/oct/human-brain-cells-dish-learn-play-pong
-- Monash University: "Brain cells in a dish learn to play Pong" — https://www.monash.edu/medicine/news/latest/2022-articles/brain-cells-in-a-dish-learn-to-play-pong
-- Nature News & Views: "Neurons in a dish learn to play Pong — what's next?" — https://www.nature.com/articles/d41586-022-03229-y
-- ScienceDaily: "Human brain cells in a dish learn to play Pong in real time" — https://www.sciencedaily.com/releases/2022/10/221012132528.htm
+- [UCL News: "Human brain cells in a dish learn to play Pong"](https://www.ucl.ac.uk/news/2022/oct/human-brain-cells-dish-learn-play-pong)
+- [Monash University: "Brain cells in a dish learn to play Pong"](https://www.monash.edu/medicine/news/latest/2022-articles/brain-cells-in-a-dish-learn-to-play-pong)
+- [Nature News & Views: "Neurons in a dish learn to play Pong — what's next?"](https://www.nature.com/articles/d41586-022-03229-y)
+- [ScienceDaily: "Human brain cells in a dish learn to play Pong in real time"](https://www.sciencedaily.com/releases/2022/10/221012132528.htm)
 
 **Video**
 
-- Cortical Labs official YouTube channel (DishBrain demos, CL1 launch, neurons playing Doom with source on GitHub): https://www.youtube.com/channel/UCq4mqLeGRdq47sHumYMIDJw
-- "Brain in a Dish Plays Pong: Cortical Labs' CL1 Biocomputer" (lab walkthrough, Melbourne): https://www.youtube.com/watch?v=W-NGW_VHYOw
-- "Cortical Labs' CL1 Just Made Traditional Computers Obsolete" (CL1 launch coverage): https://www.youtube.com/watch?v=6wUrgu0pvI4
+- [Cortical Labs official YouTube channel](https://www.youtube.com/channel/UCq4mqLeGRdq47sHumYMIDJw) — DishBrain demos, CL1 launch, neurons playing Doom with source on GitHub.
+- ["Brain in a Dish Plays Pong: Cortical Labs' CL1 Biocomputer"](https://www.youtube.com/watch?v=W-NGW_VHYOw) — lab walkthrough, Melbourne.
+- ["Cortical Labs' CL1 Just Made Traditional Computers Obsolete"](https://www.youtube.com/watch?v=6wUrgu0pvI4) — CL1 launch coverage.
 
 **Hardware / platform**
 
-- MaxWell Biosystems (manufacturer of the MaxOne HD-MEA used in this proposal and in DishBrain): https://www.mxwbio.com
-- Cortical Labs CL1 / Cortical Cloud (commercial platform built on the same closed-loop stimulation paradigm, Python-deployable): https://corticallabs.com/cl1
+- [MaxWell Biosystems](https://www.mxwbio.com) — manufacturer of the MaxOne HD-MEA used in this proposal and in DishBrain.
+- [Cortical Labs CL1 / Cortical Cloud](https://corticallabs.com/cl1) — commercial platform built on the same closed-loop stimulation paradigm, Python-deployable.
 
 *This site is open source. [Improve this page](https://github.com/hpssjellis/neuro-ml/edit/main/README.md).*
