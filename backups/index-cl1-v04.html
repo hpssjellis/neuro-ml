@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>CL1 59-Electrode Web Experiment</title>
+</head>
+<body style="background:#111;color:white;font-family:Arial;text-align:center;">
+
+<h2>CL1 59-Electrode Closed-Loop Experiment</h2>
+
+<div id="myGrid" style="width:560px;margin:auto;"></div>
+
+<br>
+
+<input type="button" value="Run 5 Hz Experiment" onclick="myRunExperiment()">
+<input type="button" value="Clear" onclick="myClearAll()">
+<input type="button" value="Save JSON" onclick="mySaveJSON()">
+<input type="file" id="myFile" accept=".json" style="color:white;">
+<input type="button" value="Load JSON" onclick="myLoadJSON()">
+
+<p>
+Gray = Disabled |
+Blue = Sense |
+Green = Stimulate |
+Dark Blue = Inhibitory |
+Light Blue = Excitatory |
+Red = Spike
+</p>
+
+<div id="myInfo" style="font-size:18px;"></div>
+
+<script>
+// States
+// 0 = disabled
+// 1 = sense
+// 2 = stimulate
+// 3 = inhibitory
+// 4 = excitatory
+
+const myRows = [6,8,8,8,8,8,8,5]
+let myElectrodes = []
+
+function myCreateGrid(){
+
+  const myGrid = document.getElementById('myGrid')
+  let myIndex = 0
+
+  for(let r=0; r<myRows.length; r++){
+
+    const myRow = document.createElement('div')
+    myRow.style.display = 'flex'
+    myRow.style.justifyContent = 'center'
+    myRow.style.margin = '8px'
+
+    for(let c=0; c<myRows[r]; c++){
+
+      const myCell = document.createElement('div')
+      myCell.id = 'e'+myIndex
+      myCell.innerHTML = myIndex+1
+      myCell.style.width = '42px'
+      myCell.style.height = '42px'
+      myCell.style.borderRadius = '50%'
+      myCell.style.margin = '4px'
+      myCell.style.lineHeight = '42px'
+      myCell.style.fontSize = '11px'
+      myCell.style.cursor = 'pointer'
+      myCell.style.userSelect = 'none'
+      myCell.style.background = '#555'
+
+      myCell.onclick = function(){ myToggle(myIndex) }
+
+      myRow.appendChild(myCell)
+
+      myElectrodes.push({
+        state:0,
+        firing:false
+      })
+
+      myIndex++
+    }
+
+    myGrid.appendChild(myRow)
+  }
+
+  myRandomInitialize()
+}
+
+function myRandomInitialize(){
+
+  for(let e of myElectrodes){
+    e.state = 0
+    e.firing = false
+  }
+
+  let myIndices = []
+  for(let i=0;i<59;i++) myIndices.push(i)
+
+  myShuffle(myIndices)
+
+  let myPos = 0
+
+  for(let i=0;i<3;i++) myElectrodes[myIndices[myPos++]].state = 1
+  for(let i=0;i<3;i++) myElectrodes[myIndices[myPos++]].state = 2
+  for(let i=0;i<3;i++) myElectrodes[myIndices[myPos++]].state = 3
+  for(let i=0;i<3;i++) myElectrodes[myIndices[myPos++]].state = 4
+
+  for(let i=0;i<59;i++) myDraw(i)
+
+  myUpdateInfo()
+}
+
+function myShuffle(myArray){
+
+  for(let i=myArray.length-1;i>0;i--){
+
+    const j = Math.floor(Math.random()*(i+1))
+    const temp = myArray[i]
+    myArray[i] = myArray[j]
+    myArray[j] = temp
+  }
+}
+
+function myToggle(myIndex){
+
+  myElectrodes[myIndex].state++
+  if(myElectrodes[myIndex].state > 4) myElectrodes[myIndex].state = 0
+
+  myDraw(myIndex)
+  myUpdateInfo()
+}
+
+function myDraw(myIndex){
+
+  const myCell = document.getElementById('e'+myIndex)
+  const myE = myElectrodes[myIndex]
+
+  if(myE.firing){
+    myCell.style.background = '#ff3030'
+    return
+  }
+
+  switch(myE.state){
+
+    case 0:
+      myCell.style.background = '#555'
+      break
+
+    case 1:
+      myCell.style.background = '#3399ff'
+      break
+
+    case 2:
+      myCell.style.background = '#00cc44'
+      break
+
+    case 3:
+      myCell.style.background = '#003399'
+      break
+
+    case 4:
+      myCell.style.background = '#66ccff'
+      break
+  }
+}
+
+function myUpdateInfo(){
+
+  let myCounts = [0,0,0,0,0]
+
+  for(let e of myElectrodes){
+    myCounts[e.state]++
+  }
+
+  document.getElementById('myInfo').innerHTML =
+    'Disabled: '+myCounts[0]+
+    ' | Sense: '+myCounts[1]+
+    ' | Stimulate: '+myCounts[2]+
+    ' | Inhibitory: '+myCounts[3]+
+    ' | Excitatory: '+myCounts[4]
+}
+
+async function myRunExperiment(){
+
+  let myStimList = []
+  let mySenseList = []
+
+  for(let i=0;i<myElectrodes.length;i++){
+
+    if(myElectrodes[i].state == 2 ||
+       myElectrodes[i].state == 3 ||
+       myElectrodes[i].state == 4){
+
+      myStimList.push(i)
+    }
+
+    if(myElectrodes[i].state == 1){
+      mySenseList.push(i)
+    }
+  }
+
+  if(myStimList.length == 0){
+
+    alert('Select at least one stimulating electrode')
+    return
+  }
+
+  document.getElementById('myInfo').innerHTML =
+    'Running 5 Hz experiment for 3 seconds...'
+
+  for(let cycle=0; cycle<15; cycle++){
+
+    for(let i of myStimList){
+      document.getElementById('e'+i).style.background = '#ffff00'
+    }
+
+    await mySleep(100)
+
+    for(let i of myStimList){
+      myDraw(i)
+    }
+
+    for(let i of mySenseList){
+
+      if(Math.random() < 0.35){
+
+        myElectrodes[i].firing = true
+        myDraw(i)
+      }
+    }
+
+    await mySleep(80)
+
+    for(let i of mySenseList){
+
+      myElectrodes[i].firing = false
+      myDraw(i)
+    }
+
+    await mySleep(20)
+  }
+
+  myUpdateInfo()
+}
+
+function myClearAll(){
+
+  for(let i=0;i<myElectrodes.length;i++){
+
+    myElectrodes[i].state = 0
+    myElectrodes[i].firing = false
+    myDraw(i)
+  }
+
+  myUpdateInfo()
+}
+
+function mySaveJSON(){
+
+  const myData = {
+    rows: myRows,
+    electrodes: myElectrodes.map(e=>({state:e.state}))
+  }
+
+  const myBlob = new Blob(
+    [JSON.stringify(myData,null,2)],
+    {type:'application/json'}
+  )
+
+  const myUrl = URL.createObjectURL(myBlob)
+
+  const myA = document.createElement('a')
+  myA.href = myUrl
+  myA.download = 'cl1_experiment.json'
+  myA.click()
+
+  URL.revokeObjectURL(myUrl)
+}
+
+function myLoadJSON(){
+
+  const myFile =
+    document.getElementById('myFile').files[0]
+
+  if(!myFile){
+
+    alert('Choose a JSON file first')
+    return
+  }
+
+  const myReader = new FileReader()
+
+  myReader.onload = function(e){
+
+    const myData = JSON.parse(e.target.result)
+
+    if(myData.electrodes.length != 59){
+
+      alert('Invalid electrode file')
+      return
+    }
+
+    for(let i=0;i<59;i++){
+
+      myElectrodes[i].state = myData.electrodes[i].state
+      myElectrodes[i].firing = false
+      myDraw(i)
+    }
+
+    myUpdateInfo()
+  }
+
+  myReader.readAsText(myFile)
+}
+
+function mySleep(ms){
+  return new Promise(resolve=>setTimeout(resolve,ms))
+}
+
+myCreateGrid()
+</script>
+
+</body>
+</html>
