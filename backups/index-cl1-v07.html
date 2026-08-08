@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>CL1 59-Electrode Web Experiment v07</title>
+</head>
+<body style="background:#111;color:white;font-family:Arial;text-align:center;">
+
+<h2>CL1 59-Electrode Closed-Loop Experiment (v07 - Sign-Aware Plasticity + Spatial Coupling)</h2>
+
+<div id="myGrid" style="width:560px;margin:auto;"></div>
+
+<br>
+
+<div>
+  <select id="myExperimentType" style="font-size:14px;padding:4px;">
+    <option value="5hz">5 Hz Stimulation Test</option>
+    <option value="freeEnergy">Free-Energy Training Loop</option>
+  </select>
+  <input type="button" value="Start Experiment" onclick="myStartExperiment()">
+</div>
+
+<br>
+
+<input type="button" value="Randomize Roles" onclick="myRandomInitialize()">
+<input type="button" value="Clear" onclick="myClearAll()">
+<input type="button" value="Reset Weights" onclick="myResetWeights()">
+<br><br>
+<input type="button" value="Save JSON" onclick="mySaveJSON()">
+<input type="file" id="myFile" accept=".json" style="color:white;">
+<input type="button" value="Load JSON" onclick="myLoadJSON()">
+
+<p>
+Gray = Disabled |
+Blue = Sense |
+Green = Stimulate |
+Dark Blue = Inhibitory |
+Light Blue = Excitatory |
+Red = Spike |
+Yellow = Excitatory/Stimulate rewarded pulse |
+Dim Purple = Inhibitory rewarded (suppressing) pulse |
+White ring = Fixed reference electrode (not usable)
+</p>
+
+<div id="myInfo" style="font-size:16px;margin-top:10px;"></div>
+
+<div style="margin-top:12px;">
+  <div style="font-size:14px;color:#aaa;">Free Energy (prediction error) over training ticks</div>
+  <canvas id="myGraph" width="560" height="120" style="background:#000;border:1px solid #333;"></canvas>
+</div>
+
+<p style="max-width:560px;margin:16px auto;font-size:12px;color:#888;text-align:left;">
+Geometry note: real 60-electrode MEAs (the format CL1 uses) are an 8x8 grid with the four
+corners omitted, giving 60 physical positions. One of those positions - electrode "15" in the
+standard column/row numbering (column 1, row 5) - is replaced by a single large internal
+reference electrode rather than an active site, leaving 59 usable electrodes. That reference
+electrode is shown below as a fixed white-ringed circle and cannot be toggled or selected for
+any role. Source: Multi Channel Systems 60MEA200/30iR product documentation, which matches
+CL1's published 59-electrode + 1-reference, 8x8, 30um/200um spacing specification.
+</p>
+
+<p style="max-width:560px;margin:16px auto;font-size:12px;color:#888;text-align:left;">
+Plasticity note (v07): earlier versions applied the same Hebbian potentiation rule to every
+role, so inhibitory synapses grew just as fast as excitatory ones and ended up driving firing
+instead of suppressing it. This version credits inhibitory and excitatory/stimulate synapses
+in opposite directions based on whether the tick was on-target, overshooting (too much firing),
+or undershooting (too little firing) - see comments in myRunFreeEnergyTraining(). It also adds
+a distance-based spatial coupling term (independent of the learned weight matrix) so electrodes
+physically near an active inhibitory site are nudged down and electrodes near an active
+excitatory site are nudged up, approximating real volume-conduction spread on the MEA.
+</p>
+
+<script>
+// States
+// 0 = disabled
+// 1 = sense
+// 2 = stimulate
+// 3 = inhibitory
+// 4 = excitatory
+
+// Real 60-electrode MEA geometry: 8x8 grid, corners omitted on the top and
+// bottom rows, one internal reference electrode at column 1 / row 5 (0-based
+// row index 4, leftmost column of that row). This matches the standard MCS
+// 60MEA200/30iR layout that CL1's published spec (59 electrodes + 1
+// reference, 8x8, 30um electrodes, 200um spacing) corresponds to.
+const myRowWidths = [6,8,8,8,8,8,8,6]
+const myRefRow = 4     // 0-based row index containing the reference electrode
+const myRefCol = 0     // 0-based column index within that row (leftmost)
+
+const myTotal = 59
+let myElectrodes = []
+
+// Simulated synaptic weight matrix (stim-role electrode -> sense-role electrode)
+// Stands in for the physical biological connectivity the CL1 forms/reshapes over time.
+// Real CL1 equivalent: there is no direct weight readout - this proxies the effect
+// of repeated ChannelSet/StimDesign stimulation gradually biasing which channels
+// respond to which stims (i.e. what the free-energy loop is shaping).
+let myWeights = []
+
+let myFreeEnergyHistory = []
+let myTrainingRunning = false
+
+// Spatial coupling constants - independent of learned weights, models
+// physical current spread / volume conduction across the MEA surface.
+const mySpatialSigma = 1.4
+const mySpatialStrength = 0.10
+
+// -----------------------------
+// Grid setup
+// -----------------------------
+
+function myCreateGrid(){
+
+  const myGrid = document.getElementById('myGrid')
+  let myIndex = 0
+
+  for(let r=0; r<myRowWidths.length; r++){
+
+    const myRow = document.createElement('div')
+    myRow.style.display = 'flex'
+    myRow.style.justifyContent = 'center'
+    myRow.style.margin = '8px'
+
+    const myWidth = myRowWidths[r]
+
+    for(let c=0; c<myWidth; c++){
+
+      // Physical column on the underlying full 8-wide grid. Clipped rows
+      // (width 6) are missing both corner columns, so their positions are
+      // offset by 1 relative to the full-width rows.
+      const myPhysCol = (myWidth === 8) ? c : c + 1
+
+      const myCell = document.createElement('div')
+      myCell.style.width = '42px'
+      myCell.style.height = '42px'
+      myCell.style.borderRadius = '50%'
+      myCell.style.margin = '4px'
+      myCell.style.lineHeight = '42px'
+      myCell.style.fontSize = '11px'
+      myCell.style.userSelect = 'none'
+
+      if(r === myRefRow && c === myRefCol){
+
+        // Fixed internal reference electrode - not part of myElectrodes,
+        // not clickable, never used for sense/stim roles.
+        myCell.id = 'eref'
+        myCell.innerHTML = 'R'
+        myCell.style.background = '#222'
+        myCell.style.border = '2px solid white'
+        myCell.style.cursor = 'default'
+
+        myRow.appendChild(myCell)
+        continue
+      }
+
+      myCell.id = 'e'+myIndex
+      myCell.innerHTML = myIndex+1
+      myCell.style.cursor = 'pointer'
+      myCell.style.background = '#555'
+
+      // Per-cell constant capture, so each electrode's onclick toggles
+      // its own index rather than sharing the outer loop variable.
+      const myCellIndex = myIndex
+      myCell.onclick = function(){ myToggle(myCellIndex) }
+
+      myRow.appendChild(myCell)
+
+      myElectrodes.push({
+        state:0,
+        firing:false,
+        row:r,
+        col:myPhysCol
+      })
+
+      myIndex++
+    }
+
+    myGrid.appendChild(myRow)
+  }
+
+  myResetWeights()
+  myRandomInitialize()
+}
+
+function myGridDistance(i, j){
+
+  const myA = myElectrodes[i]
+  const myB = myElectrodes[j]
+
+  const myDr = myA.row - myB.row
+  const myDc = myA.col - myB.col
+
+  return Math.sqrt(myDr*myDr + myDc*myDc)
+}
+
+function myResetWeights(){
+
+  myWeights = []
+
+  for(let i=0;i<myTotal;i++){
+    const myRow = []
+    for(let j=0;j<myTotal;j++){
+      myRow.push(0.05 + Math.random()*0.10)
+    }
+    myWeights.push(myRow)
+  }
+
+  myFreeEnergyHistory = []
+  myDrawGraph()
+}
+
+function myRandomInitialize(){
+
+  for(let e of myElectrodes){
+    e.state = 0
+    e.firing = false
+  }
+
+  let myIndices = []
+  for(let i=0;i<myTotal;i++) myIndices.push(i)
+
+  myShuffle(myIndices)
+
+  let myPos = 0
+
+  for(let i=0;i<3;i++) myElectrodes[myIndices[myPos++]].state = 1
+  for(let i=0;i<3;i++) myElectrodes[myIndices[myPos++]].state = 2
+  for(let i=0;i<3;i++) myElectrodes[myIndices[myPos++]].state = 3
+  for(let i=0;i<3;i++) myElectrodes[myIndices[myPos++]].state = 4
+
+  for(let i=0;i<myTotal;i++) myDraw(i)
+
+  myUpdateInfo()
+}
+
+function myShuffle(myArray){
+
+  for(let i=myArray.length-1;i>0;i--){
+
+    const j = Math.floor(Math.random()*(i+1))
+    const temp = myArray[i]
+    myArray[i] = myArray[j]
+    myArray[j] = temp
+  }
+}
+
+function myToggle(myIndex){
+
+  myElectrodes[myIndex].state++
+  if(myElectrodes[myIndex].state > 4) myElectrodes[myIndex].state = 0
+
+  myDraw(myIndex)
+  myUpdateInfo()
+}
+
+function myDraw(myIndex){
+
+  const myCell = document.getElementById('e'+myIndex)
+  const myE = myElectrodes[myIndex]
+
+  if(myE.firing){
+    myCell.style.background = '#ff3030'
+    return
+  }
+
+  switch(myE.state){
+
+    case 0:
+      myCell.style.background = '#555'
+      break
+
+    case 1:
+      myCell.style.background = '#3399ff'
+      break
+
+    case 2:
+      myCell.style.background = '#00cc44'
+      break
+
+    case 3:
+      myCell.style.background = '#003399'
+      break
+
+    case 4:
+      myCell.style.background = '#66ccff'
+      break
+  }
+}
+
+function myUpdateInfo(myExtra){
+
+  let myCounts = [0,0,0,0,0]
+
+  for(let e of myElectrodes){
+    myCounts[e.state]++
+  }
+
+  let myText =
+    'Disabled: '+myCounts[0]+
+    ' | Sense: '+myCounts[1]+
+    ' | Stimulate: '+myCounts[2]+
+    ' | Inhibitory: '+myCounts[3]+
+    ' | Excitatory: '+myCounts[4]
+
+  if(myExtra) myText += '<br>'+myExtra
+
+  document.getElementById('myInfo').innerHTML = myText
+}
+
+// -----------------------------
+// Experiment dispatcher
+// -----------------------------
+
+function myStartExperiment(){
+
+  if(myTrainingRunning){
+    alert('An experiment is already running')
+    return
+  }
+
+  const myType = document.getElementById('myExperimentType').value
+
+  if(myType === '5hz'){
+    myRunExperiment()
+  } else if(myType === 'freeEnergy'){
+    myRunFreeEnergyTraining()
+  }
+}
+
+// -----------------------------
+// 5 Hz demo
+// -----------------------------
+
+async function myRunExperiment(){
+
+  let myStimList = []
+  let mySenseList = []
+
+  for(let i=0;i<myElectrodes.length;i++){
+
+    if(myElectrodes[i].state == 2 ||
+       myElectrodes[i].state == 3 ||
+       myElectrodes[i].state == 4){
+
+      myStimList.push(i)
+    }
+
+    if(myElectrodes[i].state == 1){
+      mySenseList.push(i)
+    }
+  }
+
+  if(myStimList.length == 0){
+
+    alert('Select at least one stimulating electrode')
+    return
+  }
+
+  myTrainingRunning = true
+  myUpdateInfo('Running 5 Hz experiment for 3 seconds...')
+
+  for(let cycle=0; cycle<15; cycle++){
+
+    // Real CL1 equivalent for this pulse:
+    // const channel_set = new ChannelSet(...myStimList)
+    // const stim_design = new StimDesign(160, -1, 160, 1)  // biphasic, 160us, 1uA
+    // neurons.stim(channel_set, stim_design)
+    for(let i of myStimList){
+      document.getElementById('e'+i).style.background = '#ffff00'
+    }
+
+    await mySleep(100)
+
+    for(let i of myStimList){
+      myDraw(i)
+    }
+
+    for(let i of mySenseList){
+
+      if(Math.random() < 0.35){
+
+        myElectrodes[i].firing = true
+        myDraw(i)
+      }
+    }
+
+    await mySleep(80)
+
+    for(let i of mySenseList){
+
+      myElectrodes[i].firing = false
+      myDraw(i)
+    }
+
+    await mySleep(20)
+  }
+
+  myUpdateInfo()
+  myTrainingRunning = false
+}
+
+// -----------------------------
+// Free-energy / Hebbian training simulation
+// (this replaces "backprop" with the mechanism CL1 actually uses)
+// -----------------------------
+
+function myFeedbackColor(myRole, myRewarded){
+
+  if(myRole === 3){
+    // Inhibitory: never flashes bright yellow - a suppressing electrode
+    // "succeeding" looks like a dim, cool pulse, not an excitatory-style glow.
+    return myRewarded ? '#3355aa' : '#150c22'
+  }
+
+  // Stimulate / excitatory
+  return myRewarded ? '#ffff00' : '#552200'
+}
+
+async function myRunFreeEnergyTraining(){
+
+  let myStimList = []
+  let mySenseList = []
+
+  for(let i=0;i<myElectrodes.length;i++){
+
+    if(myElectrodes[i].state == 2 ||
+       myElectrodes[i].state == 3 ||
+       myElectrodes[i].state == 4){
+
+      myStimList.push(i)
+    }
+
+    if(myElectrodes[i].state == 1){
+      mySenseList.push(i)
+    }
+  }
+
+  if(myStimList.length == 0 || mySenseList.length == 0){
+
+    alert('Select at least one stimulate/inhibitory/excitatory electrode AND one sense electrode')
+    return
+  }
+
+  myTrainingRunning = true
+
+  const myTicks = 40
+  const myLearningRate = 0.03
+  const myTargetRatio = 0.5   // "task": aim for ~half of sense electrodes firing per tick
+  // In a real task this target would come from something external, e.g. a Pong
+  // ball position data stream (see neurons.create_data_stream() in the CL API).
+
+  for(let tick=0; tick<myTicks; tick++){
+
+    // 1. Each sense electrode's drive = learned synaptic term + a spatial
+    //    coupling term. The spatial term is independent of myWeights and
+    //    models physical current spread: electrodes physically close to an
+    //    active inhibitory electrode get pulled down, electrodes close to
+    //    an active excitatory electrode get pulled up, regardless of
+    //    whether a "trained" synapse exists between them.
+    //    Real CL1 equivalent: neurons.stim(channel_set, stim_design, burst_design)
+    let myFireCount = 0
+    let myFiredSense = []
+    let myFiredSet = new Set()
+
+    for(let s of mySenseList){
+
+      let myDrive = 0
+      let mySpatialDrive = 0
+
+      for(let j of myStimList){
+
+        let mySign = 1
+        if(myElectrodes[j].state == 3) mySign = -1        // inhibitory
+        if(myElectrodes[j].state == 4) mySign = 1.4        // excitatory (stronger)
+
+        myDrive += mySign * myWeights[j][s]
+
+        const myDist = myGridDistance(j, s)
+        const myKernel = Math.exp(-(myDist*myDist) / (2*mySpatialSigma*mySpatialSigma))
+        mySpatialDrive += mySign * myKernel * mySpatialStrength
+      }
+
+      const myTotalDrive = myDrive + mySpatialDrive
+
+      // sigmoid -> firing probability
+      const myProb = 1 / (1 + Math.exp(-6 * (myTotalDrive - 0.15)))
+
+      const myFired = Math.random() < myProb
+      myElectrodes[s].firing = myFired
+      myDraw(s)
+
+      if(myFired){
+        myFireCount++
+        myFiredSense.push(s)
+        myFiredSet.add(s)
+      }
+    }
+
+    // 2. Compute prediction error ("surprise" / free energy proxy) and
+    //    direction of the mismatch (too much firing vs too little).
+    const myActualRatio = myFireCount / mySenseList.length
+    const myError = Math.abs(myActualRatio - myTargetRatio)
+    myFreeEnergyHistory.push(myError)
+
+    const myRewarded = myError < 0.2
+    const myOvershoot = myActualRatio > myTargetRatio   // too many firing -> need MORE suppression
+    // (myUndershoot is simply !myOvershoot when off-target)
+
+    // 3. Deliver feedback. Excitatory/stimulate and inhibitory electrodes
+    //    get visually distinct pulses so an inhibitory electrode "doing its
+    //    job" never looks like it's firing the way an excitatory one does.
+    for(let i of myStimList){
+      document.getElementById('e'+i).style.background =
+        myFeedbackColor(myElectrodes[i].state, myRewarded)
+    }
+
+    await mySleep(30)
+
+    // 4. Sign-aware plasticity. Excitatory/stimulate and inhibitory synapses
+    //    are credited in OPPOSITE directions, and only when their behaviour
+    //    actually explains the outcome - this is the fix for inhibitory
+    //    weights growing just as fast as excitatory ones under plain
+    //    Hebbian co-activation:
+    //      - on target: reinforce whatever produced it (excitatory/stimulate
+    //        potentiated if their sense electrode fired; inhibitory
+    //        potentiated if their sense electrode did NOT fire)
+    //      - overshoot (too much firing): potentiate inhibitory links that
+    //        failed to suppress (push them to do better next time), depress
+    //        excitatory/stimulate links that fired (they're overdriving)
+    //      - undershoot (too little firing): depress inhibitory links that
+    //        over-suppressed, mildly potentiate excitatory/stimulate links
+    //        that stayed quiet (nudge them toward contributing)
+    for(let j of myStimList){
+
+      const myRole = myElectrodes[j].state
+
+      for(let s of mySenseList){
+
+        const mySFired = myFiredSet.has(s)
+
+        if(myRole === 3){
+
+          // Inhibitory synapse
+          if(myRewarded){
+            if(!mySFired) myWeights[j][s] = Math.min(1, myWeights[j][s] + myLearningRate)
+            else myWeights[j][s] = Math.max(0, myWeights[j][s] - myLearningRate)
+          } else if(myOvershoot){
+            if(mySFired) myWeights[j][s] = Math.min(1, myWeights[j][s] + myLearningRate)
+          } else {
+            if(!mySFired) myWeights[j][s] = Math.max(0, myWeights[j][s] - myLearningRate)
+          }
+
+        } else {
+
+          // Stimulate / excitatory synapse
+          if(myRewarded){
+            if(mySFired) myWeights[j][s] = Math.min(1, myWeights[j][s] + myLearningRate)
+          } else if(myOvershoot){
+            if(mySFired) myWeights[j][s] = Math.max(0, myWeights[j][s] - myLearningRate)
+          } else {
+            if(!mySFired) myWeights[j][s] = Math.min(1, myWeights[j][s] + myLearningRate * 0.5)
+          }
+        }
+      }
+
+      myDraw(j)
+    }
+
+    for(let s of mySenseList){
+      myElectrodes[s].firing = false
+      myDraw(s)
+    }
+
+    myDrawGraph()
+    myUpdateInfo('Tick '+(tick+1)+'/'+myTicks+' - free energy: '+myError.toFixed(2)+
+                 (myRewarded ? ' (on target)' : (myOvershoot ? ' (overshoot - too much firing)' : ' (undershoot - too little firing)')))
+
+    await mySleep(40)
+  }
+
+  const myStart = myFreeEnergyHistory.slice(0,5).reduce((a,b)=>a+b,0)/5
+  const myEnd = myFreeEnergyHistory.slice(-5).reduce((a,b)=>a+b,0)/5
+
+  myUpdateInfo('Training complete. Free energy start avg: '+myStart.toFixed(2)+
+               ' -> end avg: '+myEnd.toFixed(2)+
+               (myEnd < myStart ? ' (network trended toward the target)' : ' (no clear trend - try more ticks or fewer sense electrodes)'))
+
+  myTrainingRunning = false
+}
+
+function myDrawGraph(){
+
+  const myCanvas = document.getElementById('myGraph')
+  const myCtx = myCanvas.getContext('2d')
+
+  myCtx.clearRect(0,0,myCanvas.width,myCanvas.height)
+
+  if(myFreeEnergyHistory.length < 2) return
+
+  myCtx.strokeStyle = '#444'
+  myCtx.beginPath()
+  myCtx.moveTo(0, myCanvas.height/2)
+  myCtx.lineTo(myCanvas.width, myCanvas.height/2)
+  myCtx.stroke()
+
+  myCtx.strokeStyle = '#00ffcc'
+  myCtx.lineWidth = 2
+  myCtx.beginPath()
+
+  const myStep = myCanvas.width / (myFreeEnergyHistory.length - 1)
+
+  for(let i=0;i<myFreeEnergyHistory.length;i++){
+
+    const myX = i * myStep
+    const myY = myCanvas.height - (myFreeEnergyHistory[i] * myCanvas.height)
+
+    if(i==0) myCtx.moveTo(myX,myY)
+    else myCtx.lineTo(myX,myY)
+  }
+
+  myCtx.stroke()
+}
+
+// -----------------------------
+// Clear / Save / Load
+// -----------------------------
+
+function myClearAll(){
+
+  for(let i=0;i<myElectrodes.length;i++){
+
+    myElectrodes[i].state = 0
+    myElectrodes[i].firing = false
+    myDraw(i)
+  }
+
+  myUpdateInfo()
+}
+
+function mySaveJSON(){
+
+  const myData = {
+    rowWidths: myRowWidths,
+    refRow: myRefRow,
+    refCol: myRefCol,
+    electrodes: myElectrodes.map(e=>({state:e.state, row:e.row, col:e.col})),
+    weights: myWeights,
+    freeEnergyHistory: myFreeEnergyHistory
+  }
+
+  const myBlob = new Blob(
+    [JSON.stringify(myData,null,2)],
+    {type:'application/json'}
+  )
+
+  const myUrl = URL.createObjectURL(myBlob)
+
+  const myA = document.createElement('a')
+  myA.href = myUrl
+  myA.download = 'cl1_experiment.json'
+  myA.click()
+
+  URL.revokeObjectURL(myUrl)
+}
+
+function myLoadJSON(){
+
+  const myFile =
+    document.getElementById('myFile').files[0]
+
+  if(!myFile){
+
+    alert('Choose a JSON file first')
+    return
+  }
+
+  const myReader = new FileReader()
+
+  myReader.onload = function(e){
+
+    let myData
+
+    try {
+      myData = JSON.parse(e.target.result)
+    } catch(err){
+      alert('Could not parse JSON file')
+      return
+    }
+
+    if(!myData.electrodes || myData.electrodes.length != myTotal){
+
+      alert('Invalid electrode file')
+      return
+    }
+
+    for(let i=0;i<myTotal;i++){
+
+      myElectrodes[i].state = myData.electrodes[i].state
+      myElectrodes[i].firing = false
+      myDraw(i)
+    }
+
+    if(myData.weights && myData.weights.length == myTotal){
+      myWeights = myData.weights
+    }
+
+    if(myData.freeEnergyHistory){
+      myFreeEnergyHistory = myData.freeEnergyHistory
+      myDrawGraph()
+    }
+
+    myUpdateInfo()
+  }
+
+  myReader.readAsText(myFile)
+}
+
+function mySleep(ms){
+  return new Promise(resolve=>setTimeout(resolve,ms))
+}
+
+myCreateGrid()
+</script>
+
+</body>
+</html>
