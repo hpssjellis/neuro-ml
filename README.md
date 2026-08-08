@@ -312,10 +312,10 @@ The CL1 enables students to rapidly explore how neural networks learn. The MaxOn
 ## MaxOne sample data tray
 ![media/maxone-tray.png](media/maxone-tray.png)
 
-## Old Sensor 12-64x64-neuro-electrodes-front.png
+## Old but still interesting Sensor 12-8x8-neuro-electrodes-front
 ![media/12-64x64-neuro-electrodes-front.png](media/12-64x64-neuro-electrodes-front.png)
 
-## Old Sensor 12-64x64-neuro-electrodes-back.png
+## Old Sensor 12-8x8-neuro-electrodes-back Note the pins much like wee see in robotics  on a PCB.
 ![media/****](media/12-64x64-neuro-electrodes-back.png)
 
 <br><br><br><br><br>
