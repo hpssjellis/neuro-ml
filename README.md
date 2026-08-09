@@ -3,6 +3,7 @@
 # neuro-ml
 
 neuro machine learning
+# By Jeremy Ellis [Github Profile](https://github.com/hpssjellis)
 
 Website of this README.md file: [https://hpssjellis.github.io/neuro-ml/](https://hpssjellis.github.io/neuro-ml/)
 
@@ -13,8 +14,8 @@ Demo Cl1 webpage [public/index.html](https://hpssjellis.github.io/neuro-ml/publi
 <img width="300" alt="web cl1" src="https://github.com/user-attachments/assets/fc479860-b224-4529-bcc6-9cbe65c05a73" />
 
 
-Demo of the 3 layer manual training neural network I was messing with in the early 1990's with a nicer interface than the text interface i had with Borland Pascal.<br>
-[Manual NN Training ](https://hpssjellis.github.io/my-examples-of-neural-networks/public/nn.html)
+Demo of the 3 layer manual training neural network I was messing with in the early 1990's with a nicer interface than the text interface i had with Borland Pascal.
+[Manual NN Training ](https://hpssjellis.github.io/my-examples-of-neural-networks/public/nn.html) <br>
 <img width="300"  alt="1990's manual neural network example" src="https://github.com/user-attachments/assets/6fe7c9cc-cd0e-4e90-9abc-65ffe0228f8f" />
 
 # Project Proposal: Student-Designed Closed-Loop Neuroplasticity Experiments Using Bidirectional and High-Density Microelectrode Arrays
