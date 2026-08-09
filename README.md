@@ -10,7 +10,7 @@ Website of this README.md file: [https://hpssjellis.github.io/neuro-ml/](https:/
 Github Repository of this site [https://github.com/hpssjellis/neuro-ml](https://github.com/hpssjellis/neuro-ml)
 
 
-Demo of my Cl1 webpage [public/index.html](https://hpssjellis.github.io/neuro-ml/public/index.html) not sure what is does but it is kind of fun <br>
+Demo of my Cl1 webpage [public/index.html](https://hpssjellis.github.io/neuro-ml/public/index.html) not sure how userful it is but it is kind of fun <br>
 <img width="300" alt="web cl1" src="https://github.com/user-attachments/assets/fc479860-b224-4529-bcc6-9cbe65c05a73" />
 
 
