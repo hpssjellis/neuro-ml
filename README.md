@@ -391,20 +391,21 @@ That generated the following image:
 - ["Cortical Labs' CL1 Just Made Traditional Computers Obsolete"](https://www.youtube.com/watch?v=6wUrgu0pvI4) — CL1 launch coverage.
 
 **Hardware / platform**
-## MEA Resources (multi/micro electrode array)
 
-- **[MaxWell Biosystems](https://www.mxwbio.com)** — manufacturer of the MaxOne HD-MEA used in this proposal and in the original DishBrain research.
-- **[Cortical Labs CL1 / Cortical Cloud](https://corticallabs.com/cl1)** — commercial platform built on the same closed-loop stimulation paradigm, Python-deployable, available for purchase (~US$35k/unit as of 2025 launch) or remote cloud access.
-- **[3brain](https://www.3brain.com/products/multiwell/coreplate-tm-multiwell-96w)** — CorePlate™ 96W - the first of its kind: a 96-well HD‑MEA capable of truly simultaneous recording from all wells and every electrode.
-- **[multichannelsystems](https://www.multichannelsystems.com/products/mesh-mea)** — Generate true-to-life recordings from inside an organoid without compromising its structure for the first time.
-- **[Axion BioSystems](https://axionbiosystems.com/products/maestro-pro)** — Maker of the *Maestro Pro* and *Maestro Edge* MEA platforms widely used for stem‑cell‑derived neurons, organoids, and closed‑loop stimulation assays.
-- **[Blackrock Neurotech](https://blackrockneurotech.com/technology/utah-array/)** — Manufacturer of the Utah Array and high‑density penetrating microelectrode arrays for neural interfacing and electrophysiology.
-- **[Neuronexus](https://neuronexus.com/products/)** — Produces high‑density silicon neural probes (planar, 3D, and multi‑shank) used for in‑vitro and in‑vivo neuronal network recording.
-- **[Cambridge NeuroTech](https://cambridgeneurotech.com)** — Specializes in ultra‑dense silicon probes and microelectrode arrays for high‑resolution neural recordings.
-- **[TissueLabs — Organ-on-Chip Systems](https://tissuelabs.com)** — Provides organoid‑compatible electrophysiology platforms and microfluidic organ‑on‑chip devices suitable for neural stimulation experiments.
-- **[Alpha MED Scientific](https://www.med64.com)** — Creator of the MED64 and MED64‑Quad II MEA systems, known for high‑sensitivity recordings from stem‑cell‑derived neurons and organoids.
-- **[BioSense Solutions](https://biosensesolutions.dk)** — Offers electrophysiology and stimulation hardware for neural cultures, including MEA‑compatible stimulation modules for closed‑loop experiments.
-- **[harvardbioscience](https://www.harvardbioscience.com/products/organoid-electrophysiology)** — Mesh MEA for Organoid Electrophysiology
+###  Multi-Electrode Array Platforms for Neural Network Research
+
+- **[MaxWell Biosystems](https://www.mxwbio.com)** — Manufacturer of the MaxOne (single-well) and MaxTwo (multi-well) HD-MEA platforms, widely cited for high-resolution, long-term neuronal network monitoring.
+- **[Cortical Labs](https://corticallabs.com/cl1)** — Developer of the CL1 biological computer, which utilizes a closed-loop stimulation paradigm directly integrated with neurons on a silicon chip.
+- **[3Brain](https://www.3brain.com/products/multiwell/coreplate-tm-multiwell-96w)** — Provider of the CorePlate™ 96W, a high-throughput HD-MEA system capable of simultaneous recording across all wells.
+- **[Multi Channel Systems](https://www.multichannelsystems.com/products/mesh-mea)** — Manufacturer of the Mesh MEA, specifically designed for 3D organoid electrophysiology, allowing recordings from within the structure.
+- **[Axion BioSystems](https://axionbiosystems.com/products/maestro-pro)** — Maker of the *Maestro Pro* and *Maestro Edge* platforms; standard equipment for automated, high-throughput closed-loop stimulation and neuronal recording assays.
+- **[Blackrock Neurotech](https://blackrockneurotech.com/technology/)** — Manufacturer of the Utah Array and high-density penetrating probes, primarily utilized for in-vivo neural interfacing.
+- **[Neuronexus](https://neuronexus.com/products/)** — Provides a wide range of silicon-based neural probes (planar and 3D) optimized for diverse in-vitro and in-vivo network recording applications.
+- **[Cambridge NeuroTech](https://cambridgeneurotech.com)** — Specializes in ultra-dense silicon probes and specialized microelectrode arrays, highly regarded for signal-to-noise ratio in network-level recordings.
+- **[Alpha MED Scientific](https://www.med64.com)** — Originators of the MED64 system, offering established platforms for high-sensitivity recordings from stem-cell-derived models and brain slices.
+- **[TissueLabs](https://tissuelabs.com)** — Focused on organoid-compatible platforms and biofabrication, relevant for researchers integrating electrophysiology into custom organ-on-chip neural models.
+- **[BioSense Solutions](https://biosensesolutions.dk)** — Offers microbial cell analysis tools; note that their primary catalog focuses on imaging (e.g., oCelloScope) rather than specialized MEA neural stimulation.
+- **[Harvard Bioscience](https://www.harvardbioscience.com/products/organoid-electrophysiology)** — Distributor of the Mesh MEA technology (see Multi Channel Systems) for organoid-specific electrophysiology.
 - **[]()** — 
 - **[]()** —
 - **[]()** —
