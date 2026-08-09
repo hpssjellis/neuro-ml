@@ -404,11 +404,15 @@ That generated the following image:
 - **[TissueLabs — Organ-on-Chip Systems](https://tissuelabs.com)** — Provides organoid‑compatible electrophysiology platforms and microfluidic organ‑on‑chip devices suitable for neural stimulation experiments.
 - **[Alpha MED Scientific](https://www.med64.com)** — Creator of the MED64 and MED64‑Quad II MEA systems, known for high‑sensitivity recordings from stem‑cell‑derived neurons and organoids.
 - **[BioSense Solutions](https://biosensesolutions.dk)** — Offers electrophysiology and stimulation hardware for neural cultures, including MEA‑compatible stimulation modules for closed‑loop experiments.
-- []() — 
-- []() — 
-- []() — 
-- []() — 
-- []() — 
+- **[harvardbioscience](https://www.harvardbioscience.com/products/organoid-electrophysiology)** — Mesh MEA for Organoid Electrophysiology
+- **[]()** — 
+- **[]()** —
+- **[]()** —
+- **[]()** —
+- **[]()** —
+- **[]()** —
+- **[]()** —
+
 
 
 *This site is open source. [Improve this page](https://github.com/hpssjellis/neuro-ml/edit/main/README.md).*
