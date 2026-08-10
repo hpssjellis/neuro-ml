@@ -5,11 +5,17 @@
 
 ---
 
-### Complete Setup & Execution Instructions
+### Complete Setup & Execution Instructions for windows, slightly different in places for max or linux
 
 To install the SDK, set up the environment, and run the local simulation all in one sequence, run the following commands in your terminal or command prompt:
 
 
+open a DOS terminal or powershell terminal (If one does not work try the other)
+
+check which folder you are in and perhaps use the windows to find a better starting point such as make a new folder called cortical-labs in documents and open the terminal there.
+
+
+Check if python is working and installed, if not install it.
 ```bash
 python3 -V
 pip3 -V
@@ -41,9 +47,41 @@ cd cl-api-doc
 ```
 
 
+
+
 ```bash
 jupyter lab
 
 ```
 
 A webpage of a jupyter lab should pop up.
+
+
+
+
+
+
+
+
+
+
+
+
+
+<br><br>
+<br><br>
+<br><br>
+<br><br>
+<br><br>
+<br><br>
+<br><br>
+<br><br>
+
+
+To delete everything you installed 
+
+rmdir /s /q .venv
+rmdir /s /q cl-api-doc
+
+Or just remember the folder you started in and find .venv  which may be a hidden file
+
