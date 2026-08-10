@@ -56,6 +56,28 @@ jupyter lab
 
 A webpage of a jupyter lab should pop up.
 
+## After a full reboot to restart
+
+Get to the same folder
+
+
+```bash
+source .venv/bin/activate
+cd cl-api-doc
+jupyter lab
+```
+
+You could probably put those into a bash file called "start-cl1.bat"
+
+```bash
+@echo off
+cd /d "%~dp0"
+call .venv\Scripts\activate
+cd cl-api-doc
+jupyter lab
+pause
+
+```
 
 
 
