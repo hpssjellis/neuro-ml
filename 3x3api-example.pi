@@ -1,0 +1,50 @@
+import time
+from cortical_labs import BiOSClient
+
+# Initialize the client session
+myClient = BiOSClient(endpoint="http://localhost:5000")
+myClient.connect()
+
+# Map specific physical electrode IDs to 3 input zones and 3 output zones
+myClient.configure_zones(
+    inputs={
+        "myZoneA": [12, 13],
+        "myZoneB": [14, 15],
+        "myZoneC": [16, 17]
+    },
+    outputs={
+        "myZone1": [40, 41],
+        "myZone2": [42, 43],
+        "myZone3": [44, 45]
+    }
+)
+
+# Send a 3-bit input pattern (Zone A and C active, Zone B inactive)
+myClient.stimulate(
+    pattern={"myZoneA": True, "myZoneB": False, "myZoneC": True},
+    amplitudeMicrovolts=500,
+    durationMs=2
+)
+
+# Wait for the propagation window
+time.sleep(0.05)
+
+# Record and integrate spike activity across all 3 output zones over a 500ms window
+myResponseMetrics = myClient.read_zones(
+    zones=["myZone1", "myZone2", "myZone3"],
+    integrationWindowMs=500
+)
+
+# Define the target 3-bit output pattern
+myTargetBitPattern = {"myZone1": True, "myZone2": False, "myZone3": False}
+
+# Deliver feedback based on output match
+if myResponseMetrics.matches(myTargetBitPattern):
+    myClient.reward()
+else:
+    myClient.applyPenaltyNoise(durationMs=1000, intensity="medium")
+
+# Optional: Inject BDNF post-training via automated media perfusion
+myClient.perfusion.injectSupplement(agent="BDNF", concentrationNgMl=50, durationSec=30)
+
+myClient.disconnect()
