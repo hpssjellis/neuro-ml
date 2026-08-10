@@ -79,9 +79,10 @@ A webpage of a jupyter lab should pop up.
 
 
 To delete everything you installed 
-
+```bash
 rmdir /s /q .venv
 rmdir /s /q cl-api-doc
+```
 
 Or just remember the folder you started in and find .venv  which may be a hidden file
 
