@@ -425,6 +425,16 @@ That generated the following image:
 *This site is open source. [Improve this page](https://github.com/hpssjellis/neuro-ml/edit/main/README.md).*
 
 
+# Random things I am making or doing
+
+### Blender animation of the Cl1 I just made
+
+<img width="400" height="225" alt="cl1-movie-v04-b-0040-0200" src="https://github.com/user-attachments/assets/5c8d1ccf-733d-4562-9fb2-f74c4676f8e5" />
+
+
+## Cortical Labs Visualization software
+
+<img width="854" height="480" alt="cl1-viz" src="https://github.com/user-attachments/assets/11ada12c-e2d2-4b27-9e75-eb90b79abad2" />
 
 
 
