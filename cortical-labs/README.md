@@ -43,6 +43,7 @@ pip3 install cl-sdk jupyterlab
 
 ```bash
 git clone [https://github.com/Cortical-Labs/cl-api-doc.git](https://github.com/Cortical-Labs/cl-api-doc.git)
+
 cd cl-api-doc
 ```
 
@@ -80,6 +81,9 @@ pause
 ```
 
 
+
+
+## Windows cl1 did not work for me, but a similar method in Linux worked fine.
 
 
 
