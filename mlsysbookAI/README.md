@@ -1,4 +1,4 @@
-# The mlsysbook.ai by Vijay Redi and training 1 million AI Engineers by 2030
+# The mlsysbook.ai by Vijay Janapa Reddi to Train 1 million AI Engineers by 2030
 
 
 https://mlsysbook.ai/
