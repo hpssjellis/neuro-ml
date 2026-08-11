@@ -83,7 +83,9 @@ pause
 
 
 
-## Windows cl1 did not work for me, but a similar method in Linux worked fine.
+## Windows cl1-notebookdid not work for me, but a similar method in Linux worked fine.
+
+<img width="854" height="480" alt="cl1-viz" src="https://github.com/user-attachments/assets/cd51d94e-8051-4af4-95a4-fb2b4ef5c784" />
 
 
 
