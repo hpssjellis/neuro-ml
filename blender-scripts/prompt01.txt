@@ -1,0 +1,80 @@
+I like those ideas. For the animation we need to add color. I would suggest:  red neuron firing, green stimulating electrode/neuron, very light blue positive reinforcement electrode, blue sensory electrode, very dark blue inhibitory electrode. Do those colors make sense and do you have enough to make the animation?
+
+Yes — those colors make excellent sense, and I would actually use them as the canonical CL1 color language throughout the entire project. The important thing is that each color represents a functional role, not just a visual effect.
+
+CL1 animation color language
+
+Red
+
+Neuron firing / spike event
+
+Green
+
+Stimulating electrode or active stimulation pulse
+
+Light blue
+
+Positive reinforcement / structured feedback
+
+Medium blue
+
+Sensory electrode / recording channel
+
+Dark blue
+
+Inhibitory electrode or inhibitory influence
+
+Gold
+
+Idle electrode
+
+White
+
+Reference electrode
+
+I especially like the light blue for reinforcement because it visually separates reward from sensing. If we use emission materials, the reinforcement pulse can appear as a soft cyan glow that spreads gently across the array, whereas a red spike can be a very brief, bright flash.
+
+I have enough information to make the animation, and I think I know the sequence that will make it scientifically believable.
+
+10-second loop
+
+The animation should not look random. It should look like a closed-loop experiment.
+
+Baseline (0–2 s)  
+Gold electrodes with a few blue sensory electrodes active.
+
+Stimulation (2–3 s)  
+Green pulse appears on a small group of stimulating electrodes.
+
+Propagation (3–5 s)  
+Red firing spreads across neighboring electrodes with slight delays (a traveling wave).
+
+Network burst (5–6 s)  
+Multiple red electrodes activate almost simultaneously.
+
+Reinforcement (6–7 s)  
+Light blue pulse appears on selected electrodes representing structured feedback.
+
+Adaptation (7–9 s)  
+The next green stimulation produces a more focused red response.
+
+Return to baseline (9–10 s)  
+Fade back to gold and blue, ready to loop.
+
+The key insight is that the animation should show cause and effect:
+
+green stimulation → red neural activity → light-blue reinforcement → altered response
+
+That tells the learning story visually.
+
+I also want to make one artistic suggestion that will matter later for the vertical stack. Instead of changing an electrode instantly from gold to red, we should animate emission intensity, not base color. A spike would be:
+
+gold electrode + bright red emission
+
+That looks much more like a real electrical event and will render beautifully in Cycles because the glow reflects off the glass substrate.
+
+For the hardware-company version, the exact same animation can later be extended vertically, where the red activity travels between layers, implying 3D neural computation. So the single-layer animation becomes the foundation of both videos.
+
+One thing I’d like to add in v04 is a faint residual glow after reinforcement. That would visually represent the idea that the network has been modified by experience, even though we’re not claiming a specific biological mechanism. It gives viewers the intuitive sense that learning has left a trace.
+
+I think the next script should generate the entire animation automatically, so you can press Run Script, hit Render Animation, and immediately get a professional-looking CL1 sequence without touching the Blender timeline manually.
