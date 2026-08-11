@@ -412,7 +412,7 @@ That generated the following image:
 - **[Alpha MED Scientific](https://www.med64.com)** — Originators of the MED64 system, offering established platforms for high-sensitivity recordings from stem-cell-derived models and brain slices.
 - **[TissueLabs](https://tissuelabs.com)** — Focused on organoid-compatible platforms and biofabrication, relevant for researchers integrating electrophysiology into custom organ-on-chip neural models.
 - **[Harvard Bioscience](https://www.harvardbioscience.com/products/organoid-electrophysiology)** — Distributor of the Mesh MEA technology (see Multi Channel Systems) for organoid-specific electrophysiology.
-- **[]()** — 
+- **[BMSeed](https://www.bmseed.com/overview)** — In Vitro Research Tools with True In Vivo Relevance. 
 - **[]()** —
 - **[]()** —
 - **[]()** —
