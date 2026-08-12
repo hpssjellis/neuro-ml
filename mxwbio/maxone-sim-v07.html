@@ -1,0 +1,2418 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport"
+content="width=device-width,initial-scale=1.0">
+
+<title>WetML MaxOne Simulator V0.7</title>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+
+</head>
+
+
+<body
+style="margin:0;background:#050810;color:white;font-family:Arial;overflow:hidden">
+
+
+<div id="myPanel"
+style="position:absolute;z-index:10;left:10px;top:10px;width:365px;max-height:calc(100vh - 20px);overflow:auto;background:rgba(5,9,20,.95);padding:12px;border:1px solid #39445d;border-radius:8px;box-sizing:border-box">
+
+
+<h2 style="margin:0 0 5px">
+WetML MaxOne V0.7
+</h2>
+
+<div style="font-size:12px;color:#aab4c8;margin-bottom:12px">
+
+Biological network = learner<br>
+
+TensorFlow.js = experimental simulator<br>
+
+MaxOne = future biological testbed
+
+</div>
+
+
+<h3>Topology</h3>
+
+<input type="button"
+value="2 × 2"
+onclick="mySetTopology(2)">
+
+<input type="button"
+value="3 × 3"
+onclick="mySetTopology(3)">
+
+<input type="button"
+value="4 × 4"
+onclick="mySetTopology(4)">
+
+<input type="button"
+value="5 × 5"
+onclick="mySetTopology(5)">
+
+
+<h3>Zone Configuration</h3>
+
+<div style="font-size:12px">
+
+Zone 0 is stimulation.<br>
+
+Zone 1 is inhibition.<br>
+
+Zone 2 is excitation.<br>
+
+Remaining zones are sensing.
+
+</div>
+
+
+<h3>Simulation</h3>
+
+<input type="button"
+value="Training"
+onclick="mySetMode('training')">
+
+<input type="button"
+value="Inference"
+onclick="mySetMode('inference')">
+
+<input type="button"
+value="Run / Stop"
+onclick="myToggleRun()">
+
+<input type="button"
+value="Single Step"
+onclick="mySingleStep()">
+
+<input type="button"
+value="Reset"
+onclick="myResetSimulation()">
+
+
+<h3>Stimulation</h3>
+
+<div>
+
+Frequency:
+<input id="myFrequency"
+type="number"
+value="20"
+min="1"
+max="1000"
+style="width:70px">
+
+Hz
+
+</div>
+
+
+<div style="margin-top:5px">
+
+Amplitude:
+<input id="myAmplitude"
+type="number"
+value="0.5"
+min="0"
+max="1"
+step="0.05"
+style="width:70px">
+
+</div>
+
+
+<div style="margin-top:5px">
+
+Pulse:
+<input id="myPulseWidth"
+type="number"
+value="500"
+min="50"
+max="5000"
+style="width:70px">
+
+µs
+
+</div>
+
+
+<div style="margin-top:5px">
+
+Burst:
+<input id="myBurstPulses"
+type="number"
+value="1"
+min="1"
+max="100"
+style="width:70px">
+
+pulses
+
+</div>
+
+
+<div style="margin-top:5px">
+
+Inter-pulse:
+<input id="myInterPulse"
+type="number"
+value="50"
+min="1"
+max="5000"
+style="width:70px">
+
+ms
+
+</div>
+
+
+<h3>Excitation / Inhibition</h3>
+
+<div style="font-size:12px">
+
+These are currently simulated as spatial
+modulation zones. They become explicit
+stimulation protocols when exported.
+
+</div>
+
+
+<select id="myInhibitionStrength">
+
+<option value="0">No inhibition</option>
+
+<option value="0.25">Weak inhibition</option>
+
+<option value="0.5">Medium inhibition</option>
+
+<option value="1">Strong inhibition</option>
+
+</select>
+
+
+<select id="myExcitationStrength">
+
+<option value="0">No excitation</option>
+
+<option value="0.25">Weak excitation</option>
+
+<option value="0.5">Medium excitation</option>
+
+<option value="1">Strong excitation</option>
+
+</select>
+
+
+<h3>Recording</h3>
+
+<div>
+
+Recording channels:
+
+<input id="myRecordingChannels"
+type="number"
+value="1000"
+min="1"
+max="1024"
+style="width:70px">
+
+</div>
+
+
+<div style="margin-top:5px">
+
+Window:
+
+<input id="myWindowMs"
+type="number"
+value="100"
+min="1"
+max="10000"
+style="width:70px">
+
+ms
+
+</div>
+
+
+<select id="myOutputMetric"
+style="margin-top:5px">
+
+<option value="spikeRate">
+Spike rate
+</option>
+
+<option value="burstRate">
+Burst rate
+</option>
+
+<option value="populationActivity">
+Population activity
+</option>
+
+<option value="synchrony">
+Synchrony
+</option>
+
+</select>
+
+
+<h3>Plasticity Simulation</h3>
+
+<input id="myPlasticity"
+type="range"
+min="0"
+max="100"
+value="50"
+style="width:220px"
+oninput="mySetPlasticity(this.value)">
+
+<span id="myPlasticityValue">
+0.50
+</span>
+
+
+<h3>TensorFlow.js</h3>
+
+<div id="myTfStatus"
+style="font-size:11px;color:#9da8bc">
+Loading...
+</div>
+
+
+<h3>Simulation Statistics</h3>
+
+<div id="myStats"
+style="background:#080d19;padding:8px;font-family:monospace;font-size:12px;line-height:1.55">
+</div>
+
+
+<h3>Experimental Protocol</h3>
+
+<div id="myProtocol"
+style="background:#080d19;padding:8px;font-family:monospace;font-size:11px;line-height:1.5">
+</div>
+
+
+<input type="button"
+value="Export WetML Protocol"
+onclick="myExportProtocol()">
+
+<input type="button"
+value="Save Simulation"
+onclick="mySaveSimulation()">
+
+<input type="button"
+value="Load Simulation"
+onclick="document.getElementById('myFileInput').click()">
+
+<input
+id="myFileInput"
+type="file"
+accept=".json"
+style="display:none"
+onchange="myLoadSimulation(this.files[0])">
+
+
+<h3>Activity</h3>
+
+<canvas
+id="myActivityCanvas"
+width="340"
+height="120"
+style="width:100%;background:#050810;border:1px solid #293044">
+</canvas>
+
+
+<h3>Concept</h3>
+
+<div style="font-size:11px;line-height:1.5">
+
+<strong>V0.7 does NOT export neural weights.</strong>
+
+The simulated TensorFlow.js network is used
+to explore candidate stimulation and sensing
+strategies.
+
+The exported artifact is an experimental
+protocol describing:
+
+<ul>
+
+<li>stimulation</li>
+
+<li>inhibition</li>
+
+<li>excitation</li>
+
+<li>sensing</li>
+
+<li>timing</li>
+
+<li>response measurements</li>
+
+</ul>
+
+The future MaxOne culture supplies the actual
+learning.
+
+</div>
+
+
+</div>
+
+
+<script>
+
+
+/* =========================================================
+   GLOBAL STATE
+   ========================================================= */
+
+let myScene;
+
+let myCamera;
+
+let myRenderer;
+
+let myControls;
+
+let myArrayGroup;
+
+let mySensorPoints;
+
+let myStimGroup;
+
+let myZoneGroup;
+
+let myConnectionGroup;
+
+let mySensors=[];
+
+let myZones=[];
+
+let myTopology=2;
+
+let myMode="training";
+
+let myRunning=false;
+
+let myEpoch=0;
+
+let myActivity=0;
+
+let myPlasticity=.5;
+
+let myActivityHistory=[];
+
+let myClockAccumulator=0;
+
+let myLastTime=0;
+
+let myEpochBusy=false;
+
+let myTfModel=null;
+
+
+/* =========================================================
+   INITIALIZE
+   ========================================================= */
+
+async function myInitializeScene(){
+
+    myScene=new THREE.Scene();
+
+    myScene.background=
+        new THREE.Color(0x050810);
+
+
+    myCamera=
+        new THREE.PerspectiveCamera(
+            50,
+            window.innerWidth/
+            window.innerHeight,
+            .1,
+            1000
+        );
+
+
+    myCamera.position.set(
+        0,
+        13,
+        19
+    );
+
+
+    myRenderer=
+        new THREE.WebGLRenderer({
+            antialias:true
+        });
+
+
+    myRenderer.setPixelRatio(
+        window.devicePixelRatio
+    );
+
+
+    myRenderer.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
+
+
+    document.body.appendChild(
+        myRenderer.domElement
+    );
+
+
+    myControls=
+        new THREE.OrbitControls(
+            myCamera,
+            myRenderer.domElement
+        );
+
+
+    myControls.enableDamping=true;
+
+    myControls.dampingFactor=.07;
+
+    myControls.minDistance=4;
+
+    myControls.maxDistance=40;
+
+
+    let myAmbient=
+        new THREE.AmbientLight(
+            0x8899aa,
+            .8
+        );
+
+
+    myScene.add(
+        myAmbient
+    );
+
+
+    let myLight=
+        new THREE.PointLight(
+            0xffffff,
+            1.5
+        );
+
+
+    myLight.position.set(
+        0,
+        12,
+        10
+    );
+
+
+    myScene.add(
+        myLight
+    );
+
+
+    myArrayGroup=
+        new THREE.Group();
+
+
+    myScene.add(
+        myArrayGroup
+    );
+
+
+    myCreateArray();
+
+    myCreateSensors();
+
+    myCreateStimSites();
+
+
+    if(typeof tf!=="undefined"){
+
+        document.getElementById(
+            "myTfStatus"
+        ).innerHTML=
+            "TensorFlow.js "+
+            tf.version.tfjs+
+            " loaded";
+
+    }
+
+
+    await mySetTopology(2);
+
+
+    window.onresize=
+        myResize;
+
+
+    requestAnimationFrame(
+        myAnimate
+    );
+}
+
+
+/* =========================================================
+   ARRAY
+   ========================================================= */
+
+function myCreateArray(){
+
+    let myGrid=
+        new THREE.GridHelper(
+            16,
+            32,
+            0x45536e,
+            0x202b40
+        );
+
+
+    myArrayGroup.add(
+        myGrid
+    );
+
+
+    let myPlate=
+        new THREE.Mesh(
+
+            new THREE.BoxGeometry(
+                16,
+                .12,
+                16
+            ),
+
+            new THREE.MeshPhongMaterial({
+                color:0x111a29,
+                transparent:true,
+                opacity:.45
+            })
+
+        );
+
+
+    myPlate.position.y=-.1;
+
+
+    myArrayGroup.add(
+        myPlate
+    );
+}
+
+
+/* =========================================================
+   1,000 SENSOR REPRESENTATION
+   ========================================================= */
+
+function myCreateSensors(){
+
+    let myCount=1000;
+
+    let mySide=32;
+
+
+    let myGeometry=
+        new THREE.BufferGeometry();
+
+
+    let myPositions=
+        new Float32Array(
+            myCount*3
+        );
+
+
+    let myColors=
+        new Float32Array(
+            myCount*3
+        );
+
+
+    for(
+        let myI=0;
+        myI<myCount;
+        myI++
+    ){
+
+        let myColumn=
+            myI%mySide;
+
+        let myRow=
+            Math.floor(
+                myI/mySide
+            );
+
+
+        let myX=
+            myColumn/
+            (mySide-1)*
+            15-7.5;
+
+
+        let myZ=
+            myRow/
+            (mySide-1)*
+            15-7.5;
+
+
+        myPositions[
+            myI*3
+        ]=myX;
+
+
+        myPositions[
+            myI*3+1
+        ]=.08;
+
+
+        myPositions[
+            myI*3+2
+        ]=myZ;
+
+
+        myColors[
+            myI*3
+        ]=.22;
+
+
+        myColors[
+            myI*3+1
+        ]=.88;
+
+
+        myColors[
+            myI*3+2
+        ]=.43;
+
+
+        mySensors.push({
+
+            x:myX,
+
+            z:myZ,
+
+            activity:0
+
+        });
+    }
+
+
+    myGeometry.setAttribute(
+        "position",
+        new THREE.BufferAttribute(
+            myPositions,
+            3
+        )
+    );
+
+
+    myGeometry.setAttribute(
+        "color",
+        new THREE.BufferAttribute(
+            myColors,
+            3
+        )
+    );
+
+
+    mySensorPoints=
+        new THREE.Points(
+
+            myGeometry,
+
+            new THREE.PointsMaterial({
+                size:.075,
+                vertexColors:true
+            })
+
+        );
+
+
+    myArrayGroup.add(
+        mySensorPoints
+    );
+}
+
+
+/* =========================================================
+   32 STIMULATION SITES
+   ========================================================= */
+
+function myCreateStimSites(){
+
+    myStimGroup=
+        new THREE.Group();
+
+
+    for(
+        let myI=0;
+        myI<32;
+        myI++
+    ){
+
+        let myMesh=
+            new THREE.Mesh(
+
+                new THREE.SphereGeometry(
+                    .13,
+                    12,
+                    12
+                ),
+
+                new THREE.MeshBasicMaterial({
+                    color:0xff4060
+                })
+
+            );
+
+
+        myStimGroup.add(
+            myMesh
+        );
+    }
+
+
+    myArrayGroup.add(
+        myStimGroup
+    );
+}
+
+
+/* =========================================================
+   TOPOLOGY
+   ========================================================= */
+
+async function mySetTopology(
+    mySize
+){
+
+    myTopology=mySize;
+
+
+    if(myZoneGroup){
+
+        myArrayGroup.remove(
+            myZoneGroup
+        );
+    }
+
+
+    if(myConnectionGroup){
+
+        myArrayGroup.remove(
+            myConnectionGroup
+        );
+    }
+
+
+    myZoneGroup=
+        new THREE.Group();
+
+
+    myConnectionGroup=
+        new THREE.Group();
+
+
+    myArrayGroup.add(
+        myZoneGroup
+    );
+
+
+    myArrayGroup.add(
+        myConnectionGroup
+    );
+
+
+    myZones=[];
+
+
+    for(
+        let myRow=0;
+        myRow<mySize;
+        myRow++
+    ){
+
+        for(
+            let myColumn=0;
+            myColumn<mySize;
+            myColumn++
+        ){
+
+            let myIndex=
+                myRow*
+                mySize+
+                myColumn;
+
+
+            let myX=
+                mySize===1?
+                0:
+                -7+
+                myColumn*
+                14/
+                (mySize-1);
+
+
+            let myZ=
+                mySize===1?
+                0:
+                -7+
+                myRow*
+                14/
+                (mySize-1);
+
+
+            let myType;
+
+
+            if(myIndex===0){
+
+                myType="stim";
+
+            }else if(myIndex===1){
+
+                myType="inhib";
+
+            }else if(myIndex===2){
+
+                myType="excite";
+
+            }else{
+
+                myType="sense";
+            }
+
+
+            myZones.push({
+
+                index:myIndex,
+
+                x:myX,
+
+                z:myZ,
+
+                type:myType,
+
+                activity:0
+
+            });
+
+
+            myCreateZone(
+                myX,
+                myZ,
+                myType
+            );
+        }
+    }
+
+
+    myPositionStimSites();
+
+    myCreateSimulationConnections();
+
+    myUpdateProtocol();
+
+    myUpdateStats();
+}
+
+
+/* =========================================================
+   ZONE VISUAL
+   ========================================================= */
+
+function myCreateZone(
+    myX,
+    myZ,
+    myType
+){
+
+    let myColor;
+
+
+    if(myType==="stim"){
+
+        myColor=0xff4060;
+
+    }else if(myType==="inhib"){
+
+        myColor=0x4080ff;
+
+    }else if(myType==="excite"){
+
+        myColor=0xff80c0;
+
+    }else{
+
+        myColor=0xffd040;
+    }
+
+
+    let myDisc=
+        new THREE.Mesh(
+
+            new THREE.CylinderGeometry(
+                1.05,
+                1.05,
+                .08,
+                32
+            ),
+
+            new THREE.MeshBasicMaterial({
+                color:myColor,
+                transparent:true,
+                opacity:.13
+            })
+        );
+
+
+    myDisc.position.set(
+        myX,
+        .14,
+        myZ
+    );
+
+
+    myZoneGroup.add(
+        myDisc
+    );
+
+
+    let myRing=
+        new THREE.Mesh(
+
+            new THREE.RingGeometry(
+                .98,
+                1.03,
+                32
+            ),
+
+            new THREE.MeshBasicMaterial({
+                color:myColor,
+                side:THREE.DoubleSide
+            })
+        );
+
+
+    myRing.rotation.x=
+        -Math.PI/2;
+
+
+    myRing.position.set(
+        myX,
+        .19,
+        myZ
+    );
+
+
+    myZoneGroup.add(
+        myRing
+    );
+}
+
+
+/* =========================================================
+   STIMULATION SITE POSITIONING
+   ========================================================= */
+
+function myPositionStimSites(){
+
+    if(
+        !myZones.length
+    ){
+
+        return;
+    }
+
+
+    for(
+        let myI=0;
+        myI<32;
+        myI++
+    ){
+
+        let myZone=
+            myZones[
+                myI%
+                myZones.length
+            ];
+
+
+        let myAngle=
+            myI/
+            32*
+            Math.PI*
+            2;
+
+
+        let myRadius=.55;
+
+
+        let myMesh=
+            myStimGroup.children[
+                myI
+            ];
+
+
+        myMesh.position.set(
+
+            myZone.x+
+            Math.cos(myAngle)*
+            myRadius,
+
+            .30,
+
+            myZone.z+
+            Math.sin(myAngle)*
+            myRadius
+        );
+    }
+}
+
+
+/* =========================================================
+   SIMULATED BIOLOGICAL CONNECTIONS
+   ========================================================= */
+
+function myCreateSimulationConnections(){
+
+    while(
+        myConnectionGroup.children.length
+    ){
+
+        let myChild=
+            myConnectionGroup
+            .children[0];
+
+
+        myChild.geometry.dispose();
+
+        myChild.material.dispose();
+
+        myConnectionGroup.remove(
+            myChild
+        );
+    }
+
+
+    for(
+        let myI=0;
+        myI<myZones.length;
+        myI++
+    ){
+
+        for(
+            let myJ=myI+1;
+            myJ<myZones.length;
+            myJ++
+        ){
+
+            let myA=
+                myZones[myI];
+
+            let myB=
+                myZones[myJ];
+
+
+            let myDistance=
+                Math.hypot(
+                    myA.x-myB.x,
+                    myA.z-myB.z
+                );
+
+
+            /*
+               Nearby zones have stronger
+               simulated biological coupling.
+            */
+
+            let myStrength=
+                Math.exp(
+                    -myDistance/5
+                );
+
+
+            let myGeometry=
+                new THREE.BufferGeometry()
+                .setFromPoints([
+
+                    new THREE.Vector3(
+                        myA.x,
+                        .22,
+                        myA.z
+                    ),
+
+                    new THREE.Vector3(
+                        myB.x,
+                        .22,
+                        myB.z
+                    )
+
+                ]);
+
+
+            let myMaterial=
+                new THREE.LineBasicMaterial({
+
+                    color:0x607090,
+
+                    transparent:true,
+
+                    opacity:
+                        .04+
+                        myStrength*.18
+
+                });
+
+
+            myConnectionGroup.add(
+
+                new THREE.Line(
+                    myGeometry,
+                    myMaterial
+                )
+            );
+        }
+    }
+}
+
+
+/* =========================================================
+   PLASTICITY
+   ========================================================= */
+
+function mySetPlasticity(
+    myValue
+){
+
+    myPlasticity=
+        Number(myValue)/
+        100;
+
+
+    document.getElementById(
+        "myPlasticityValue"
+    ).textContent=
+        myPlasticity.toFixed(2);
+}
+
+
+/* =========================================================
+   SIMULATED BIOLOGICAL STEP
+   ========================================================= */
+
+async function mySingleStep(){
+
+    if(myEpochBusy){
+
+        return;
+    }
+
+
+    myEpochBusy=true;
+
+
+    try{
+
+        let myStimAmplitude=
+            Number(
+                document.getElementById(
+                    "myAmplitude"
+                ).value
+            );
+
+
+        let myInhibition=
+            Number(
+                document.getElementById(
+                    "myInhibitionStrength"
+                ).value
+            );
+
+
+        let myExcitation=
+            Number(
+                document.getElementById(
+                    "myExcitationStrength"
+                ).value
+            );
+
+
+        /*
+           Biological activity starts with
+           stimulation at zone 0.
+        */
+
+        let myNewActivity=
+            new Array(
+                myZones.length
+            ).fill(0);
+
+
+        myNewActivity[0]=
+            myStimAmplitude;
+
+
+        /*
+           Propagate activity spatially.
+        */
+
+        for(
+            let myI=1;
+            myI<myZones.length;
+            myI++
+        ){
+
+            let myZone=
+                myZones[myI];
+
+
+            let myDistance=
+                Math.hypot(
+                    zone0.x-myZone.x,
+                    zone0.z-myZone.z
+                );
+
+
+            let myCoupling=
+                Math.exp(
+                    -myDistance/5
+                );
+
+
+            myNewActivity[myI]=
+                myStimAmplitude*
+                myCoupling;
+        }
+
+
+        /*
+           Inhibition.
+        */
+
+        if(
+            myZones.length>1
+        ){
+
+            myNewActivity[1]*=
+                1-
+                myInhibition;
+        }
+
+
+        /*
+           Excitation.
+        */
+
+        if(
+            myZones.length>2
+        ){
+
+            myNewActivity[2]+=
+                myExcitation;
+        }
+
+
+        /*
+           Plasticity.
+
+           This is NOT backpropagation.
+
+           It is a simple simulated biological
+           adaptation mechanism.
+        */
+
+        for(
+            let myI=0;
+            myI<myZones.length;
+            myI++
+        ){
+
+            let myOld=
+                myZones[myI].activity;
+
+
+            let myTarget=
+                myNewActivity[myI];
+
+
+            myZones[myI].activity=
+                myOld+
+                (
+                    myTarget-
+                    myOld
+                )*
+                myPlasticity;
+        }
+
+
+        myActivity=
+            myNewActivity.reduce(
+                (
+                    mySum,
+                    myValue
+                )=>
+                    mySum+
+                    Math.abs(myValue),
+                0
+            )/
+            Math.max(
+                1,
+                myZones.length
+            );
+
+
+        myEpoch++;
+
+
+        myActivityHistory.push(
+            myActivity
+        );
+
+
+        if(
+            myActivityHistory.length>200
+        ){
+
+            myActivityHistory.shift();
+        }
+
+
+        myUpdateVisualization();
+
+        myDrawActivity();
+
+        myUpdateStats();
+
+        myUpdateProtocol();
+
+    }
+
+    finally{
+
+        myEpochBusy=false;
+    }
+}
+
+
+/* =========================================================
+   VISUAL ACTIVITY
+   ========================================================= */
+
+function myUpdateVisualization(){
+
+    let myColorAttribute=
+        mySensorPoints
+        .geometry
+        .attributes
+        .color;
+
+
+    for(
+        let myI=0;
+        myI<mySensors.length;
+        myI++
+    ){
+
+        let mySensor=
+            mySensors[myI];
+
+
+        let myNearestIndex=0;
+
+        let myNearestDistance=
+            Infinity;
+
+
+        for(
+            let myJ=0;
+            myJ<myZones.length;
+            myJ++
+        ){
+
+            let myZone=
+                myZones[myJ];
+
+
+            let myDistance=
+                Math.hypot(
+
+                    mySensor.x-
+                    myZone.x,
+
+                    mySensor.z-
+                    myZone.z
+
+                );
+
+
+            if(
+                myDistance<
+                myNearestDistance
+            ){
+
+                myNearestDistance=
+                    myDistance;
+
+                myNearestIndex=
+                    myJ;
+            }
+        }
+
+
+        let myZone=
+            myZones[
+                myNearestIndex
+            ];
+
+
+        let myValue=
+            Math.abs(
+                myZone.activity
+            );
+
+
+        let myColor=
+            new THREE.Color();
+
+
+        if(
+            myZone.type==="inhib"
+        ){
+
+            myColor.setHex(
+                0x4080ff
+            );
+
+        }else if(
+            myZone.type==="stim"
+        ){
+
+            myColor.setHex(
+                0xff4060
+            );
+
+        }else if(
+            myValue>.5
+        ){
+
+            myColor.setHex(
+                0xffd040
+            );
+
+        }else if(
+            myValue>.15
+        ){
+
+            myColor.setHex(
+                0xff80c0
+            );
+
+        }else{
+
+            myColor.setHex(
+                0x38e070
+            );
+        }
+
+
+        myColorAttribute.setXYZ(
+
+            myI,
+
+            myColor.r,
+
+            myColor.g,
+
+            myColor.b
+        );
+    }
+
+
+    myColorAttribute.needsUpdate=
+        true;
+
+
+    for(
+        let myI=0;
+        myI<myZones.length;
+        myI++
+    ){
+
+        let myRing=
+            myZoneGroup.children[
+                myI*2+1
+            ];
+
+
+        let myScale=
+            1+
+            Math.abs(
+                myZones[myI].activity
+            )*
+            .8;
+
+
+        myRing.scale.set(
+            myScale,
+            myScale,
+            myScale
+        );
+    }
+}
+
+
+/* =========================================================
+   RUN
+   ========================================================= */
+
+function myToggleRun(){
+
+    myRunning=
+        !myRunning;
+
+
+    myUpdateStats();
+}
+
+
+/* =========================================================
+   MODE
+   ========================================================= */
+
+function mySetMode(
+    myNewMode
+){
+
+    myMode=
+        myNewMode;
+
+
+    myUpdateStats();
+}
+
+
+/* =========================================================
+   RESET
+   ========================================================= */
+
+async function myResetSimulation(){
+
+    myRunning=false;
+
+    myEpoch=0;
+
+    myActivity=0;
+
+    myActivityHistory=[];
+
+
+    for(
+        let myZone of myZones
+    ){
+
+        myZone.activity=0;
+    }
+
+
+    myUpdateVisualization();
+
+    myDrawActivity();
+
+    myUpdateStats();
+
+    myUpdateProtocol();
+}
+
+
+/* =========================================================
+   PROTOCOL GENERATION
+   ========================================================= */
+
+function myBuildProtocol(){
+
+    let myFrequency=
+        Number(
+            document.getElementById(
+                "myFrequency"
+            ).value
+        );
+
+
+    let myAmplitude=
+        Number(
+            document.getElementById(
+                "myAmplitude"
+            ).value
+        );
+
+
+    let myPulseWidth=
+        Number(
+            document.getElementById(
+                "myPulseWidth"
+            ).value
+        );
+
+
+    let myBurstPulses=
+        Number(
+            document.getElementById(
+                "myBurstPulses"
+            ).value
+        );
+
+
+    let myInterPulse=
+        Number(
+            document.getElementById(
+                "myInterPulse"
+            ).value
+        );
+
+
+    let myWindowMs=
+        Number(
+            document.getElementById(
+                "myWindowMs"
+            ).value
+        );
+
+
+    let myRecordingChannels=
+        Number(
+            document.getElementById(
+                "myRecordingChannels"
+            ).value
+        );
+
+
+    let myInhibition=
+        Number(
+            document.getElementById(
+                "myInhibitionStrength"
+            ).value
+        );
+
+
+    let myExcitation=
+        Number(
+            document.getElementById(
+                "myExcitationStrength"
+            ).value
+        );
+
+
+    let mySenseZones=[];
+
+
+    for(
+        let myZone of myZones
+    ){
+
+        if(
+            myZone.type==="sense"
+        ){
+
+            mySenseZones.push({
+
+                zone:myZone.index,
+
+                x:myZone.x,
+
+                z:myZone.z,
+
+                role:"sense"
+
+            });
+        }
+    }
+
+
+    return {
+
+        format:
+            "WetML Experimental Protocol",
+
+        version:
+            "0.7",
+
+        date:
+            new Date().toISOString(),
+
+        topology:
+            myTopology+
+            "x"+
+            myTopology,
+
+        hardware:{
+
+            platform:
+                "MaxOne",
+
+            physicalElectrodes:
+                26400,
+
+            recordingChannels:
+                Math.min(
+                    1024,
+                    myRecordingChannels
+                ),
+
+            stimulationUnits:
+                32
+
+        },
+
+        stimulation:{
+
+            zone:0,
+
+            frequencyHz:
+                myFrequency,
+
+            amplitude:
+                myAmplitude,
+
+            pulseWidthUs:
+                myPulseWidth,
+
+            pulsesPerBurst:
+                myBurstPulses,
+
+            interPulseMs:
+                myInterPulse,
+
+            role:
+                "stim"
+
+        },
+
+        inhibition:{
+
+            zone:
+                myZones.length>1?
+                1:
+                null,
+
+            strength:
+                myInhibition,
+
+            role:
+                "inhib"
+
+        },
+
+        excitation:{
+
+            zone:
+                myZones.length>2?
+                2:
+                null,
+
+            strength:
+                myExcitation,
+
+            role:
+                "excite"
+
+        },
+
+        sensing:{
+
+            zones:
+                mySenseZones,
+
+            windowMs:
+                myWindowMs,
+
+            metric:
+                document.getElementById(
+                    "myOutputMetric"
+                ).value
+
+        },
+
+        simulation:{
+
+            plasticity:
+                myPlasticity,
+
+            epoch:
+                myEpoch,
+
+            activity:
+                myActivity
+
+        },
+
+        notes:
+
+            "The biological neural network is the learner. "+
+            "TensorFlow.js is used only as a simulation "+
+            "and hypothesis-testing environment. "+
+            "This file describes an experimental protocol "+
+            "and does not contain a deployable neural-network model."
+
+    };
+}
+
+
+/* =========================================================
+   PROTOCOL DISPLAY
+   ========================================================= */
+
+function myUpdateProtocol(){
+
+    let myProtocol=
+        myBuildProtocol();
+
+
+    document.getElementById(
+        "myProtocol"
+    ).textContent=
+
+        "Topology: "+
+        myProtocol.topology+
+
+        "\nStim: "+
+        myProtocol.stimulation.frequencyHz+
+        " Hz / "+
+        myProtocol.stimulation.amplitude+
+
+        "\nPulse: "+
+        myProtocol.stimulation.pulseWidthUs+
+        " us"+
+
+        "\nBurst: "+
+        myProtocol.stimulation.pulsesPerBurst+
+
+        "\nInhibition: "+
+        myProtocol.inhibition.strength+
+
+        "\nExcitation: "+
+        myProtocol.excitation.strength+
+
+        "\nRecording: "+
+        myProtocol.sensing.metric+
+
+        "\nWindow: "+
+        myProtocol.sensing.windowMs+
+        " ms"+
+
+        "\nChannels: "+
+        myProtocol.hardware.recordingChannels;
+}
+
+
+/* =========================================================
+   EXPORT PROTOCOL
+   ========================================================= */
+
+function myExportProtocol(){
+
+    let myProtocol=
+        myBuildProtocol();
+
+
+    let myText=
+        JSON.stringify(
+            myProtocol,
+            null,
+            2
+        );
+
+
+    let myBlob=
+        new Blob(
+            [
+                myText
+            ],
+            {
+                type:
+                    "application/json"
+            }
+        );
+
+
+    let myUrl=
+        URL.createObjectURL(
+            myBlob
+        );
+
+
+    let myLink=
+        document.createElement(
+            "a"
+        );
+
+
+    myLink.href=
+        myUrl;
+
+
+    myLink.download=
+        "wetml-protocol-v07.json";
+
+
+    myLink.click();
+
+
+    URL.revokeObjectURL(
+        myUrl
+    );
+}
+
+
+/* =========================================================
+   SAVE SIMULATION
+   ========================================================= */
+
+function mySaveSimulation(){
+
+    let mySaveData={
+
+        protocol:
+            myBuildProtocol(),
+
+        zones:
+            myZones,
+
+        epoch:
+            myEpoch,
+
+        activity:
+            myActivity,
+
+        activityHistory:
+            myActivityHistory
+
+    };
+
+
+    let myBlob=
+        new Blob(
+            [
+                JSON.stringify(
+                    mySaveData,
+                    null,
+                    2
+                )
+            ],
+            {
+                type:
+                    "application/json"
+            }
+        );
+
+
+    let myUrl=
+        URL.createObjectURL(
+            myBlob
+        );
+
+
+    let myLink=
+        document.createElement(
+            "a"
+        );
+
+
+    myLink.href=
+        myUrl;
+
+
+    myLink.download=
+        "wetml-simulation-v07.json";
+
+
+    myLink.click();
+
+
+    URL.revokeObjectURL(
+        myUrl
+    );
+}
+
+
+/* =========================================================
+   LOAD SIMULATION
+   ========================================================= */
+
+async function myLoadSimulation(
+    myFile
+){
+
+    if(!myFile){
+
+        return;
+    }
+
+
+    let myText=
+        await myFile.text();
+
+
+    let myData=
+        JSON.parse(
+            myText
+        );
+
+
+    if(
+        myData.protocol &&
+        myData.protocol.topology
+    ){
+
+        let myParts=
+            myData.protocol.topology
+            .split("x");
+
+
+        let mySize=
+            Number(
+                myParts[0]
+            );
+
+
+        await mySetTopology(
+            mySize
+        );
+    }
+
+
+    if(
+        Array.isArray(
+            myData.activityHistory
+        )
+    ){
+
+        myActivityHistory=
+            myData.activityHistory;
+    }
+
+
+    if(
+        typeof myData.epoch==="number"
+    ){
+
+        myEpoch=
+            myData.epoch;
+    }
+
+
+    if(
+        typeof myData.activity==="number"
+    ){
+
+        myActivity=
+            myData.activity;
+    }
+
+
+    if(
+        Array.isArray(
+            myData.zones
+        )
+    ){
+
+        for(
+            let myI=0;
+            myI<myZones.length;
+            myI++
+        ){
+
+            if(
+                myData.zones[myI]
+            ){
+
+                myZones[myI].activity=
+                    myData.zones[myI].activity||
+                    0;
+            }
+        }
+    }
+
+
+    myUpdateVisualization();
+
+    myDrawActivity();
+
+    myUpdateStats();
+
+    myUpdateProtocol();
+}
+
+
+/* =========================================================
+   STATISTICS
+   ========================================================= */
+
+function myUpdateStats(){
+
+    let mySenseCount=
+        myZones.filter(
+            myZone=>
+                myZone.type==="sense"
+        ).length;
+
+
+    document.getElementById(
+        "myStats"
+    ).innerHTML=
+
+        "Mode: "+
+        myMode+
+
+        "<br>Running: "+
+        (
+            myRunning?
+            "YES":
+            "NO"
+        )+
+
+        "<br>Topology: "+
+        myTopology+
+        " × "+
+        myTopology+
+
+        "<br>Zones: "+
+        myZones.length+
+
+        "<br>Stim units: 32"+
+
+        "<br>Recording: "+
+        Math.min(
+            1024,
+            Number(
+                document.getElementById(
+                    "myRecordingChannels"
+                ).value
+            )
+        )+
+
+        "<br>Sense zones: "+
+        mySenseCount+
+
+        "<br>Epoch: "+
+        myEpoch+
+
+        "<br>Activity: "+
+        myActivity.toFixed(4);
+}
+
+
+/* =========================================================
+   ACTIVITY GRAPH
+   ========================================================= */
+
+function myDrawActivity(){
+
+    let myCanvas=
+        document.getElementById(
+            "myActivityCanvas"
+        );
+
+
+    let myContext=
+        myCanvas.getContext(
+            "2d"
+        );
+
+
+    myContext.clearRect(
+        0,
+        0,
+        myCanvas.width,
+        myCanvas.height
+    );
+
+
+    if(
+        myActivityHistory.length<2
+    ){
+
+        return;
+    }
+
+
+    let myMaximum=
+        Math.max(
+            .1,
+            ...myActivityHistory
+        );
+
+
+    myContext.beginPath();
+
+
+    for(
+        let myI=0;
+        myI<myActivityHistory.length;
+        myI++
+    ){
+
+        let myX=
+            myI/
+            (
+                myActivityHistory.length-1
+            )*
+            myCanvas.width;
+
+
+        let myY=
+            myCanvas.height-
+            (
+                myActivityHistory[myI]/
+                myMaximum*
+                (
+                    myCanvas.height-10
+                )
+            )-
+            5;
+
+
+        if(
+            myI===0
+        ){
+
+            myContext.moveTo(
+                myX,
+                myY
+            );
+
+        }else{
+
+            myContext.lineTo(
+                myX,
+                myY
+            );
+        }
+    }
+
+
+    myContext.strokeStyle=
+        "#ffd040";
+
+
+    myContext.lineWidth=2;
+
+    myContext.stroke();
+
+    myContext.lineWidth=1;
+}
+
+
+/* =========================================================
+   ANIMATION
+   ========================================================= */
+
+function myAnimate(
+    myTime
+){
+
+    requestAnimationFrame(
+        myAnimate
+    );
+
+
+    if(!myLastTime){
+
+        myLastTime=
+            myTime;
+    }
+
+
+    let myDelta=
+        myTime-
+        myLastTime;
+
+
+    myLastTime=
+        myTime;
+
+
+    myClockAccumulator+=
+        myDelta;
+
+
+    /*
+       Simulation runs independently
+       of rendering.
+    */
+
+    if(
+        myRunning &&
+        !myEpochBusy &&
+        myClockAccumulator>500
+    ){
+
+        myClockAccumulator=0;
+
+        mySingleStep();
+    }
+
+
+    /*
+       Natural slow rotation.
+
+       Everything biological is inside
+       myArrayGroup, so all electrodes,
+       zones and stimulation sites rotate
+       together.
+    */
+
+    myArrayGroup.rotation.y+=
+        .0007;
+
+
+    myControls.update();
+
+
+    myRenderer.render(
+        myScene,
+        myCamera
+    );
+}
+
+
+/* =========================================================
+   RESIZE
+   ========================================================= */
+
+function myResize(){
+
+    myCamera.aspect=
+        window.innerWidth/
+        window.innerHeight;
+
+
+    myCamera.updateProjectionMatrix();
+
+
+    myRenderer.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
+}
+
+
+/* =========================================================
+   START
+   ========================================================= */
+
+myInitializeScene();
+
+</script>
+
+</body>
+
+</html>
