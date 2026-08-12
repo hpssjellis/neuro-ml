@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>HD-MEA Biocomputing Sandbox v1</title>
+<style>
+body{margin:0;background:#111;color:white;font-family:Arial;overflow:hidden;}
+#myUi{position:absolute;top:10px;left:10px;z-index:10;background:#222;padding:10px;border-radius:8px}
+input{margin:2px}
+</style>
+</head>
+<body>
+
+<div id="myUi">
+<b>HD-MEA Sandbox v1</b><br>
+Visible sensors: 1000 / 26400<br>
+Stim sites: 32<br><br>
+
+<input type="button" value="2x2 Grid" onclick="mySetGridSize(2)">
+<input type="button" value="3x3 Grid" onclick="mySetGridSize(3)">
+<input type="button" value="4x4 Grid" onclick="mySetGridSize(4)"><br>
+
+<input type="button" value="Training Mode" onclick="mySetTrainingMode()">
+<input type="button" value="Inference Mode" onclick="mySetInferenceMode()"><br>
+
+<input type="button" value="Run" onclick="myStartSimulation()">
+<input type="button" value="Stop" onclick="myStopSimulation()"><br><br>
+
+Clock: <span id="myClockLabel">Training</span><br>
+Grid: <span id="myGridLabel">2x2</span><br>
+Epoch: <span id="myEpochLabel">0</span><br>
+Sense events: <span id="mySenseLabel">0</span><br>
+Layer: <span id="myLayerLabel">Single</span>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
+
+<script>
+let myScene;
+let myCamera;
+let myRenderer;
+let myControls;
+let myArrayGroup;
+let mySensorPoints;
+let mySensors=[];
+let myZones=[];
+let myStimSites=[];
+let myRunning=false;
+let myEpoch=0;
+let myGridSize=2;
+let myClockDelay=120;
+let mySenseEvents=0;
+let mySingleLayer=true;
+
+const myVisibleSensors=1000;
+const myPhysicalElectrodes=26400;
+const myStimSiteCount=32;
+const myBounds=100;
+
+function myInitializeScene(){
+
+myScene=new THREE.Scene();
+
+myCamera=new THREE.PerspectiveCamera(
+60,
+window.innerWidth/window.innerHeight,
+0.1,
+1000
+);
+
+myCamera.position.set(0,120,180);
+
+myRenderer=new THREE.WebGLRenderer({antialias:true});
+myRenderer.setSize(window.innerWidth,window.innerHeight);
+document.body.appendChild(myRenderer.domElement);
+
+myControls=new THREE.OrbitControls(myCamera,myRenderer.domElement);
+myControls.enableDamping=true;
+myControls.dampingFactor=0.08;
+myControls.minDistance=40;
+myControls.maxDistance=400;
+myControls.target.set(0,0,0);
+myControls.update();
+
+myArrayGroup=new THREE.Group();
+myScene.add(myArrayGroup);
+
+const myGrid=new THREE.GridHelper(220,20,0x444444,0x333333);
+myArrayGroup.add(myGrid);
+
+const myAmbient=new THREE.AmbientLight(0xffffff,0.8);
+myScene.add(myAmbient);
+
+const myGeometry=new THREE.BufferGeometry();
+const myPositions=new Float32Array(myVisibleSensors*3);
+const myColors=new Float32Array(myVisibleSensors*3);
+
+for(let myIndex=0;myIndex<myVisibleSensors;myIndex++){
+
+const myX=(Math.random()-0.5)*myBounds*2;
+const myZ=(Math.random()-0.5)*myBounds*2;
+
+myPositions[myIndex*3]=myX;
+myPositions[myIndex*3+1]=0;
+myPositions[myIndex*3+2]=myZ;
+
+myColors[myIndex*3]=0;
+myColors[myIndex*3+1]=1;
+myColors[myIndex*3+2]=0;
+
+mySensors.push({
+x:myX,
+z:myZ,
+activation:0,
+inhibition:0,
+state:"rest"
+});
+}
+
+myGeometry.setAttribute(
+"position",
+new THREE.BufferAttribute(myPositions,3)
+);
+
+myGeometry.setAttribute(
+"color",
+new THREE.BufferAttribute(myColors,3)
+);
+
+const myMaterial=new THREE.PointsMaterial({
+size:2,
+vertexColors:true
+});
+
+mySensorPoints=new THREE.Points(myGeometry,myMaterial);
+myArrayGroup.add(mySensorPoints);
+
+myCreateStimSites();
+mySetGridSize(2);
+
+window.onresize=myResizeWindow;
+
+myAnimate();
+}
+
+function myResizeWindow(){
+
+myCamera.aspect=window.innerWidth/window.innerHeight;
+myCamera.updateProjectionMatrix();
+myRenderer.setSize(window.innerWidth,window.innerHeight);
+}
+
+function myCreateStimSites(){
+
+const myGeometry=new THREE.SphereGeometry(1.5,12,12);
+
+for(let myIndex=0;myIndex<myStimSiteCount;myIndex++){
+
+const myMaterial=new THREE.MeshBasicMaterial({color:0xff66ff});
+const mySphere=new THREE.Mesh(myGeometry,myMaterial);
+
+myArrayGroup.add(mySphere);
+myStimSites.push(mySphere);
+}
+
+myUpdateStimSitePositions();
+}
+
+function myUpdateStimSitePositions(){
+
+for(let myIndex=0;myIndex<myStimSiteCount;myIndex++){
+
+const myAngle=(myIndex/myStimSiteCount)*Math.PI*2;
+
+myStimSites[myIndex].position.set(
+Math.cos(myAngle)*90,
+1,
+Math.sin(myAngle)*90
+);
+}
+}
+
+function mySetGridSize(mySize){
+
+myGridSize=mySize;
+myZones=[];
+
+const mySpacing=(myBounds*2)/(mySize-1||1);
+
+for(let myRow=0;myRow<mySize;myRow++){
+
+for(let myCol=0;myCol<mySize;myCol++){
+
+const myX=-myBounds+myCol*mySpacing;
+const myZ=-myBounds+myRow*mySpacing;
+
+let myType="excite";
+
+if(myRow===0&&myCol===0) myType="stim";
+if(myRow===mySize-1&&myCol===mySize-1) myType="sense";
+if(myRow===0&&myCol===mySize-1) myType="inhib";
+
+myZones.push({
+x:myX,
+z:myZ,
+radius:25,
+type:myType
+});
+}
+}
+
+document.getElementById("myGridLabel").textContent=mySize+"x"+mySize;
+}
+
+function mySetTrainingMode(){
+
+myClockDelay=120;
+document.getElementById("myClockLabel").textContent="Training";
+}
+
+function mySetInferenceMode(){
+
+myClockDelay=20;
+document.getElementById("myClockLabel").textContent="Inference";
+}
+
+function myApplyZones(){
+
+mySenseEvents=0;
+
+for(const myZone of myZones){
+
+for(const mySensor of mySensors){
+
+const myDistance=Math.hypot(
+mySensor.x-myZone.x,
+mySensor.z-myZone.z
+);
+
+if(myDistance<myZone.radius){
+
+if(myZone.type==="stim"){
+
+mySensor.activation=1;
+
+}
+
+if(myZone.type==="inhib"){
+
+mySensor.inhibition=1;
+
+}
+
+if(myZone.type==="excite"){
+
+mySensor.activation=Math.max(
+mySensor.activation,
+0.5
+);
+
+}
+
+if(myZone.type==="sense"){
+
+if(mySensor.activation>0.3){
+
+mySenseEvents++;
+}
+}
+}
+}
+}
+
+document.getElementById("mySenseLabel").textContent=mySenseEvents;
+}
+
+function myUpdateNetwork(){
+
+for(const mySensor of mySensors){
+
+if(mySensor.inhibition>0){
+
+mySensor.activation*=0.3;
+mySensor.inhibition*=0.9;
+
+}else{
+
+mySensor.activation*=0.95;
+}
+
+if(mySensor.activation>0.4){
+
+for(let myNeighborIndex=0;myNeighborIndex<8;myNeighborIndex++){
+
+const myTarget=
+mySensors[Math.floor(Math.random()*mySensors.length)];
+
+const myDistance=Math.hypot(
+mySensor.x-myTarget.x,
+mySensor.z-myTarget.z
+);
+
+const myInfluence=Math.max(
+0,
+1-myDistance/60
+);
+
+myTarget.activation=Math.min(
+1,
+myTarget.activation+myInfluence*0.05
+);
+}
+}
+
+if(mySensor.activation>0.7){
+
+mySensor.state="stim";
+
+}else if(mySensor.activation>0.3){
+
+mySensor.state="excite";
+
+}else if(mySensor.inhibition>0.1){
+
+mySensor.state="inhib";
+
+}else{
+
+mySensor.state="rest";
+}
+}
+}
+
+function myUpdateColors(){
+
+const myColors=mySensorPoints.geometry.attributes.color.array;
+
+for(let myIndex=0;myIndex<mySensors.length;myIndex++){
+
+const mySensor=mySensors[myIndex];
+
+if(mySensor.state==="rest"){
+
+myColors[myIndex*3]=0;
+myColors[myIndex*3+1]=1;
+myColors[myIndex*3+2]=0;
+
+}
+
+if(mySensor.state==="excite"){
+
+myColors[myIndex*3]=1;
+myColors[myIndex*3+1]=0.6;
+myColors[myIndex*3+2]=0;
+
+}
+
+if(mySensor.state==="stim"){
+
+myColors[myIndex*3]=1;
+myColors[myIndex*3+1]=0.2;
+myColors[myIndex*3+2]=0.4;
+
+}
+
+if(mySensor.state==="inhib"){
+
+myColors[myIndex*3]=0.2;
+myColors[myIndex*3+1]=0.4;
+myColors[myIndex*3+2]=1;
+}
+}
+
+mySensorPoints.geometry.attributes.color.needsUpdate=true;
+}
+
+async function mySimulationLoop(){
+
+while(myRunning){
+
+myEpoch++;
+
+document.getElementById("myEpochLabel").textContent=myEpoch;
+
+myApplyZones();
+myUpdateNetwork();
+myUpdateColors();
+
+await new Promise(myResolve=>
+setTimeout(myResolve,myClockDelay)
+);
+}
+}
+
+function myStartSimulation(){
+
+if(myRunning) return;
+
+myRunning=true;
+mySimulationLoop();
+}
+
+function myStopSimulation(){
+
+myRunning=false;
+}
+
+function myAnimate(){
+
+requestAnimationFrame(myAnimate);
+
+myArrayGroup.rotation.y+=0.001;
+
+myControls.update();
+
+myRenderer.render(myScene,myCamera);
+}
+
+myInitializeScene();
+
+</script>
+
+</body>
+</html>
