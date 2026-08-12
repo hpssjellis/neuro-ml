@@ -1,0 +1,2066 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MaxOne HD-MEA Biocomputing Sandbox V1.1</title>
+
+<style>
+body {
+    margin:0;
+    overflow:hidden;
+    background:#050812;
+    color:#dddddd;
+    font-family:Arial,sans-serif;
+}
+
+#myPanel {
+    position:absolute;
+    z-index:10;
+    left:10px;
+    top:10px;
+    width:330px;
+    max-height:calc(100vh - 20px);
+    overflow:auto;
+    padding:12px;
+    background:rgba(7,11,22,.94);
+    border:1px solid #39445d;
+    border-radius:8px;
+    box-sizing:border-box;
+}
+
+h2 {
+    margin:0 0 8px 0;
+    font-size:19px;
+}
+
+h3 {
+    margin:13px 0 5px 0;
+    font-size:13px;
+    color:#9fc7ff;
+}
+
+input[type=button] {
+    background:#182235;
+    color:#eeeeee;
+    border:1px solid #506080;
+    border-radius:4px;
+    padding:5px 8px;
+    margin:2px;
+    cursor:pointer;
+}
+
+input[type=button]:hover {
+    background:#2a3b5c;
+}
+
+select {
+    background:#182235;
+    color:#eeeeee;
+    border:1px solid #506080;
+    padding:4px;
+}
+
+#myStats {
+    background:#0b1020;
+    padding:8px;
+    border-radius:5px;
+    font-family:monospace;
+    font-size:12px;
+    line-height:1.55;
+}
+
+#myLossCanvas {
+    width:100%;
+    height:90px;
+    background:#070b15;
+    border:1px solid #293044;
+}
+
+.myLegend {
+    font-size:11px;
+    line-height:1.6;
+}
+
+.myDot {
+    display:inline-block;
+    width:9px;
+    height:9px;
+    border-radius:50%;
+    margin-right:4px;
+}
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+</head>
+
+<body>
+
+<div id="myPanel">
+
+<h2>MaxOne HD-MEA Sandbox</h2>
+
+<div style="font-size:12px">
+Virtual MaxOne subset:
+<b>26,400</b> physical electrodes<br>
+Visible active sensors:
+<b>1,000</b><br>
+Programmable stimulation sites:
+<b>32</b>
+</div>
+
+<h3>Topology</h3>
+
+<input type="button" value="2 × 2" onclick="mySetTopology(2)">
+<input type="button" value="3 × 3" onclick="mySetTopology(3)">
+<input type="button" value="4 × 4" onclick="mySetTopology(4)">
+<input type="button" value="5 × 5" onclick="mySetTopology(5)">
+
+<h3>Simulation Mode</h3>
+
+<input type="button" value="Training" onclick="mySetMode('training')">
+<input type="button" value="Inference" onclick="mySetMode('inference')">
+<input type="button" value="Run / Stop" onclick="myToggleRun()">
+<input type="button" value="Single Epoch" onclick="mySingleEpoch()">
+
+<br>
+
+<input type="button" value="Reset Weights" onclick="myResetWeights()">
+<input type="button" value="Stimulate" onclick="myManualPulse()">
+
+<h3>Clock Speed</h3>
+
+<input
+    id="myClockSlider"
+    type="range"
+    min="1"
+    max="100"
+    value="20"
+    oninput="mySetClock(this.value)"
+>
+
+<span id="myClockValue">20×</span>
+
+<h3>Learning Rate</h3>
+
+<input
+    id="myLearningSlider"
+    type="range"
+    min="1"
+    max="100"
+    value="10"
+    oninput="mySetLearningRate(this.value)"
+>
+
+<span id="myLearningValue">0.010</span>
+
+<h3>Training Target</h3>
+
+<select id="myTargetSelect" onchange="mySetTarget(this.value)">
+    <option value="center">Center sensing</option>
+    <option value="edge">Edge sensing</option>
+    <option value="opposite">Opposite corner</option>
+</select>
+
+<h3>Statistics</h3>
+
+<div id="myStats"></div>
+
+<h3>Loss</h3>
+
+<canvas id="myLossCanvas" width="300" height="90"></canvas>
+
+<h3>Color Legend</h3>
+
+<div class="myLegend">
+
+<span class="myDot" style="background:#38e070"></span>
+Resting sensor<br>
+
+<span class="myDot" style="background:#ff4060"></span>
+Stimulation<br>
+
+<span class="myDot" style="background:#ff80c0"></span>
+Excitation<br>
+
+<span class="myDot" style="background:#4080ff"></span>
+Inhibition<br>
+
+<span class="myDot" style="background:#ffd040"></span>
+Output sensing
+
+</div>
+
+</div>
+
+
+<script>
+
+let myScene;
+let myCamera;
+let myRenderer;
+let myControls;
+
+let myArrayGroup;
+let mySensorPoints;
+let myStimGroup;
+let myZoneGroup;
+let myConnectionGroup;
+
+let mySensors=[];
+let myZones=[];
+let myWeights=[];
+let myLossHistory=[];
+
+let myTopology=2;
+
+let myMode="training";
+
+let myRunning=false;
+
+let myEpoch=0;
+
+let myLoss=1;
+
+let myAccuracy=0;
+
+let myClockScale=20;
+
+let myLearningRate=0.01;
+
+let myTarget="center";
+
+let myLastTime=0;
+
+let myAccumulator=0;
+
+let myActivityTimer=0;
+
+
+/* ------------------------------------------------ */
+/* INITIALIZE                                       */
+/* ------------------------------------------------ */
+
+function myInitializeScene(){
+
+    myScene=new THREE.Scene();
+
+    myScene.background=new THREE.Color(0x050812);
+
+
+    myCamera=new THREE.PerspectiveCamera(
+        50,
+        window.innerWidth/window.innerHeight,
+        0.1,
+        1000
+    );
+
+    myCamera.position.set(0,12,18);
+
+
+    myRenderer=new THREE.WebGLRenderer({
+        antialias:true
+    });
+
+    myRenderer.setPixelRatio(window.devicePixelRatio);
+
+    myRenderer.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
+
+    document.body.appendChild(myRenderer.domElement);
+
+
+    myControls=new THREE.OrbitControls(
+        myCamera,
+        myRenderer.domElement
+    );
+
+    myControls.enableDamping=true;
+
+    myControls.dampingFactor=.07;
+
+    myControls.minDistance=5;
+
+    myControls.maxDistance=40;
+
+
+    let myAmbientLight=new THREE.AmbientLight(
+        0x778899,
+        .8
+    );
+
+    myScene.add(myAmbientLight);
+
+
+    let myPointLight=new THREE.PointLight(
+        0xffffff,
+        1.5,
+        100
+    );
+
+    myPointLight.position.set(
+        0,
+        10,
+        10
+    );
+
+    myScene.add(myPointLight);
+
+
+    myArrayGroup=new THREE.Group();
+
+    myScene.add(myArrayGroup);
+
+
+    myCreateArraySurface();
+
+    myCreateSensors();
+
+    myCreateStimSites();
+
+    mySetTopology(2);
+
+
+    window.onresize=myResize;
+
+    requestAnimationFrame(myAnimate);
+}
+
+
+/* ------------------------------------------------ */
+/* ARRAY SURFACE                                    */
+/* ------------------------------------------------ */
+
+function myCreateArraySurface(){
+
+    let myGrid=new THREE.GridHelper(
+        16,
+        32,
+        0x45536e,
+        0x202b40
+    );
+
+    myGrid.position.y=0;
+
+    myArrayGroup.add(myGrid);
+
+
+    let myPlate=new THREE.Mesh(
+
+        new THREE.BoxGeometry(
+            16,
+            .12,
+            16
+        ),
+
+        new THREE.MeshPhongMaterial({
+            color:0x111a29,
+            transparent:true,
+            opacity:.5
+        })
+
+    );
+
+    myPlate.position.y=-.1;
+
+    myArrayGroup.add(myPlate);
+}
+
+
+/* ------------------------------------------------ */
+/* 1000 SENSOR NODES                                */
+/* ------------------------------------------------ */
+
+function myCreateSensors(){
+
+    let myCount=1000;
+
+    let mySide=Math.ceil(
+        Math.sqrt(myCount)
+    );
+
+
+    let myGeometry=new THREE.BufferGeometry();
+
+    let myPositions=new Float32Array(
+        myCount*3
+    );
+
+    let myColors=new Float32Array(
+        myCount*3
+    );
+
+
+    for(
+        let myI=0;
+        myI<myCount;
+        myI++
+    ){
+
+        let myX=
+            (myI%(mySide-1))/(mySide-1)*15
+            -7.5;
+
+        let myZ=
+            Math.floor(myI/(mySide-1))/(mySide-1)*15
+            -7.5;
+
+
+        myPositions[myI*3]=myX;
+
+        myPositions[myI*3+1]=.08;
+
+        myPositions[myI*3+2]=myZ;
+
+
+        myColors[myI*3]=.22;
+
+        myColors[myI*3+1]=.88;
+
+        myColors[myI*3+2]=.43;
+
+
+        mySensors.push({
+
+            x:myX,
+
+            z:myZ,
+
+            activity:0
+
+        });
+
+    }
+
+
+    myGeometry.setAttribute(
+        "position",
+        new THREE.BufferAttribute(
+            myPositions,
+            3
+        )
+    );
+
+
+    myGeometry.setAttribute(
+        "color",
+        new THREE.BufferAttribute(
+            myColors,
+            3
+        )
+    );
+
+
+    let myMaterial=new THREE.PointsMaterial({
+
+        size:.075,
+
+        vertexColors:true
+
+    });
+
+
+    mySensorPoints=new THREE.Points(
+        myGeometry,
+        myMaterial
+    );
+
+
+    myArrayGroup.add(
+        mySensorPoints
+    );
+}
+
+
+/* ------------------------------------------------ */
+/* 32 STIMULATION SITES                             */
+/* ------------------------------------------------ */
+
+function myCreateStimSites(){
+
+    myStimGroup=new THREE.Group();
+
+
+    for(
+        let myI=0;
+        myI<32;
+        myI++
+    ){
+
+        let myMesh=new THREE.Mesh(
+
+            new THREE.SphereGeometry(
+                .12,
+                12,
+                12
+            ),
+
+            new THREE.MeshBasicMaterial({
+                color:0xff4060
+            })
+
+        );
+
+
+        myMesh.userData.index=myI;
+
+        myStimGroup.add(
+            myMesh
+        );
+
+    }
+
+
+    myArrayGroup.add(
+        myStimGroup
+    );
+}
+
+
+/* ------------------------------------------------ */
+/* TOPOLOGY                                        */
+/* ------------------------------------------------ */
+
+function mySetTopology(mySize){
+
+    myTopology=mySize;
+
+
+    if(myZoneGroup){
+
+        myArrayGroup.remove(
+            myZoneGroup
+        );
+
+    }
+
+
+    if(myConnectionGroup){
+
+        myArrayGroup.remove(
+            myConnectionGroup
+        );
+
+    }
+
+
+    myZoneGroup=new THREE.Group();
+
+    myConnectionGroup=new THREE.Group();
+
+
+    myArrayGroup.add(
+        myZoneGroup
+    );
+
+    myArrayGroup.add(
+        myConnectionGroup
+    );
+
+
+    myZones=[];
+
+
+    let mySpacing;
+
+    if(mySize===2){
+
+        mySpacing=14;
+
+    }else{
+
+        mySpacing=14/(mySize-1);
+
+    }
+
+
+    for(
+        let myRow=0;
+        myRow<mySize;
+        myRow++
+    ){
+
+        for(
+            let myCol=0;
+            myCol<mySize;
+            myCol++
+        ){
+
+            let myIndex=
+                myRow*mySize+
+                myCol;
+
+
+            let myX;
+
+            let myZ;
+
+
+            if(mySize===2){
+
+                myX=myCol===0?-7:7;
+
+                myZ=myRow===0?-7:7;
+
+            }else{
+
+                myX=-7+
+                    myCol*mySpacing;
+
+                myZ=-7+
+                    myRow*mySpacing;
+
+            }
+
+
+            let myType;
+
+
+            if(myIndex===0){
+
+                myType="stim";
+
+            }else if(myIndex===1){
+
+                myType="inhib";
+
+            }else if(myIndex===2){
+
+                myType="excite";
+
+            }else{
+
+                myType="sense";
+
+            }
+
+
+            myZones.push({
+
+                index:myIndex,
+
+                x:myX,
+
+                z:myZ,
+
+                type:myType,
+
+                output:0
+
+            });
+
+
+            myCreateZoneVisual(
+                myX,
+                myZ,
+                myType
+            );
+
+        }
+
+    }
+
+
+    myInitializeWeights();
+
+    myPositionStimSites();
+
+    myDrawConnections();
+
+    myUpdateStats();
+
+    myDrawLoss();
+}
+
+
+/* ------------------------------------------------ */
+/* ZONE VISUAL                                     */
+/* ------------------------------------------------ */
+
+function myCreateZoneVisual(
+    myX,
+    myZ,
+    myType
+){
+
+    let myColor;
+
+
+    if(myType==="stim"){
+
+        myColor=0xff4060;
+
+    }else if(myType==="inhib"){
+
+        myColor=0x4080ff;
+
+    }else if(myType==="excite"){
+
+        myColor=0xff80c0;
+
+    }else{
+
+        myColor=0xffd040;
+
+    }
+
+
+    let myDisc=new THREE.Mesh(
+
+        new THREE.CylinderGeometry(
+            1.1,
+            1.1,
+            .08,
+            32
+        ),
+
+        new THREE.MeshBasicMaterial({
+
+            color:myColor,
+
+            transparent:true,
+
+            opacity:.15
+
+        })
+
+    );
+
+
+    myDisc.position.set(
+        myX,
+        .13,
+        myZ
+    );
+
+
+    myZoneGroup.add(
+        myDisc
+    );
+
+
+    let myRing=new THREE.Mesh(
+
+        new THREE.RingGeometry(
+            .98,
+            1.03,
+            32
+        ),
+
+        new THREE.MeshBasicMaterial({
+
+            color:myColor,
+
+            side:THREE.DoubleSide
+
+        })
+
+    );
+
+
+    myRing.rotation.x=-Math.PI/2;
+
+
+    myRing.position.set(
+        myX,
+        .18,
+        myZ
+    );
+
+
+    myZoneGroup.add(
+        myRing
+    );
+}
+
+
+/* ------------------------------------------------ */
+/* STIM SITE POSITIONING                            */
+/* ------------------------------------------------ */
+
+function myPositionStimSites(){
+
+    for(
+        let myI=0;
+        myI<32;
+        myI++
+    ){
+
+        let myZone=
+            myZones[
+                myI%myZones.length
+            ];
+
+
+        let myAngle=
+            myI/32*
+            Math.PI*2;
+
+
+        let myRadius=.55;
+
+
+        let myMesh=
+            myStimGroup.children[myI];
+
+
+        myMesh.position.set(
+
+            myZone.x+
+            Math.cos(myAngle)*
+            myRadius,
+
+            .30,
+
+            myZone.z+
+            Math.sin(myAngle)*
+            myRadius
+
+        );
+
+    }
+}
+
+
+/* ------------------------------------------------ */
+/* WEIGHTS                                          */
+/* ------------------------------------------------ */
+
+function myInitializeWeights(){
+
+    myWeights=[];
+
+
+    for(
+        let myI=0;
+        myI<myZones.length;
+        myI++
+    ){
+
+        myWeights[myI]=[];
+
+
+        for(
+            let myJ=0;
+            myJ<myZones.length;
+            myJ++
+        ){
+
+            myWeights[myI][myJ]=
+                (Math.random()-.5)*.5;
+
+        }
+
+    }
+}
+
+
+/* ------------------------------------------------ */
+/* CONNECTION LINES                                 */
+/* ------------------------------------------------ */
+
+function myDrawConnections(){
+
+    while(
+        myConnectionGroup.children.length>0
+    ){
+
+        myConnectionGroup.remove(
+            myConnectionGroup.children[0]
+        );
+
+    }
+
+
+    for(
+        let myI=0;
+        myI<myZones.length;
+        myI++
+    ){
+
+        for(
+            let myJ=0;
+            myJ<myZones.length;
+            myJ++
+        ){
+
+            if(myI===myJ){
+
+                continue;
+
+            }
+
+
+            let myWeight=
+                myWeights[myI][myJ];
+
+
+            if(
+                Math.abs(myWeight)<.08
+            ){
+
+                continue;
+
+            }
+
+
+            let myA=myZones[myI];
+
+            let myB=myZones[myJ];
+
+
+            let myColor=
+                myWeight>=0?
+                0xff80c0:
+                0x4080ff;
+
+
+            let myLineMaterial=
+                new THREE.LineBasicMaterial({
+
+                    color:myColor,
+
+                    transparent:true,
+
+                    opacity:
+                        .12+
+                        Math.min(
+                            .7,
+                            Math.abs(myWeight)
+                        )
+
+                });
+
+
+            let myLineGeometry=
+                new THREE.BufferGeometry()
+                .setFromPoints([
+
+                    new THREE.Vector3(
+                        myA.x,
+                        .2,
+                        myA.z
+                    ),
+
+                    new THREE.Vector3(
+                        myB.x,
+                        .2,
+                        myB.z
+                    )
+
+                ]);
+
+
+            myConnectionGroup.add(
+
+                new THREE.Line(
+                    myLineGeometry,
+                    myLineMaterial
+                )
+
+            );
+
+        }
+
+    }
+}
+
+
+/* ------------------------------------------------ */
+/* MODE                                            */
+/* ------------------------------------------------ */
+
+function mySetMode(myModeValue){
+
+    myMode=myModeValue;
+
+    myUpdateStats();
+}
+
+
+/* ------------------------------------------------ */
+/* RUN                                             */
+/* ------------------------------------------------ */
+
+function myToggleRun(){
+
+    myRunning=!myRunning;
+
+    myUpdateStats();
+}
+
+
+function mySingleEpoch(){
+
+    myRunEpoch();
+
+}
+
+
+function myManualPulse(){
+
+    myRunEpoch(true);
+
+}
+
+
+/* ------------------------------------------------ */
+/* CLOCK                                            */
+/* ------------------------------------------------ */
+
+function mySetClock(myValue){
+
+    myClockScale=
+        Number(myValue);
+
+
+    document.getElementById(
+        "myClockValue"
+    ).textContent=
+        myClockScale+"×";
+
+}
+
+
+/* ------------------------------------------------ */
+/* LEARNING RATE                                    */
+/* ------------------------------------------------ */
+
+function mySetLearningRate(myValue){
+
+    myLearningRate=
+        Number(myValue)/1000;
+
+
+    document.getElementById(
+        "myLearningValue"
+    ).textContent=
+        myLearningRate.toFixed(3);
+
+}
+
+
+/* ------------------------------------------------ */
+/* TARGET                                           */
+/* ------------------------------------------------ */
+
+function mySetTarget(myValue){
+
+    myTarget=myValue;
+
+}
+
+
+/* ------------------------------------------------ */
+/* RESET                                            */
+/* ------------------------------------------------ */
+
+function myResetWeights(){
+
+    myEpoch=0;
+
+    myLoss=1;
+
+    myAccuracy=0;
+
+    myLossHistory=[];
+
+    myInitializeWeights();
+
+    myDrawConnections();
+
+    myDrawLoss();
+
+    myUpdateStats();
+
+}
+
+
+/* ------------------------------------------------ */
+/* TARGET ZONE                                      */
+/* ------------------------------------------------ */
+
+function myGetTargetIndex(){
+
+    let mySenseZones=[];
+
+
+    for(
+        let myI=0;
+        myI<myZones.length;
+        myI++
+    ){
+
+        if(
+            myZones[myI].type==="sense"
+        ){
+
+            mySenseZones.push(
+                myZones[myI]
+            );
+
+        }
+
+    }
+
+
+    if(mySenseZones.length===0){
+
+        return 0;
+
+    }
+
+
+    if(myTarget==="center"){
+
+        let myBest=
+            mySenseZones[0];
+
+        let myDistance=
+            Infinity;
+
+
+        for(
+            let myZone of mySenseZones
+        ){
+
+            let myCurrentDistance=
+                Math.hypot(
+                    myZone.x,
+                    myZone.z
+                );
+
+
+            if(
+                myCurrentDistance<
+                myDistance
+            ){
+
+                myDistance=
+                    myCurrentDistance;
+
+                myBest=
+                    myZone;
+
+            }
+
+        }
+
+
+        return myBest.index;
+
+    }
+
+
+    if(myTarget==="edge"){
+
+        let myBest=
+            mySenseZones[0];
+
+        let myDistance=-Infinity;
+
+
+        for(
+            let myZone of mySenseZones
+        ){
+
+            let myCurrentDistance=
+                Math.abs(myZone.x)+
+                Math.abs(myZone.z);
+
+
+            if(
+                myCurrentDistance>
+                myDistance
+            ){
+
+                myDistance=
+                    myCurrentDistance;
+
+                myBest=
+                    myZone;
+
+            }
+
+        }
+
+
+        return myBest.index;
+
+    }
+
+
+    let myBest=
+        mySenseZones[0];
+
+    let myDistance=-Infinity;
+
+
+    for(
+        let myZone of mySenseZones
+    ){
+
+        let myCurrentDistance=
+            Math.hypot(
+                myZone.x-7,
+                myZone.z-7
+            );
+
+
+        if(
+            myCurrentDistance>
+            myDistance
+        ){
+
+            myDistance=
+                myCurrentDistance;
+
+            myBest=
+                myZone;
+
+        }
+
+    }
+
+
+    return myBest.index;
+
+}
+
+
+/* ------------------------------------------------ */
+/* ONE TRAINING / INFERENCE EPOCH                   */
+/* ------------------------------------------------ */
+
+function myRunEpoch(myManual=false){
+
+    if(myZones.length===0){
+
+        return;
+
+    }
+
+
+    /*
+       Input represents a pulse at
+       the first stimulation zone.
+    */
+
+    let myInputs=
+        new Array(
+            myZones.length
+        ).fill(0);
+
+
+    myInputs[0]=1;
+
+
+    /*
+       Forward propagation.
+    */
+
+    let myActivations=
+        new Array(
+            myZones.length
+        ).fill(0);
+
+
+    for(
+        let myJ=0;
+        myJ<myZones.length;
+        myJ++
+    ){
+
+        let mySum=0;
+
+
+        for(
+            let myI=0;
+            myI<myZones.length;
+            myI++
+        ){
+
+            mySum+=
+                myInputs[myI]*
+                myWeights[myI][myJ];
+
+        }
+
+
+        myActivations[myJ]=
+            Math.tanh(mySum);
+
+    }
+
+
+    /*
+       Determine desired output.
+    */
+
+    let myTargetIndex=
+        myGetTargetIndex();
+
+
+    let myTargetValues=
+        new Array(
+            myZones.length
+        ).fill(0);
+
+
+    myTargetValues[
+        myTargetIndex
+    ]=1;
+
+
+    /*
+       Calculate squared error.
+    */
+
+    let myError=0;
+
+
+    for(
+        let myI=0;
+        myI<myZones.length;
+        myI++
+    ){
+
+        let myDifference=
+            myTargetValues[myI]-
+            myActivations[myI];
+
+
+        myError+=
+            myDifference*
+            myDifference;
+
+
+        /*
+           Training changes weights.
+
+           In inference mode this section
+           deliberately does nothing.
+        */
+
+        if(
+            myMode==="training"
+        ){
+
+            /*
+               Because the input is concentrated
+               on stimulation zone 0, this is
+               equivalent to a simple teaching
+               rule for the outgoing synapses.
+            */
+
+            myWeights[0][myI]+=
+                myLearningRate*
+                myDifference;
+
+        }
+
+    }
+
+
+    myLoss=
+        myError/
+        myZones.length;
+
+
+    /*
+       Find predicted output.
+    */
+
+    let myPrediction=-1;
+
+    let myBestValue=-Infinity;
+
+
+    for(
+        let myI=0;
+        myI<myZones.length;
+        myI++
+    ){
+
+        if(
+            myZones[myI].type!=="sense"
+        ){
+
+            continue;
+
+        }
+
+
+        if(
+            myActivations[myI]>
+            myBestValue
+        ){
+
+            myBestValue=
+                myActivations[myI];
+
+            myPrediction=
+                myI;
+
+        }
+
+    }
+
+
+    myAccuracy=
+        myPrediction===
+        myTargetIndex?
+        1:
+        0;
+
+
+    myEpoch++;
+
+
+    if(
+        myLossHistory.length>=200
+    ){
+
+        myLossHistory.shift();
+
+    }
+
+
+    myLossHistory.push(
+        myLoss
+    );
+
+
+    myAnimateNetwork(
+        myActivations,
+        myTargetIndex
+    );
+
+
+    /*
+       Redraw connections periodically
+       rather than every frame.
+    */
+
+    if(
+        myEpoch%3===0
+    ){
+
+        myDrawConnections();
+
+    }
+
+
+    myDrawLoss();
+
+    myUpdateStats();
+
+}
+
+
+/* ------------------------------------------------ */
+/* VISUAL ACTIVITY                                  */
+/* ------------------------------------------------ */
+
+function myAnimateNetwork(
+    myActivations,
+    myTargetIndex
+){
+
+    /*
+       Sensor activity based on nearest zone.
+    */
+
+    for(
+        let myI=0;
+        myI<mySensors.length;
+        myI++
+    ){
+
+        let mySensor=
+            mySensors[myI];
+
+
+        let myNearest=0;
+
+        let myDistance=
+            Infinity;
+
+
+        for(
+            let myJ=0;
+            myJ<myZones.length;
+            myJ++
+        ){
+
+            let myZone=
+                myZones[myJ];
+
+
+            let myCurrentDistance=
+                Math.hypot(
+                    mySensor.x-myZone.x,
+                    mySensor.z-myZone.z
+                );
+
+
+            if(
+                myCurrentDistance<
+                myDistance
+            ){
+
+                myDistance=
+                    myCurrentDistance;
+
+                myNearest=
+                    myJ;
+
+            }
+
+        }
+
+
+        let myActivity=
+            Math.abs(
+                myActivations[
+                    myNearest
+                ]
+            );
+
+
+        /*
+           Add a little stochastic
+           biological-looking activity.
+        */
+
+        if(
+            Math.random()<.12
+        ){
+
+            myActivity=
+                Math.max(
+                    myActivity,
+                    Math.random()*.4
+                );
+
+        }
+
+
+        mySensor.activity=
+            myActivity;
+
+    }
+
+
+    /*
+       Update sensor colors.
+    */
+
+    let myColorAttribute=
+        mySensorPoints.geometry
+        .attributes.color;
+
+
+    for(
+        let myI=0;
+        myI<mySensors.length;
+        myI++
+    ){
+
+        let myActivity=
+            mySensors[myI].activity;
+
+
+        let myColor=
+            new THREE.Color();
+
+
+        if(
+            myActivity>.65
+        ){
+
+            myColor.setHex(
+                0xffd040
+            );
+
+        }else if(
+            myActivity>.25
+        ){
+
+            myColor.setHex(
+                0xff80c0
+            );
+
+        }else{
+
+            myColor.setHex(
+                0x38e070
+            );
+
+        }
+
+
+        myColorAttribute.setXYZ(
+            myI,
+            myColor.r,
+            myColor.g,
+            myColor.b
+        );
+
+    }
+
+
+    myColorAttribute.needsUpdate=true;
+
+
+    /*
+       Animate the zone rings.
+    */
+
+    for(
+        let myI=0;
+        myI<myZones.length;
+        myI++
+    ){
+
+        let myZone=
+            myZones[myI];
+
+
+        let myRing=
+            myZoneGroup.children[
+                myI*2+1
+            ];
+
+
+        let myValue=
+            Math.abs(
+                myActivations[myI]
+            );
+
+
+        let myScale=
+            1+
+            myValue*.8;
+
+
+        myRing.scale.set(
+            myScale,
+            myScale,
+            myScale
+        );
+
+    }
+
+
+    /*
+       Pulse all 32 stimulation sites.
+    */
+
+    for(
+        let myI=0;
+        myI<32;
+        myI++
+    ){
+
+        let myMesh=
+            myStimGroup.children[myI];
+
+
+        let myPulse=
+            .8+
+            Math.sin(
+                myActivityTimer+
+                myI*.35
+            )*.25;
+
+
+        if(
+            myZones.length>0
+        ){
+
+            let myZone=
+                myZones[
+                    myI%
+                    myZones.length
+                ];
+
+
+            if(
+                myZone.index===0
+            ){
+
+                myPulse+=
+                    Math.abs(
+                        myActivations[0]
+                    )*.8;
+
+            }
+
+        }
+
+
+        myMesh.scale.setScalar(
+            myPulse
+        );
+
+    }
+
+}
+
+
+/* ------------------------------------------------ */
+/* LOSS GRAPH                                       */
+/* ------------------------------------------------ */
+
+function myDrawLoss(){
+
+    let myCanvas=
+        document.getElementById(
+            "myLossCanvas"
+        );
+
+
+    let myContext=
+        myCanvas.getContext(
+            "2d"
+        );
+
+
+    myContext.clearRect(
+        0,
+        0,
+        myCanvas.width,
+        myCanvas.height
+    );
+
+
+    /*
+       Grid.
+    */
+
+    myContext.strokeStyle=
+        "#1e293b";
+
+
+    for(
+        let myI=1;
+        myI<4;
+        myI++
+    ){
+
+        let myY=
+            myI*
+            myCanvas.height/
+            4;
+
+
+        myContext.beginPath();
+
+        myContext.moveTo(
+            0,
+            myY
+        );
+
+        myContext.lineTo(
+            myCanvas.width,
+            myY
+        );
+
+        myContext.stroke();
+
+    }
+
+
+    if(
+        myLossHistory.length<2
+    ){
+
+        return;
+
+    }
+
+
+    let myMaximum=
+        Math.max(
+            1,
+            ...myLossHistory
+        );
+
+
+    myContext.beginPath();
+
+
+    for(
+        let myI=0;
+        myI<myLossHistory.length;
+        myI++
+    ){
+
+        let myX=
+            myI/
+            (myLossHistory.length-1)*
+            myCanvas.width;
+
+
+        let myY=
+            myCanvas.height-
+            (
+                myLossHistory[myI]/
+                myMaximum*
+                (myCanvas.height-8)
+            )-
+            4;
+
+
+        if(myI===0){
+
+            myContext.moveTo(
+                myX,
+                myY
+            );
+
+        }else{
+
+            myContext.lineTo(
+                myX,
+                myY
+            );
+
+        }
+
+    }
+
+
+    myContext.strokeStyle=
+        "#ffd040";
+
+
+    myContext.lineWidth=2;
+
+    myContext.stroke();
+
+    myContext.lineWidth=1;
+
+}
+
+
+/* ------------------------------------------------ */
+/* STATISTICS                                       */
+/* ------------------------------------------------ */
+
+function myUpdateStats(){
+
+    let myTargetIndex=
+        myGetTargetIndex();
+
+
+    let myTargetName=
+        myTargetIndex>=0 &&
+        myZones[myTargetIndex]?
+        "zone "+myTargetIndex:
+        "none";
+
+
+    document.getElementById(
+        "myStats"
+    ).innerHTML=
+
+        "Mode: "+
+        myMode+
+        "<br>"+
+
+        "Running: "+
+        (
+            myRunning?
+            "YES":
+            "NO"
+        )+
+        "<br>"+
+
+        "Topology: "+
+        myTopology+
+        " × "+
+        myTopology+
+        "<br>"+
+
+        "Zones: "+
+        myZones.length+
+        "<br>"+
+
+        "Stim sites: 32"+
+        "<br>"+
+
+        "Visible sensors: 1,000 / 26,400"+
+        "<br>"+
+
+        "Epoch: "+
+        myEpoch+
+        "<br>"+
+
+        "Loss: "+
+        myLoss.toFixed(4)+
+        "<br>"+
+
+        "Accuracy: "+
+        (
+            myAccuracy*
+            100
+        ).toFixed(1)+
+        "%"+
+        "<br>"+
+
+        "Learning rate: "+
+        myLearningRate.toFixed(3)+
+        "<br>"+
+
+        "Target: "+
+        myTarget+
+        " ("+
+        myTargetName+
+        ")";
+
+}
+
+
+/* ------------------------------------------------ */
+/* ANIMATION LOOP                                   */
+/* ------------------------------------------------ */
+
+function myAnimate(myTime){
+
+    requestAnimationFrame(
+        myAnimate
+    );
+
+
+    if(
+        !myLastTime
+    ){
+
+        myLastTime=
+            myTime;
+
+    }
+
+
+    let myDelta=
+        myTime-
+        myLastTime;
+
+
+    myLastTime=
+        myTime;
+
+
+    myActivityTimer+=
+        myDelta*.01;
+
+
+    /*
+       Training runs deliberately slower
+       than inference.
+
+       The clock slider multiplies the
+       virtual passage of time.
+    */
+
+    if(myRunning){
+
+        myAccumulator+=
+            myDelta*
+            myClockScale;
+
+
+        let myInterval;
+
+
+        if(
+            myMode==="training"
+        ){
+
+            myInterval=180;
+
+        }else{
+
+            myInterval=35;
+
+        }
+
+
+        while(
+            myAccumulator>=
+            myInterval
+        ){
+
+            myAccumulator-=
+                myInterval;
+
+
+            myRunEpoch();
+
+        }
+
+    }
+
+
+    /*
+       Slowly rotate the entire MEA.
+
+       Because every object belongs to
+       myArrayGroup, the 32 stimulation
+       sites, sensors, zones and connections
+       all rotate together.
+    */
+
+    myArrayGroup.rotation.y+=
+        .0007;
+
+
+    myControls.update();
+
+
+    myRenderer.render(
+        myScene,
+        myCamera
+    );
+
+}
+
+
+/* ------------------------------------------------ */
+/* RESIZE                                           */
+/* ------------------------------------------------ */
+
+function myResize(){
+
+    myCamera.aspect=
+        window.innerWidth/
+        window.innerHeight;
+
+
+    myCamera.updateProjectionMatrix();
+
+
+    myRenderer.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
+
+}
+
+
+/* ------------------------------------------------ */
+/* START                                            */
+/* ------------------------------------------------ */
+
+myInitializeScene();
+
+</script>
+
+</body>
+</html>
