@@ -2,6 +2,8 @@ Maxwell Biosystems at  https://www.mxwbio.com/
 
 MaxLab  at  https://www.mxwbio.com/products/maxlab-live
 
+MaxLab biocomputing  https://www.mxwbio.com/applications/biocomputing
+
 
 
 Testing at
