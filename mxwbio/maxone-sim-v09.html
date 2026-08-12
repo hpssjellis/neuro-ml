@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WetML MaxOne Simulator V0.9</title>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body style="margin:0;background:#050810;color:white;font-family:Arial,sans-serif;overflow:hidden">
+<div id="myPanel" style="position:absolute;z-index:10;left:10px;top:10px;width:430px;max-height:calc(100vh - 20px);overflow:auto;background:rgba(5,9,20,.96);padding:12px;border:1px solid #39445d;border-radius:8px;box-sizing:border-box">
+<h2 style="margin:0">WetML MaxOne V0.9</h2>
+<div style="font-size:12px;color:#aab4c8;margin:5px 0 12px">Biological-learning sandbox: define stimulation, define desired sensing, observe actual sensing, then automatically correct the next trial.</div>
+<h3>1. Topology</h3>
+<input type="button" value="2 × 2" onclick="mySetTopology(2)">
+<input type="button" value="3 × 3" onclick="mySetTopology(3)">
+<input type="button" value="4 × 4" onclick="mySetTopology(4)">
+<input type="button" value="5 × 5" onclick="mySetTopology(5)">
+<div id="myTopologyInfo" style="font-size:11px;color:#9da8bc;margin-top:6px"></div>
+<h3>2. Desired Output</h3>
+<div style="font-size:11px;color:#9da8bc">For every SENSE zone, choose whether the desired result is ON (good ability) or OFF (bad ability). The simulator never changes a SENSE zone into an EXCITE or INHIB zone; those are automatic control actions.</div>
+<div id="myDesiredEditor" style="margin-top:7px"></div>
+<h3>3. 1,000 Sensor Nodes</h3>
+<div style="font-size:11px;color:#9da8bc">Every simulated sensor has an independent firing toggle. Random firing can be disabled globally, or masked outside SENSE zones to reduce computation.</div>
+<input type="button" value="Random ON" onclick="mySetRandomFiring(true)">
+<input type="button" value="Random OFF" onclick="mySetRandomFiring(false)">
+<input type="button" value="Toggle All" onclick="myToggleAllSensors()">
+<div style="margin-top:6px">Random probability <input id="myRandomProbability" type="number" value="0.025" min="0" max="1" step="0.005" style="width:65px"></div>
+<div style="margin-top:5px"><input id="myZoneMasking" type="checkbox" checked> Mask random firing outside SENSE zones</div>
+<h3>4. Stimulation</h3>
+<div>Frequency <input id="myFrequency" type="number" value="20" min="1" max="1000" style="width:60px"> Hz</div>
+<div>Amplitude <input id="myAmplitude" type="number" value="0.5" min="0" max="1" step="0.05" style="width:60px"></div>
+<div>Pulse width <input id="myPulseWidth" type="number" value="500" min="50" max="5000" style="width:65px"> µs</div>
+<div>Burst pulses <input id="myBurstPulses" type="number" value="1" min="1" max="100" style="width:60px"></div>
+<h3>5. Closed-Loop Training</h3>
+<input type="button" value="Training" onclick="mySetMode('training')">
+<input type="button" value="Inference" onclick="mySetMode('inference')">
+<input type="button" value="Run / Stop" onclick="myToggleRun()">
+<input type="button" value="Single Trial" onclick="mySingleStep()">
+<input type="button" value="Reset" onclick="myResetSimulation()">
+<div id="myModeStatus" style="font-size:12px;margin-top:6px">Mode: training</div>
+<div style="margin-top:6px">Controller strength <input id="myControllerStrength" type="number" value="0.5" min="0" max="1" step="0.05" style="width:60px"></div>
+<div style="margin-top:5px">Sense threshold <input id="mySenseThreshold" type="number" value="0.35" min="0" max="1" step="0.05" style="width:60px"></div>
+<div style="margin-top:5px">Epochs <input id="myEpochTarget" type="number" value="100" min="1" max="10000" style="width:65px"></div>
+<h3>6. Training Result</h3>
+<div id="myTrainingStats" style="background:#080d19;padding:8px;font-family:monospace;font-size:12px;line-height:1.55"></div>
+<div id="myControllerStatus" style="background:#080d19;padding:8px;margin-top:6px;font-family:monospace;font-size:11px;white-space:pre-wrap"></div>
+<h3>7. Activity</h3>
+<canvas id="myActivityCanvas" width="390" height="150" style="width:100%;background:#050810;border:1px solid #293044"></canvas>
+<h3>8. WetML Protocol</h3>
+<div id="myProtocol" style="background:#080d19;padding:8px;font-family:monospace;font-size:10px;line-height:1.45;white-space:pre-wrap"></div>
+<input type="button" value="Export Protocol JSON" onclick="myExportProtocol()">
+<input type="button" value="Save Simulation" onclick="mySaveSimulation()">
+<input type="button" value="Load Simulation" onclick="document.getElementById('myFileInput').click()">
+<input id="myFileInput" type="file" accept=".json" style="display:none" onchange="myLoadSimulation(this.files[0])">
+<h3>Hardware</h3>
+<div id="myStats" style="font-family:monospace;font-size:11px;line-height:1.5"></div>
+</div>
+<script>
+let myScene,myCamera,myRenderer,myControls,myArrayGroup,myZoneGroup,myStimGroup,mySensorPoints;
+let mySensors=[],myZones=[],myDesiredPattern=[],myHistory=[];
+let myTopology=2,myMode="training",myRunning=false,myEpoch=0,myLoss=null,myResponse=null,myActivity=0,myLastTime=0,myClockAccumulator=0,myEpochBusy=false,myStimPulse=0,myRandomFiring=true,mySelectedZoneIndex=-1;
+let myRaycaster=new THREE.Raycaster(),myMouse=new THREE.Vector2();
+
+async function myInitializeScene(){
+ myScene=new THREE.Scene(); myScene.background=new THREE.Color(0x050810);
+ myCamera=new THREE.PerspectiveCamera(50,window.innerWidth/window.innerHeight,.1,1000); myCamera.position.set(0,13,19);
+ myRenderer=new THREE.WebGLRenderer({antialias:true}); myRenderer.setPixelRatio(window.devicePixelRatio); myRenderer.setSize(window.innerWidth,window.innerHeight); document.body.appendChild(myRenderer.domElement);
+ myControls=new THREE.OrbitControls(myCamera,myRenderer.domElement); myControls.enableDamping=true; myControls.dampingFactor=.07; myControls.minDistance=4; myControls.maxDistance=40;
+ myScene.add(new THREE.AmbientLight(0x8899aa,.8)); let myLight=new THREE.PointLight(0xffffff,1.4); myLight.position.set(0,12,10); myScene.add(myLight);
+ myArrayGroup=new THREE.Group(); myScene.add(myArrayGroup); myCreateArray(); myCreateSensors(); myCreateStimSites(); await mySetTopology(2); window.onresize=myResize; myUpdateAll(); requestAnimationFrame(myAnimate);
+}
+function myCreateArray(){
+ let myGrid=new THREE.GridHelper(16,32,0x45536e,0x202b40); myArrayGroup.add(myGrid);
+ let myPlate=new THREE.Mesh(new THREE.BoxGeometry(16,.12,16),new THREE.MeshPhongMaterial({color:0x111a29,transparent:true,opacity:.45})); myPlate.position.y=-.1; myArrayGroup.add(myPlate);
+}
+function myCreateSensors(){
+ let myCount=1000,mySide=32,myGeometry=new THREE.BufferGeometry(),myPositions=new Float32Array(myCount*3),myColors=new Float32Array(myCount*3);
+ for(let myI=0;myI<myCount;myI++){
+  let myColumn=myI%mySide,myRow=Math.floor(myI/mySide),myX=myColumn/(mySide-1)*15-7.5,myZ=myRow/(mySide-1)*15-7.5;
+  myPositions[myI*3]=myX; myPositions[myI*3+1]=.08; myPositions[myI*3+2]=myZ; myColors[myI*3]=.22; myColors[myI*3+1]=.88; myColors[myI*3+2]=.43; mySensors.push({x:myX,z:myZ,firing:true,activity:0});
+ }
+ myGeometry.setAttribute("position",new THREE.BufferAttribute(myPositions,3)); myGeometry.setAttribute("color",new THREE.BufferAttribute(myColors,3)); mySensorPoints=new THREE.Points(myGeometry,new THREE.PointsMaterial({size:.075,vertexColors:true})); myArrayGroup.add(mySensorPoints);
+}
+function myCreateStimSites(){
+ myStimGroup=new THREE.Group();
+ for(let myI=0;myI<32;myI++){ let myMesh=new THREE.Mesh(new THREE.SphereGeometry(.13,12,12),new THREE.MeshBasicMaterial({color:0xff4060})); myStimGroup.add(myMesh); }
+ myArrayGroup.add(myStimGroup);
+}
+async function mySetTopology(mySize){
+ myTopology=mySize; mySelectedZoneIndex=-1; if(myZoneGroup) myArrayGroup.remove(myZoneGroup); myZoneGroup=new THREE.Group(); myArrayGroup.add(myZoneGroup); myZones=[];
+ for(let myRow=0;myRow<mySize;myRow++) for(let myColumn=0;myColumn<mySize;myColumn++){
+  let myIndex=myRow*mySize+myColumn,myX=-7+myColumn*14/(mySize-1),myZ=-7+myRow*14/(mySize-1),myType="sense";
+  if(mySize===2) myType=(myIndex===0||myIndex===3)?"stim":"sense"; else myType=(myIndex%2===0)?"stim":"sense";
+  myZones.push({index:myIndex,x:myX,z:myZ,type:myType,activity:0,desired:0,control:"neutral",controlStrength:0}); myCreateZone(myIndex,myX,myZ,myType);
+ }
+ myCreateDefaultDesiredPattern(); myPositionStimSites(); myUpdateAll();
+}
+function myCreateZone(myIndex,myX,myZ,myType){
+ let myColor=myGetZoneColor(myType),myDisc=new THREE.Mesh(new THREE.CylinderGeometry(1.05,1.05,.08,32),new THREE.MeshBasicMaterial({color:myColor,transparent:true,opacity:.13})); myDisc.position.set(myX,.14,myZ); myDisc.userData.zoneIndex=myIndex; myZoneGroup.add(myDisc);
+ let myRing=new THREE.Mesh(new THREE.RingGeometry(.98,1.03,32),new THREE.MeshBasicMaterial({color:myColor,side:THREE.DoubleSide})); myRing.rotation.x=-Math.PI/2; myRing.position.set(myX,.19,myZ); myRing.userData.zoneIndex=myIndex; myZoneGroup.add(myRing);
+}
+function myGetZoneColor(myType){ if(myType==="stim")return 0xff4060; if(myType==="sense")return 0xffd040; if(myType==="inhib")return 0x4080ff; if(myType==="excite")return 0xff80c0; return 0x38e070; }
+function myCreateDefaultDesiredPattern(){ myDesiredPattern=myFindZones("sense").map((myZone,myIndex)=>myIndex===0?1:0); myRenderDesiredEditor(); }
+function myRenderDesiredEditor(){
+ let myElement=document.getElementById("myDesiredEditor"); myElement.innerHTML=""; let mySenseZones=myFindZones("sense");
+ for(let myI=0;myI<mySenseZones.length;myI++){
+  let myZone=mySenseZones[myI],myRow=document.createElement("div"); myRow.style.cssText="background:#080d19;padding:7px;margin-bottom:5px;font-size:11px";
+  let myInput=document.createElement("input"); myInput.type="checkbox"; myInput.checked=!!myDesiredPattern[myI]; myInput.onchange=function(){myDesiredPattern[myI]=this.checked?1:0;myUpdateAll();}; myRow.appendChild(myInput);
+  let myLabel=document.createElement("span"); myLabel.textContent=" Sense "+myZone.index+" desired ON / good ability"; myRow.appendChild(myLabel); myElement.appendChild(myRow);
+ }
+}
+function myFindZones(myType){return myZones.filter(myZone=>myZone.type===myType);}
+function myGetNearestZone(mySensor){ let myNearestZone=null,myNearestDistance=Infinity; for(let myZone of myZones){let myDistance=Math.hypot(mySensor.x-myZone.x,mySensor.z-myZone.z);if(myDistance<myNearestDistance){myNearestDistance=myDistance;myNearestZone=myZone;}} return myNearestZone; }
+function myUpdateSensorFiring(){
+ let myProbability=Math.max(0,Math.min(1,Number(document.getElementById("myRandomProbability").value))),myMask=document.getElementById("myZoneMasking").checked;
+ for(let mySensor of mySensors){let myZone=myGetNearestZone(mySensor); if(myMask&&myZone&&myZone.type!=="sense"){mySensor.activity=0;continue;} if(myRandomFiring)mySensor.firing=Math.random()<myProbability; mySensor.activity=mySensor.firing?1:0;}
+}
+function mySetRandomFiring(myValue){myRandomFiring=myValue;myUpdateAll();}
+function myToggleAllSensors(){let myAnyOff=mySensors.some(mySensor=>!mySensor.firing);for(let mySensor of mySensors)mySensor.firing=myAnyOff;myRandomFiring=false;myUpdateAll();}
+function myAutoController(mySenseZones){
+ let myStrength=Math.max(0,Math.min(1,Number(document.getElementById("myControllerStrength").value))),myThreshold=Math.max(0,Math.min(1,Number(document.getElementById("mySenseThreshold").value)));
+ for(let myI=0;myI<mySenseZones.length;myI++){let myZone=mySenseZones[myI],myDesired=myDesiredPattern[myI]||0;myZone.desired=myDesired;
+  if(myDesired){myZone.control=myZone.activity<myThreshold?"excite":"neutral";}else{myZone.control=myZone.activity>=myThreshold?"inhib":"neutral";} myZone.controlStrength=myStrength;
+ }
+}
+function myApplyClosedLoopControl(mySenseZones){
+ let myStrength=Math.max(0,Math.min(1,Number(document.getElementById("myControllerStrength").value)));
+ for(let myZone of mySenseZones){if(myZone.control==="excite")myZone.activity+=.18*myStrength;if(myZone.control==="inhib")myZone.activity*=1-.18*myStrength;myZone.activity=Math.max(0,Math.min(1,myZone.activity));}
+}
+function mySingleStep(){
+ if(myEpochBusy)return; myEpochBusy=true;
+ try{
+  let myStimZones=myFindZones("stim"),mySenseZones=myFindZones("sense"); if(!mySenseZones.length)return;
+  myUpdateSensorFiring(); let myAmplitude=Math.max(0,Math.min(1,Number(document.getElementById("myAmplitude").value)));
+  for(let myZone of myZones){myZone.activity*=.82;for(let myStimZone of myStimZones){let myDistance=Math.hypot(myZone.x-myStimZone.x,myZone.z-myStimZone.z),myCoupling=Math.exp(-myDistance/3.2);myZone.activity+=myAmplitude*myCoupling*.42;}}
+  for(let myZone of mySenseZones){let myCount=0,myFiring=0;for(let mySensor of mySensors){let myDistance=Math.hypot(mySensor.x-myZone.x,mySensor.z-myZone.z);if(myDistance<2.35){myCount++;if(mySensor.firing)myFiring++;}}let myRandomActivity=myCount?myFiring/myCount:0;myZone.activity=Math.min(1,myZone.activity+myRandomActivity*.38);}
+  myAutoController(mySenseZones); if(myMode==="training")myApplyClosedLoopControl(mySenseZones);
+  let myLossSum=0;for(let myI=0;myI<mySenseZones.length;myI++)myLossSum+=Math.pow((myDesiredPattern[myI]||0)-mySenseZones[myI].activity,2);
+  myLoss=myLossSum/mySenseZones.length;myResponse=mySenseZones.reduce((mySum,myZone)=>mySum+myZone.activity,0)/mySenseZones.length;myActivity=mySensors.reduce((mySum,mySensor)=>mySum+mySensor.activity,0)/mySensors.length;myEpoch++;myHistory.push(myLoss);if(myHistory.length>120)myHistory.shift();myStimPulse=1;myUpdateAll();
+  let myTarget=Math.max(1,Number(document.getElementById("myEpochTarget").value));if(myMode==="training"&&myEpoch>=myTarget)myRunning=false;
+ }finally{myEpochBusy=false;}
+}
+function myPositionStimSites(){
+ let myStimZones=myFindZones("stim");for(let myI=0;myI<32;myI++){let myMesh=myStimGroup.children[myI];if(!myStimZones.length){myMesh.visible=false;continue;}myMesh.visible=true;let myZone=myStimZones[myI%myStimZones.length],myAngle=myI/32*Math.PI*2,myRadius=.55;myMesh.position.set(myZone.x+Math.cos(myAngle)*myRadius,.3,myZone.z+Math.sin(myAngle)*myRadius);}
+}
+function myUpdateVisualization(){
+ if(!mySensorPoints)return;let myColors=mySensorPoints.geometry.attributes.color;
+ for(let myI=0;myI<mySensors.length;myI++){let mySensor=mySensors[myI],myZone=myGetNearestZone(mySensor),myColor=new THREE.Color(0x38e070);if(!mySensor.firing)myColor.setHex(0x101622);else if(myZone&&myZone.type==="sense")myColor.setHex(0xffd040);myColors.setXYZ(myI,myColor.r,myColor.g,myColor.b);} myColors.needsUpdate=true;
+ for(let myI=0;myI<myZones.length;myI++){let myDisc=myZoneGroup.children[myI*2],myRing=myZoneGroup.children[myI*2+1],myZone=myZones[myI];if(!myDisc||!myRing)continue;let myScale=1+myZone.activity*.7;myDisc.scale.set(myScale,myScale,myScale);myRing.scale.set(myScale,myScale,myScale);myRing.material.color.setHex(myI===mySelectedZoneIndex?0xffffff:myGetZoneColor(myZone.type));if(myZone.type==="sense"){myDisc.material.color.setHex(myZone.control==="excite"?0xff80c0:myZone.control==="inhib"?0x4080ff:0xffd040);}else myDisc.material.color.setHex(myGetZoneColor(myZone.type));}
+ for(let myMesh of myStimGroup.children)if(myMesh.visible){let myScale=1+myStimPulse*1.5;myMesh.scale.set(myScale,myScale,myScale);}
+}
+function mySelectZone(myEvent){
+ let myPanel=document.getElementById("myPanel");if(myEvent.clientX<myPanel.offsetWidth+20)return;let myRect=myRenderer.domElement.getBoundingClientRect();myMouse.x=((myEvent.clientX-myRect.left)/myRect.width)*2-1;myMouse.y=-((myEvent.clientY-myRect.top)/myRect.height)*2+1;myRaycaster.setFromCamera(myMouse,myCamera);let myHits=myRaycaster.intersectObjects(myZoneGroup.children,false);if(!myHits.length)return;let myIndex=myHits[0].object.userData.zoneIndex;if(typeof myIndex!=="number")return;mySelectedZoneIndex=myIndex;myUpdateAll();
+}
+function mySetMode(myNewMode){myMode=myNewMode;document.getElementById("myModeStatus").textContent="Mode: "+myMode+(myMode==="training"?" — automatic correction":" — observe only");myUpdateAll();}
+function myToggleRun(){myRunning=!myRunning;myUpdateAll();}
+function myResetSimulation(){myRunning=false;myEpoch=0;myLoss=null;myResponse=null;myActivity=0;myHistory=[];myStimPulse=0;for(let myZone of myZones){myZone.activity=0;myZone.control="neutral";myZone.desired=0;}for(let mySensor of mySensors){mySensor.activity=0;mySensor.firing=true;}myUpdateAll();}
+function myUpdateTrainingStats(){
+ document.getElementById("myTrainingStats").innerHTML="Epoch: "+myEpoch+"<br>Target: "+document.getElementById("myEpochTarget").value+"<br>Loss: "+(myLoss===null?"--":myLoss.toFixed(5))+"<br>Mean sense output: "+(myResponse===null?"--":myResponse.toFixed(4))+"<br>Training: "+(myMode==="training"?"AUTO CORRECTION":"OFF")+"<br>Run: "+(myRunning?"RUNNING":"STOPPED");
+}
+function myUpdateControllerStatus(){let mySenseZones=myFindZones("sense"),myText="";for(let myI=0;myI<mySenseZones.length;myI++){let myZone=mySenseZones[myI];myText+="SENSE "+myZone.index+"  desired="+(myDesiredPattern[myI]||0)+"  actual="+myZone.activity.toFixed(3)+"  -> "+myZone.control.toUpperCase()+"\n";}document.getElementById("myControllerStatus").textContent=myText||"No SENSE zones.";}
+function myDrawActivity(){
+ let myCanvas=document.getElementById("myActivityCanvas"),myContext=myCanvas.getContext("2d");myContext.clearRect(0,0,myCanvas.width,myCanvas.height);myContext.strokeStyle="#39445d";myContext.beginPath();myContext.moveTo(0,20);myContext.lineTo(myCanvas.width,20);myContext.stroke();if(myHistory.length>1){myContext.strokeStyle="#6fd6ff";myContext.beginPath();for(let myI=0;myI<myHistory.length;myI++){let myX=myI/(myHistory.length-1)*myCanvas.width,myY=130-Math.min(1,myHistory[myI])*105;if(myI===0)myContext.moveTo(myX,myY);else myContext.lineTo(myX,myY);}myContext.stroke();}myContext.fillStyle="#fff";myContext.font="11px Arial";myContext.fillText("Loss history",8,14);
+}
+function myBuildProtocol(){return {format:"WetML closed-loop biological learning protocol",version:"0.9",topology:myTopology+"x"+myTopology,hardware:{platform:"MaxOne",physicalElectrodes:26400,simulatedActiveSensors:1000,stimulationSites:32},stimulation:{frequencyHz:Number(document.getElementById("myFrequency").value),amplitude:Number(document.getElementById("myAmplitude").value),pulseWidthUs:Number(document.getElementById("myPulseWidth").value),burstPulses:Number(document.getElementById("myBurstPulses").value)},stimulationZones:myFindZones("stim").map(myZone=>myZone.index),sensingZones:myFindZones("sense").map((myZone,myI)=>({zone:myZone.index,desiredOutput:myDesiredPattern[myI]||0,automaticControl:myZone.control})),sensing:{sensorCount:1000,independentFiringToggles:true,randomFiring:myRandomFiring,randomProbability:Number(document.getElementById("myRandomProbability").value),maskOutsideSenseZones:document.getElementById("myZoneMasking").checked},closedLoop:{controllerStrength:Number(document.getElementById("myControllerStrength").value),threshold:Number(document.getElementById("mySenseThreshold").value),trainingMode:myMode==="training"},state:{epoch:myEpoch,loss:myLoss,response:myResponse},note:"The culture is the learner. This protocol describes stimulation, sensing, desired outputs and closed-loop control rather than neural-network weights."};}
+function myUpdateProtocol(){let myProtocol=myBuildProtocol();document.getElementById("myProtocol").textContent="STIM: "+myProtocol.stimulationZones.join(", ")+"\nSENSE: "+myProtocol.sensingZones.map(myItem=>"S"+myItem.zone+"="+myItem.desiredOutput).join("  ")+"\n1000 independent sensors\nRandom firing: "+myRandomFiring+"\nMask outside SENSE: "+myProtocol.sensing.maskOutsideSenseZones+"\nController: automatic EXCITE / INHIBIT\n\n"+JSON.stringify(myProtocol,null,2);}
+function myUpdateStats(){document.getElementById("myStats").innerHTML="Topology: "+myTopology+" × "+myTopology+"<br>STIM zones: "+myFindZones("stim").length+"<br>SENSE zones: "+myFindZones("sense").length+"<br>Active sensor toggles: "+mySensors.filter(mySensor=>mySensor.firing).length+" / 1000<br>Stimulation sites: 32<br>Epoch: "+myEpoch+"<br>Population activity: "+myActivity.toFixed(4);document.getElementById("myTopologyInfo").textContent=myTopology===2?"2×2: 2 STIM zones + 2 SENSE zones. Each full STIM pattern maps to a desired SENSE pattern.":"Topology has "+myFindZones("stim").length+" STIM and "+myFindZones("sense").length+" SENSE zones.";}
+function myUpdateAll(){myUpdateVisualization();myUpdateTrainingStats();myUpdateControllerStatus();myUpdateStats();myUpdateProtocol();myDrawActivity();}
+function myExportProtocol(){let myBlob=new Blob([JSON.stringify(myBuildProtocol(),null,2)],{type:"application/json"}),myUrl=URL.createObjectURL(myBlob),myLink=document.createElement("a");myLink.href=myUrl;myLink.download="wetml-maxone-protocol-v09.json";myLink.click();URL.revokeObjectURL(myUrl);}
+function mySaveSimulation(){let myData={version:"0.9",topology:myTopology,zones:myZones,desiredPattern:myDesiredPattern,sensors:mySensors,epoch:myEpoch,loss:myLoss,response:myResponse,activity:myActivity,history:myHistory,randomFiring:myRandomFiring};let myBlob=new Blob([JSON.stringify(myData,null,2)],{type:"application/json"}),myUrl=URL.createObjectURL(myBlob),myLink=document.createElement("a");myLink.href=myUrl;myLink.download="maxone-sim-v09.json";myLink.click();URL.revokeObjectURL(myUrl);}
+async function myLoadSimulation(myFile){if(!myFile)return;try{let myText=await myFile.text(),myData=JSON.parse(myText);await mySetTopology(Number(myData.topology)||2);if(Array.isArray(myData.zones))for(let myI=0;myI<myZones.length;myI++){if(myData.zones[myI]){myZones[myI].type=myData.zones[myI].type||myZones[myI].type;myZones[myI].activity=Number(myData.zones[myI].activity)||0;myZones[myI].control=myData.zones[myI].control||"neutral";}}if(Array.isArray(myData.desiredPattern))myDesiredPattern=myData.desiredPattern;if(Array.isArray(myData.sensors))for(let myI=0;myI<mySensors.length;myI++)if(myData.sensors[myI])mySensors[myI].firing=!!myData.sensors[myI].firing;myEpoch=Number(myData.epoch)||0;myLoss=typeof myData.loss==="number"?myData.loss:null;myResponse=typeof myData.response==="number"?myData.response:null;myActivity=Number(myData.activity)||0;myHistory=Array.isArray(myData.history)?myData.history:[];myRandomFiring=myData.randomFiring!==false;while(myZoneGroup.children.length)myZoneGroup.remove(myZoneGroup.children[0]);for(let myZone of myZones)myCreateZone(myZone.index,myZone.x,myZone.z,myZone.type);myPositionStimSites();myRenderDesiredEditor();myUpdateAll();}catch(myError){alert("Could not load simulation: "+myError.message);}}
+function myResize(){myCamera.aspect=window.innerWidth/window.innerHeight;myCamera.updateProjectionMatrix();myRenderer.setSize(window.innerWidth,window.innerHeight);}
+function myAnimate(myTime){requestAnimationFrame(myAnimate);if(!myLastTime)myLastTime=myTime;let myDelta=myTime-myLastTime;myLastTime=myTime;myClockAccumulator+=myDelta;let myStepTime=myMode==="training"?500:120;if(myRunning&&!myEpochBusy&&myClockAccumulator>=myStepTime){myClockAccumulator=0;mySingleStep();}myArrayGroup.rotation.y+=.0007;if(myStimPulse>0){myStimPulse*=.90;if(myStimPulse<.01)myStimPulse=0;myUpdateVisualization();}myControls.update();myRenderer.render(myScene,myCamera);}
+myInitializeScene();
+</script>
+</body>
+</html>
