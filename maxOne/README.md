@@ -1,3 +1,12 @@
+Testing at
+
+https://hpssjellis.github.io/neuro-ml/maxone/maxone-sim-v0#.html  where # increases as things improve
+
+Typically https://hpssjellis.github.io/neuro-ml/maxone/maxone-sim.html  is the best stable version.
+
+
+
+
 Build a complete, single-file HTML webpage using vanilla JavaScript, inline CSS, and a Three.js WebGL visualization to serve as a pedagogical sandbox and simulation testbed for High-Density Microelectrode Array (HD-MEA) biocomputing workflows.
 
 ### Core Simulation Specifications for Version 1:
