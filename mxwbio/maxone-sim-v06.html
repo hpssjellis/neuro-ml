@@ -1018,7 +1018,6 @@ async function myCreateTfModel(){
 /* =========================================================
    SPATIAL INITIALIZATION
    ========================================================= */
-
 async function myApplySpatialInitialization(){
 
     if(!myTfModel){
@@ -1026,10 +1025,8 @@ async function myApplySpatialInitialization(){
         return;
     }
 
-
     let myWeights=
         myTfModel.getWeights();
-
 
     if(
         myWeights.length<2
@@ -1038,24 +1035,19 @@ async function myApplySpatialInitialization(){
         return;
     }
 
-
     let myKernel=
         myWeights[0];
-
 
     let myShape=
         myKernel.shape;
 
-
     let myData=
         await myKernel.data();
-
 
     let myNewData=
         new Float32Array(
             myData.length
         );
-
 
     for(
         let myI=0;
@@ -1075,45 +1067,27 @@ async function myApplySpatialInitialization(){
             let myB=
                 myZones[myJ];
 
-
             let myDistance=
                 Math.hypot(
-
                     myA.x-myB.x,
-
                     myA.z-myB.z
-
                 );
-
 
             let myFactor=
                 myGetDistanceFactor(
                     myDistance
                 );
 
-
             let myIndex=
                 myI*
                 myZones.length+
                 myJ;
 
-
-            /*
-               Preserve random initialization
-               but impose physical distance.
-            */
-
-            myNewData[
-                myIndex
-            ]=
-                myData[
-                    myIndex
-                ]*
+            myNewData[myIndex]=
+                myData[myIndex]*
                 myFactor;
-
         }
     }
-
 
     let myNewTensor=
         tf.tensor(
@@ -1121,19 +1095,49 @@ async function myApplySpatialInitialization(){
             myShape
         );
 
+    /*
+       Do NOT dispose myKernel here.
+       TensorFlow.js owns the model variables.
+    */
 
-    myWeights[0].dispose();
+    let myNewWeights=[
+        myNewTensor
+    ];
 
+    for(
+        let myI=1;
+        myI<myWeights.length;
+        myI++
+    ){
 
-    myWeights[0]=
-        myNewTensor;
-
+        myNewWeights.push(
+            myWeights[myI].clone()
+        );
+    }
 
     myTfModel.setWeights(
-        myWeights
+        myNewWeights
     );
-}
 
+    /*
+       The cloned/new tensors are now copied
+       into the model's variables.
+
+       We can safely dispose the temporary
+       tensors after setWeights().
+    */
+
+    myNewTensor.dispose();
+
+    for(
+        let myI=1;
+        myI<myNewWeights.length;
+        myI++
+    ){
+
+        myNewWeights[myI].dispose();
+    }
+}
 
 /* =========================================================
    CONNECTION VISUALIZATION
