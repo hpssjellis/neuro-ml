@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Bio-Compute Sandbox Simulator</title>
+    <!-- Inline CSS for a clean, minimal interface -->
+    <style>
+        body {
+            margin: 0;
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #myCanvasContainer {
+            width: 80vw;
+            height: 60vh;
+            border: 1px solid #333;
+            background-color: #000;
+        }
+        .myControlPanel {
+            margin-top: 15px;
+            display: flex;
+            gap: 20px;
+            background: #1e1e1e;
+            padding: 10px 20px;
+            border-radius: 4px;
+        }
+        button, select {
+            background: #333;
+            color: #fff;
+            border: 1px solid #555;
+            padding: 6px 12px;
+            cursor: pointer;
+        }
+        button:hover { background: #444; }
+    </style>
+    <!-- Include Three.js and TensorFlow.js from CDNs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+</head>
+<body>
+
+    <div id="myCanvasContainer"></div>
+
+    <div class="myControlPanel">
+        <div>Mode: <span id="myStatusText">Training (Slow Epochs)</span></div>
+        <div>Grid Topology: <span id="myGridLabel">2x2 Start</span></div>
+        <button onclick="myToggleClockSpeed()">Toggle Speed</button>
+        <button onclick="myAdvanceGridScale()">Scale Grid (3x3+)</button>
+    </div>
+
+    <script>
+        // Initialize core simulation variables using camelCase and 'my' prefix convention
+        let myScene, myCamera, myRenderer, myGridSize = 2;
+        let myArrayNodeMesh, myIsTrainingActive = true;
+        let mySimulationClockSpeed = 100; // milliseconds per step for training
+
+        async function myInitSimulation() {
+            const myCameraContainer = document.getElementById('myCanvasContainer');
+            
+            myScene = new THREE.Scene();
+            myCamera = new THREE.PerspectiveCamera(60, myCameraContainer.clientWidth / myCameraContainer.clientHeight, 0.1, 1000);
+            myCamera.position.set(0, -50, 40);
+            myCamera.up.set(0, 0, 1);
+            myCamera.lookAt(0, 0, 0);
+
+            myRenderer = new THREE.WebGLRenderer({ antialias: true });
+            myRenderer.setSize(myCameraContainer.clientWidth, myCameraContainer.clientHeight);
+            myCameraContainer.appendChild(myRenderer.domElement);
+
+            // Add ambient lighting
+            const myLight = new THREE.AmbientLight(0xffffff, 0.8);
+            myScene.add(myLight);
+
+            myBuildElectrodeGrid(myGridSize);
+            myRunExecutionLoop();
+        }
+
+        function myBuildElectrodeGrid(currentSize) {
+            if (myArrayNodeMesh) myScene.remove(myArrayNodeMesh);
+
+            const myGeometry = new THREE.BoxGeometry(2, 2, 2);
+            const myMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff88, wireframe: true });
+            
+            // Create a group representing spatial electrode distribution
+            myArrayNodeMesh = new THREE.Group();
+            const mySpacingFactor = 10; // Scaled distance representation for visual clarity
+
+            for (let x = 0; x < currentSize; x++) {
+                for (let y = 0; y < currentSize; y++) {
+                    const myNode = new THREE.Mesh(myGeometry, myMaterial.clone());
+                    myNode.position.set(
+                        (x - currentSize / 2) * mySpacingFactor,
+                        (y - currentSize / 2) * mySpacingFactor,
+                        0
+                    );
+                    myArrayNodeMesh.add(myNode);
+                }
+            }
+            myScene.add(myArrayNodeMesh);
+        }
+
+        function myToggleClockSpeed() {
+            myIsTrainingActive = !myIsTrainingActive;
+            mySimulationClockSpeed = myIsTrainingActive ? 100 : 10;
+            document.getElementById('myStatusText').innerText = myIsTrainingActive ? "Training (Slow Epochs)" : "Inference (Fast Mode)";
+        }
+
+        function myAdvanceGridScale() {
+            myGridSize = myGridSize === 2 ? 3 : (myGridSize === 3 ? 4 : 2);
+            document.getElementById('myGridLabel').innerText = `${myGridSize}x${myGridSize} Matrix`;
+            myBuildElectrodeGrid(myGridSize);
+        }
+
+        async function myRunExecutionLoop() {
+            // Main processing loop adapting variables dynamically
+            setInterval(() => {
+                if (myArrayNodeMesh) {
+                    myArrayNodeMesh.children.forEach((node, index) => {
+                        // Simulate random biological spikes shifting into trained weights
+                        const myRandomActivation = Math.random();
+                        if (myIsTrainingActive) {
+                            node.material.color.setHex(myRandomActivation > 0.7 ? 0xff0055 : 0x00ff88);
+                        } else {
+                            node.material.color.setHex(0x0088ff); // Inference state color
+                        }
+                    });
+                }
+                myRenderer.render(myScene, myCamera);
+            }, mySimulationClockSpeed);
+        }
+
+        window.onload = myInitSimulation;
+    </script>
+</body>
+</html>
