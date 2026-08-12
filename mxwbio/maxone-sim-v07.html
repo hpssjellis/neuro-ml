@@ -1264,29 +1264,54 @@ async function mySingleStep(){
         /*
            Propagate activity spatially.
         */
+       /*
+   Propagate activity spatially.
+*/
 
-        for(
-            let myI=1;
-            myI<myZones.length;
-            myI++
-        ){
+let myStimZone=
+    myZones.find(
+        myZone=>
+            myZone.type==="stim"
+    );
 
-            let myZone=
-                myZones[myI];
+if(!myStimZone){
 
+    myEpochBusy=false;
 
-            let myDistance=
-                Math.hypot(
-                    zone0.x-myZone.x,
-                    zone0.z-myZone.z
-                );
+    return;
+}
 
+for(
+    let myI=0;
+    myI<myZones.length;
+    myI++
+){
 
-            let myCoupling=
-                Math.exp(
-                    -myDistance/5
-                );
+    let myZone=
+        myZones[myI];
 
+    if(
+        myZone===myStimZone
+    ){
+
+        continue;
+    }
+
+    let myDistance=
+        Math.hypot(
+            myStimZone.x-myZone.x,
+            myStimZone.z-myZone.z
+        );
+
+    let myCoupling=
+        Math.exp(
+            -myDistance/5
+        );
+
+    myNewActivity[myI]=
+        myStimAmplitude*
+        myCoupling;
+}
 
             myNewActivity[myI]=
                 myStimAmplitude*
