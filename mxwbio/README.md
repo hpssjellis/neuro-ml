@@ -14,7 +14,7 @@ https://hpssjellis.github.io/neuro-ml/mxwbio/maxone-sim-v0#.html  where # increa
 
 Typically mxwbio  is the best stable version.
 
-
+https://hpssjellis.github.io/neuro-ml/mxwbio/maxone-sim.html 
 
 
 Build a complete, single-file HTML webpage using vanilla JavaScript, inline CSS, and a Three.js WebGL visualization to serve as a pedagogical sandbox and simulation testbed for High-Density Microelectrode Array (HD-MEA) biocomputing workflows.
