@@ -1,115 +1,32 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MaxOne HD-MEA Biocomputing Sandbox V1.1</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 
-<style>
-body {
-    margin:0;
-    overflow:hidden;
-    background:#050812;
-    color:#dddddd;
-    font-family:Arial,sans-serif;
-}
-
-#myPanel {
-    position:absolute;
-    z-index:10;
-    left:10px;
-    top:10px;
-    width:330px;
-    max-height:calc(100vh - 20px);
-    overflow:auto;
-    padding:12px;
-    background:rgba(7,11,22,.94);
-    border:1px solid #39445d;
-    border-radius:8px;
-    box-sizing:border-box;
-}
-
-h2 {
-    margin:0 0 8px 0;
-    font-size:19px;
-}
-
-h3 {
-    margin:13px 0 5px 0;
-    font-size:13px;
-    color:#9fc7ff;
-}
-
-input[type=button] {
-    background:#182235;
-    color:#eeeeee;
-    border:1px solid #506080;
-    border-radius:4px;
-    padding:5px 8px;
-    margin:2px;
-    cursor:pointer;
-}
-
-input[type=button]:hover {
-    background:#2a3b5c;
-}
-
-select {
-    background:#182235;
-    color:#eeeeee;
-    border:1px solid #506080;
-    padding:4px;
-}
-
-#myStats {
-    background:#0b1020;
-    padding:8px;
-    border-radius:5px;
-    font-family:monospace;
-    font-size:12px;
-    line-height:1.55;
-}
-
-#myLossCanvas {
-    width:100%;
-    height:90px;
-    background:#070b15;
-    border:1px solid #293044;
-}
-
-.myLegend {
-    font-size:11px;
-    line-height:1.6;
-}
-
-.myDot {
-    display:inline-block;
-    width:9px;
-    height:9px;
-    border-radius:50%;
-    margin-right:4px;
-}
-</style>
+<title>MaxOne Simulation V0.6</title>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
 
 </head>
 
-<body>
+<body style="margin:0;overflow:hidden;background:#050812;color:white;font-family:Arial">
 
-<div id="myPanel">
+<div id="myPanel"
+style="position:absolute;z-index:10;left:10px;top:10px;width:350px;max-height:calc(100vh - 20px);overflow:auto;background:rgba(5,9,20,.94);padding:12px;border:1px solid #39445d;border-radius:8px;box-sizing:border-box">
 
-<h2>MaxOne HD-MEA Sandbox</h2>
+<h2 style="margin:0 0 8px">MaxOne Simulation V0.6</h2>
 
-<div style="font-size:12px">
-Virtual MaxOne subset:
-<b>26,400</b> physical electrodes<br>
-Visible active sensors:
-<b>1,000</b><br>
-Programmable stimulation sites:
-<b>32</b>
+<div style="font-size:12px;line-height:1.5">
+26,400 physical electrodes<br>
+1,000 visible active sensors<br>
+32 programmable stimulation sites
 </div>
+
 
 <h3>Topology</h3>
 
@@ -118,77 +35,124 @@ Programmable stimulation sites:
 <input type="button" value="4 × 4" onclick="mySetTopology(4)">
 <input type="button" value="5 × 5" onclick="mySetTopology(5)">
 
-<h3>Simulation Mode</h3>
+
+<h3>Simulation</h3>
 
 <input type="button" value="Training" onclick="mySetMode('training')">
 <input type="button" value="Inference" onclick="mySetMode('inference')">
 <input type="button" value="Run / Stop" onclick="myToggleRun()">
 <input type="button" value="Single Epoch" onclick="mySingleEpoch()">
+<input type="button" value="Reset Model" onclick="myResetModel()">
+<input type="button" value="Stimulate" onclick="myStimulate()">
 
-<br>
 
-<input type="button" value="Reset Weights" onclick="myResetWeights()">
-<input type="button" value="Stimulate" onclick="myManualPulse()">
-
-<h3>Clock Speed</h3>
+<h3>Training Clock</h3>
 
 <input
-    id="myClockSlider"
-    type="range"
-    min="1"
-    max="100"
-    value="20"
-    oninput="mySetClock(this.value)"
->
+id="myClockSlider"
+type="range"
+min="1"
+max="100"
+value="20"
+oninput="mySetClock(this.value)"
+style="width:210px">
 
 <span id="myClockValue">20×</span>
+
 
 <h3>Learning Rate</h3>
 
 <input
-    id="myLearningSlider"
-    type="range"
-    min="1"
-    max="100"
-    value="10"
-    oninput="mySetLearningRate(this.value)"
->
+id="myLearningSlider"
+type="range"
+min="1"
+max="100"
+value="10"
+oninput="mySetLearningRate(this.value)"
+style="width:210px">
 
 <span id="myLearningValue">0.010</span>
 
-<h3>Training Target</h3>
+
+<h3>Target</h3>
 
 <select id="myTargetSelect" onchange="mySetTarget(this.value)">
-    <option value="center">Center sensing</option>
-    <option value="edge">Edge sensing</option>
-    <option value="opposite">Opposite corner</option>
+
+<option value="center">
+Center sensing
+</option>
+
+<option value="edge">
+Edge sensing
+</option>
+
+<option value="corner">
+Opposite corner
+</option>
+
 </select>
+
+
+<h3>Spatial Distance Rule</h3>
+
+<select id="myDistanceSelect" onchange="mySetDistanceRule(this.value)">
+
+<option value="off">
+OFF
+</option>
+
+<option value="soft">
+Soft
+</option>
+
+<option value="strong">
+Strong
+</option>
+
+</select>
+
+
+<h3>TensorFlow.js</h3>
+
+<div id="myTfStatus"
+style="font-size:11px;color:#9da8bc">
+Loading...
+</div>
+
 
 <h3>Statistics</h3>
 
-<div id="myStats"></div>
+<div
+id="myStats"
+style="background:#080d19;padding:8px;font-family:monospace;font-size:12px;line-height:1.55">
+</div>
+
 
 <h3>Loss</h3>
 
-<canvas id="myLossCanvas" width="300" height="90"></canvas>
+<canvas
+id="myLossCanvas"
+width="320"
+height="100"
+style="width:100%;background:#050810;border:1px solid #293044">
+</canvas>
 
-<h3>Color Legend</h3>
 
-<div class="myLegend">
+<div style="font-size:11px;line-height:1.7;margin-top:8px">
 
-<span class="myDot" style="background:#38e070"></span>
+<span style="color:#38e070">●</span>
 Resting sensor<br>
 
-<span class="myDot" style="background:#ff4060"></span>
+<span style="color:#ff4060">●</span>
 Stimulation<br>
 
-<span class="myDot" style="background:#ff80c0"></span>
+<span style="color:#ff80c0">●</span>
 Excitation<br>
 
-<span class="myDot" style="background:#4080ff"></span>
+<span style="color:#4080ff">●</span>
 Inhibition<br>
 
-<span class="myDot" style="background:#ffd040"></span>
+<span style="color:#ffd040">●</span>
 Output sensing
 
 </div>
@@ -197,6 +161,11 @@ Output sensing
 
 
 <script>
+
+
+/* =========================================================
+   GLOBAL STATE
+   ========================================================= */
 
 let myScene;
 let myCamera;
@@ -211,8 +180,8 @@ let myConnectionGroup;
 
 let mySensors=[];
 let myZones=[];
-let myWeights=[];
-let myLossHistory=[];
+
+let myTfModel=null;
 
 let myTopology=2;
 
@@ -226,94 +195,137 @@ let myLoss=1;
 
 let myAccuracy=0;
 
-let myClockScale=20;
+let myLossHistory=[];
 
-let myLearningRate=0.01;
+let myLearningRate=.01;
+
+let myClockScale=20;
 
 let myTarget="center";
 
+let myDistanceRule="off";
+
 let myLastTime=0;
 
-let myAccumulator=0;
+let myClockAccumulator=0;
+
+let myEpochBusy=false;
 
 let myActivityTimer=0;
 
+let myCurrentActivations=[];
 
-/* ------------------------------------------------ */
-/* INITIALIZE                                       */
-/* ------------------------------------------------ */
 
-function myInitializeScene(){
+/* =========================================================
+   INITIALIZE THREE.JS
+   ========================================================= */
+
+async function myInitializeScene(){
 
     myScene=new THREE.Scene();
 
-    myScene.background=new THREE.Color(0x050812);
+    myScene.background=
+        new THREE.Color(0x050812);
 
 
-    myCamera=new THREE.PerspectiveCamera(
-        50,
-        window.innerWidth/window.innerHeight,
-        0.1,
-        1000
+    myCamera=
+        new THREE.PerspectiveCamera(
+            50,
+            window.innerWidth/
+            window.innerHeight,
+            .1,
+            1000
+        );
+
+
+    myCamera.position.set(
+        0,
+        13,
+        19
     );
 
-    myCamera.position.set(0,12,18);
+
+    myRenderer=
+        new THREE.WebGLRenderer({
+            antialias:true
+        });
 
 
-    myRenderer=new THREE.WebGLRenderer({
-        antialias:true
-    });
+    myRenderer.setPixelRatio(
+        window.devicePixelRatio
+    );
 
-    myRenderer.setPixelRatio(window.devicePixelRatio);
 
     myRenderer.setSize(
         window.innerWidth,
         window.innerHeight
     );
 
-    document.body.appendChild(myRenderer.domElement);
 
-
-    myControls=new THREE.OrbitControls(
-        myCamera,
+    document.body.appendChild(
         myRenderer.domElement
     );
+
+
+    /*
+       OrbitControls is attached to the
+       actual Three.js renderer canvas.
+    */
+
+    myControls=
+        new THREE.OrbitControls(
+            myCamera,
+            myRenderer.domElement
+        );
+
 
     myControls.enableDamping=true;
 
     myControls.dampingFactor=.07;
 
-    myControls.minDistance=5;
+    myControls.minDistance=4;
 
     myControls.maxDistance=40;
 
 
-    let myAmbientLight=new THREE.AmbientLight(
-        0x778899,
-        .8
+    let myAmbient=
+        new THREE.AmbientLight(
+            0x8899aa,
+            .8
+        );
+
+
+    myScene.add(
+        myAmbient
     );
 
-    myScene.add(myAmbientLight);
+
+    let myLight=
+        new THREE.PointLight(
+            0xffffff,
+            1.5
+        );
 
 
-    let myPointLight=new THREE.PointLight(
-        0xffffff,
-        1.5,
-        100
-    );
-
-    myPointLight.position.set(
+    myLight.position.set(
         0,
-        10,
+        12,
         10
     );
 
-    myScene.add(myPointLight);
+
+    myScene.add(
+        myLight
+    );
 
 
-    myArrayGroup=new THREE.Group();
+    myArrayGroup=
+        new THREE.Group();
 
-    myScene.add(myArrayGroup);
+
+    myScene.add(
+        myArrayGroup
+    );
 
 
     myCreateArraySurface();
@@ -322,77 +334,109 @@ function myInitializeScene(){
 
     myCreateStimSites();
 
-    mySetTopology(2);
+
+    if(typeof tf!=="undefined"){
+
+        document.getElementById(
+            "myTfStatus"
+        ).innerHTML=
+            "TensorFlow.js "+
+            tf.version.tfjs+
+            " loaded";
+
+    }
 
 
-    window.onresize=myResize;
+    await mySetTopology(2);
 
-    requestAnimationFrame(myAnimate);
+
+    window.onresize=
+        myResize;
+
+
+    requestAnimationFrame(
+        myAnimate
+    );
 }
 
 
-/* ------------------------------------------------ */
-/* ARRAY SURFACE                                    */
-/* ------------------------------------------------ */
+/* =========================================================
+   ARRAY SURFACE
+   ========================================================= */
 
 function myCreateArraySurface(){
 
-    let myGrid=new THREE.GridHelper(
-        16,
-        32,
-        0x45536e,
-        0x202b40
-    );
-
-    myGrid.position.y=0;
-
-    myArrayGroup.add(myGrid);
-
-
-    let myPlate=new THREE.Mesh(
-
-        new THREE.BoxGeometry(
+    let myGrid=
+        new THREE.GridHelper(
             16,
-            .12,
-            16
-        ),
+            32,
+            0x45536e,
+            0x202b40
+        );
 
-        new THREE.MeshPhongMaterial({
-            color:0x111a29,
-            transparent:true,
-            opacity:.5
-        })
 
+    myArrayGroup.add(
+        myGrid
     );
+
+
+    let myPlate=
+        new THREE.Mesh(
+
+            new THREE.BoxGeometry(
+                16,
+                .12,
+                16
+            ),
+
+            new THREE.MeshPhongMaterial({
+                color:0x111a29,
+                transparent:true,
+                opacity:.45
+            })
+
+        );
+
 
     myPlate.position.y=-.1;
 
-    myArrayGroup.add(myPlate);
+
+    myArrayGroup.add(
+        myPlate
+    );
 }
 
 
-/* ------------------------------------------------ */
-/* 1000 SENSOR NODES                                */
-/* ------------------------------------------------ */
+/* =========================================================
+   1,000 SENSOR NODES
+   ========================================================= */
 
 function myCreateSensors(){
 
     let myCount=1000;
 
-    let mySide=Math.ceil(
-        Math.sqrt(myCount)
-    );
+    let mySide=
+        Math.ceil(
+            Math.sqrt(
+                myCount
+            )
+        );
 
 
-    let myGeometry=new THREE.BufferGeometry();
+    let myGeometry=
+        new THREE.BufferGeometry();
 
-    let myPositions=new Float32Array(
-        myCount*3
-    );
 
-    let myColors=new Float32Array(
-        myCount*3
-    );
+    let myPositions=
+        new Float32Array(
+            myCount*3
+        );
+
+
+    let myColors=
+        new Float32Array(
+            myCount*3
+        );
 
 
     for(
@@ -401,27 +445,58 @@ function myCreateSensors(){
         myI++
     ){
 
+        let myColumn=
+            myI%
+            (mySide-1);
+
+
+        let myRow=
+            Math.floor(
+                myI/
+                (mySide-1)
+            );
+
+
         let myX=
-            (myI%(mySide-1))/(mySide-1)*15
-            -7.5;
+            myColumn/
+            (mySide-1)*
+            15-7.5;
+
 
         let myZ=
-            Math.floor(myI/(mySide-1))/(mySide-1)*15
-            -7.5;
+            myRow/
+            (mySide-1)*
+            15-7.5;
 
 
-        myPositions[myI*3]=myX;
-
-        myPositions[myI*3+1]=.08;
-
-        myPositions[myI*3+2]=myZ;
+        myPositions[
+            myI*3
+        ]=myX;
 
 
-        myColors[myI*3]=.22;
+        myPositions[
+            myI*3+1
+        ]=.08;
 
-        myColors[myI*3+1]=.88;
 
-        myColors[myI*3+2]=.43;
+        myPositions[
+            myI*3+2
+        ]=myZ;
+
+
+        myColors[
+            myI*3
+        ]=.22;
+
+
+        myColors[
+            myI*3+1
+        ]=.88;
+
+
+        myColors[
+            myI*3+2
+        ]=.43;
 
 
         mySensors.push({
@@ -455,19 +530,17 @@ function myCreateSensors(){
     );
 
 
-    let myMaterial=new THREE.PointsMaterial({
+    mySensorPoints=
+        new THREE.Points(
 
-        size:.075,
+            myGeometry,
 
-        vertexColors:true
+            new THREE.PointsMaterial({
+                size:.075,
+                vertexColors:true
+            })
 
-    });
-
-
-    mySensorPoints=new THREE.Points(
-        myGeometry,
-        myMaterial
-    );
+        );
 
 
     myArrayGroup.add(
@@ -476,13 +549,14 @@ function myCreateSensors(){
 }
 
 
-/* ------------------------------------------------ */
-/* 32 STIMULATION SITES                             */
-/* ------------------------------------------------ */
+/* =========================================================
+   32 STIMULATION ELECTRODES
+   ========================================================= */
 
 function myCreateStimSites(){
 
-    myStimGroup=new THREE.Group();
+    myStimGroup=
+        new THREE.Group();
 
 
     for(
@@ -491,27 +565,29 @@ function myCreateStimSites(){
         myI++
     ){
 
-        let myMesh=new THREE.Mesh(
+        let myMesh=
+            new THREE.Mesh(
 
-            new THREE.SphereGeometry(
-                .12,
-                12,
-                12
-            ),
+                new THREE.SphereGeometry(
+                    .13,
+                    12,
+                    12
+                ),
 
-            new THREE.MeshBasicMaterial({
-                color:0xff4060
-            })
+                new THREE.MeshBasicMaterial({
+                    color:0xff4060
+                })
 
-        );
+            );
 
 
-        myMesh.userData.index=myI;
+        myMesh.userData.index=
+            myI;
+
 
         myStimGroup.add(
             myMesh
         );
-
     }
 
 
@@ -521,11 +597,13 @@ function myCreateStimSites(){
 }
 
 
-/* ------------------------------------------------ */
-/* TOPOLOGY                                        */
-/* ------------------------------------------------ */
+/* =========================================================
+   TOPOLOGY
+   ========================================================= */
 
-function mySetTopology(mySize){
+async function mySetTopology(
+    mySize
+){
 
     myTopology=mySize;
 
@@ -535,7 +613,6 @@ function mySetTopology(mySize){
         myArrayGroup.remove(
             myZoneGroup
         );
-
     }
 
 
@@ -544,18 +621,21 @@ function mySetTopology(mySize){
         myArrayGroup.remove(
             myConnectionGroup
         );
-
     }
 
 
-    myZoneGroup=new THREE.Group();
+    myZoneGroup=
+        new THREE.Group();
 
-    myConnectionGroup=new THREE.Group();
+
+    myConnectionGroup=
+        new THREE.Group();
 
 
     myArrayGroup.add(
         myZoneGroup
     );
+
 
     myArrayGroup.add(
         myConnectionGroup
@@ -565,19 +645,6 @@ function mySetTopology(mySize){
     myZones=[];
 
 
-    let mySpacing;
-
-    if(mySize===2){
-
-        mySpacing=14;
-
-    }else{
-
-        mySpacing=14/(mySize-1);
-
-    }
-
-
     for(
         let myRow=0;
         myRow<mySize;
@@ -585,36 +652,33 @@ function mySetTopology(mySize){
     ){
 
         for(
-            let myCol=0;
-            myCol<mySize;
-            myCol++
+            let myColumn=0;
+            myColumn<mySize;
+            myColumn++
         ){
 
             let myIndex=
-                myRow*mySize+
-                myCol;
+                myRow*
+                mySize+
+                myColumn;
 
 
-            let myX;
+            let myX=
+                -7+
+                myColumn*
+                (
+                    14/
+                    (mySize-1)
+                );
 
-            let myZ;
 
-
-            if(mySize===2){
-
-                myX=myCol===0?-7:7;
-
-                myZ=myRow===0?-7:7;
-
-            }else{
-
-                myX=-7+
-                    myCol*mySpacing;
-
-                myZ=-7+
-                    myRow*mySpacing;
-
-            }
+            let myZ=
+                -7+
+                myRow*
+                (
+                    14/
+                    (mySize-1)
+                );
 
 
             let myType;
@@ -635,7 +699,6 @@ function mySetTopology(mySize){
             }else{
 
                 myType="sense";
-
             }
 
 
@@ -661,15 +724,17 @@ function mySetTopology(mySize){
             );
 
         }
-
     }
 
 
-    myInitializeWeights();
+    await myCreateTfModel();
+
 
     myPositionStimSites();
 
-    myDrawConnections();
+
+    await myDrawConnections();
+
 
     myUpdateStats();
 
@@ -677,9 +742,9 @@ function mySetTopology(mySize){
 }
 
 
-/* ------------------------------------------------ */
-/* ZONE VISUAL                                     */
-/* ------------------------------------------------ */
+/* =========================================================
+   ZONE VISUAL
+   ========================================================= */
 
 function myCreateZoneVisual(
     myX,
@@ -705,35 +770,31 @@ function myCreateZoneVisual(
     }else{
 
         myColor=0xffd040;
-
     }
 
 
-    let myDisc=new THREE.Mesh(
+    let myDisc=
+        new THREE.Mesh(
 
-        new THREE.CylinderGeometry(
-            1.1,
-            1.1,
-            .08,
-            32
-        ),
+            new THREE.CylinderGeometry(
+                1.05,
+                1.05,
+                .08,
+                32
+            ),
 
-        new THREE.MeshBasicMaterial({
+            new THREE.MeshBasicMaterial({
+                color:myColor,
+                transparent:true,
+                opacity:.13
+            })
 
-            color:myColor,
-
-            transparent:true,
-
-            opacity:.15
-
-        })
-
-    );
+        );
 
 
     myDisc.position.set(
         myX,
-        .13,
+        .14,
         myZ
     );
 
@@ -743,31 +804,30 @@ function myCreateZoneVisual(
     );
 
 
-    let myRing=new THREE.Mesh(
+    let myRing=
+        new THREE.Mesh(
 
-        new THREE.RingGeometry(
-            .98,
-            1.03,
-            32
-        ),
+            new THREE.RingGeometry(
+                .98,
+                1.03,
+                32
+            ),
 
-        new THREE.MeshBasicMaterial({
+            new THREE.MeshBasicMaterial({
+                color:myColor,
+                side:THREE.DoubleSide
+            })
 
-            color:myColor,
-
-            side:THREE.DoubleSide
-
-        })
-
-    );
+        );
 
 
-    myRing.rotation.x=-Math.PI/2;
+    myRing.rotation.x=
+        -Math.PI/2;
 
 
     myRing.position.set(
         myX,
-        .18,
+        .19,
         myZ
     );
 
@@ -778,9 +838,9 @@ function myCreateZoneVisual(
 }
 
 
-/* ------------------------------------------------ */
-/* STIM SITE POSITIONING                            */
-/* ------------------------------------------------ */
+/* =========================================================
+   32 STIMULATION POINTS FOLLOW ZONES
+   ========================================================= */
 
 function myPositionStimSites(){
 
@@ -792,20 +852,25 @@ function myPositionStimSites(){
 
         let myZone=
             myZones[
-                myI%myZones.length
+                myI%
+                myZones.length
             ];
 
 
         let myAngle=
-            myI/32*
-            Math.PI*2;
+            myI/
+            32*
+            Math.PI*
+            2;
 
 
-        let myRadius=.55;
+        let myRadius=.52;
 
 
         let myMesh=
-            myStimGroup.children[myI];
+            myStimGroup.children[
+                myI
+            ];
 
 
         myMesh.position.set(
@@ -821,60 +886,176 @@ function myPositionStimSites(){
             myRadius
 
         );
-
     }
 }
 
 
-/* ------------------------------------------------ */
-/* WEIGHTS                                          */
-/* ------------------------------------------------ */
+/* =========================================================
+   SPATIAL DISTANCE FACTOR
+   ========================================================= */
 
-function myInitializeWeights(){
+function myGetDistanceFactor(
+    myDistance
+){
 
-    myWeights=[];
-
-
-    for(
-        let myI=0;
-        myI<myZones.length;
-        myI++
+    if(
+        myDistanceRule==="off"
     ){
 
-        myWeights[myI]=[];
-
-
-        for(
-            let myJ=0;
-            myJ<myZones.length;
-            myJ++
-        ){
-
-            myWeights[myI][myJ]=
-                (Math.random()-.5)*.5;
-
-        }
-
+        return 1;
     }
+
+
+    if(
+        myDistanceRule==="soft"
+    ){
+
+        return Math.exp(
+            -myDistance/8
+        );
+    }
+
+
+    return Math.exp(
+        -myDistance/4
+    );
 }
 
 
-/* ------------------------------------------------ */
-/* CONNECTION LINES                                 */
-/* ------------------------------------------------ */
+/* =========================================================
+   TENSORFLOW MODEL
+   ========================================================= */
 
-function myDrawConnections(){
+async function myCreateTfModel(){
 
-    while(
-        myConnectionGroup.children.length>0
+    if(
+        typeof tf==="undefined"
     ){
 
-        myConnectionGroup.remove(
-            myConnectionGroup.children[0]
+        return;
+    }
+
+
+    if(myTfModel){
+
+        myTfModel.dispose();
+
+        myTfModel=null;
+    }
+
+
+    myTfModel=
+        tf.sequential();
+
+
+    /*
+       Input layer
+
+       Each zone can receive an input.
+    */
+
+    myTfModel.add(
+
+        tf.layers.dense({
+
+            units:myZones.length,
+
+            inputShape:[
+                myZones.length
+            ],
+
+            activation:"tanh",
+
+            useBias:true
+
+        })
+
+    );
+
+
+    /*
+       Output layer
+
+       One probability per zone.
+    */
+
+    myTfModel.add(
+
+        tf.layers.dense({
+
+            units:myZones.length,
+
+            activation:"softmax",
+
+            useBias:true
+
+        })
+
+    );
+
+
+    myTfModel.compile({
+
+        optimizer:
+            tf.train.adam(
+                myLearningRate
+            ),
+
+        loss:
+            "categoricalCrossentropy",
+
+        metrics:[
+            "accuracy"
+        ]
+
+    });
+
+
+    await myApplySpatialInitialization();
+}
+
+
+/* =========================================================
+   SPATIAL INITIALIZATION
+   ========================================================= */
+
+async function myApplySpatialInitialization(){
+
+    if(!myTfModel){
+
+        return;
+    }
+
+
+    let myWeights=
+        myTfModel.getWeights();
+
+
+    if(
+        myWeights.length<2
+    ){
+
+        return;
+    }
+
+
+    let myKernel=
+        myWeights[0];
+
+
+    let myShape=
+        myKernel.shape;
+
+
+    let myData=
+        await myKernel.data();
+
+
+    let myNewData=
+        new Float32Array(
+            myData.length
         );
 
-    }
-
 
     for(
         let myI=0;
@@ -888,29 +1069,165 @@ function myDrawConnections(){
             myJ++
         ){
 
-            if(myI===myJ){
+            let myA=
+                myZones[myI];
 
-                continue;
+            let myB=
+                myZones[myJ];
 
-            }
+
+            let myDistance=
+                Math.hypot(
+
+                    myA.x-myB.x,
+
+                    myA.z-myB.z
+
+                );
+
+
+            let myFactor=
+                myGetDistanceFactor(
+                    myDistance
+                );
+
+
+            let myIndex=
+                myI*
+                myZones.length+
+                myJ;
+
+
+            /*
+               Preserve random initialization
+               but impose physical distance.
+            */
+
+            myNewData[
+                myIndex
+            ]=
+                myData[
+                    myIndex
+                ]*
+                myFactor;
+
+        }
+    }
+
+
+    let myNewTensor=
+        tf.tensor(
+            myNewData,
+            myShape
+        );
+
+
+    myWeights[0].dispose();
+
+
+    myWeights[0]=
+        myNewTensor;
+
+
+    myTfModel.setWeights(
+        myWeights
+    );
+}
+
+
+/* =========================================================
+   CONNECTION VISUALIZATION
+   ========================================================= */
+
+async function myDrawConnections(){
+
+    if(!myConnectionGroup){
+
+        return;
+    }
+
+
+    while(
+        myConnectionGroup.children.length
+    ){
+
+        let myChild=
+            myConnectionGroup
+            .children[0];
+
+
+        myChild.geometry.dispose();
+
+        myChild.material.dispose();
+
+
+        myConnectionGroup.remove(
+            myChild
+        );
+    }
+
+
+    if(!myTfModel){
+
+        return;
+    }
+
+
+    let myWeights=
+        myTfModel.getWeights();
+
+
+    let myKernel=
+        myWeights[0];
+
+
+    let myData=
+        await myKernel.data();
+
+
+    let myCount=
+        myZones.length;
+
+
+    for(
+        let myI=0;
+        myI<myCount;
+        myI++
+    ){
+
+        for(
+            let myJ=0;
+            myJ<myCount;
+            myJ++
+        ){
+
+            let myIndex=
+                myI*
+                myCount+
+                myJ;
 
 
             let myWeight=
-                myWeights[myI][myJ];
+                myData[
+                    myIndex
+                ];
 
 
             if(
-                Math.abs(myWeight)<.08
+                Math.abs(
+                    myWeight
+                )<.10
             ){
 
                 continue;
-
             }
 
 
-            let myA=myZones[myI];
+            let myA=
+                myZones[myI];
 
-            let myB=myZones[myJ];
+            let myB=
+                myZones[myJ];
 
 
             let myColor=
@@ -919,7 +1236,26 @@ function myDrawConnections(){
                 0x4080ff;
 
 
-            let myLineMaterial=
+            let myGeometry=
+                new THREE.BufferGeometry()
+                .setFromPoints([
+
+                    new THREE.Vector3(
+                        myA.x,
+                        .22,
+                        myA.z
+                    ),
+
+                    new THREE.Vector3(
+                        myB.x,
+                        .22,
+                        myB.z
+                    )
+
+                ]);
+
+
+            let myMaterial=
                 new THREE.LineBasicMaterial({
 
                     color:myColor,
@@ -927,139 +1263,211 @@ function myDrawConnections(){
                     transparent:true,
 
                     opacity:
-                        .12+
                         Math.min(
-                            .7,
-                            Math.abs(myWeight)
+                            .8,
+                            .12+
+                            Math.abs(
+                                myWeight
+                            )
                         )
 
                 });
 
 
-            let myLineGeometry=
-                new THREE.BufferGeometry()
-                .setFromPoints([
-
-                    new THREE.Vector3(
-                        myA.x,
-                        .2,
-                        myA.z
-                    ),
-
-                    new THREE.Vector3(
-                        myB.x,
-                        .2,
-                        myB.z
-                    )
-
-                ]);
-
-
             myConnectionGroup.add(
 
                 new THREE.Line(
-                    myLineGeometry,
-                    myLineMaterial
+                    myGeometry,
+                    myMaterial
                 )
 
             );
-
         }
-
     }
 }
 
 
-/* ------------------------------------------------ */
-/* MODE                                            */
-/* ------------------------------------------------ */
+/* =========================================================
+   MODE
+   ========================================================= */
 
-function mySetMode(myModeValue){
+function mySetMode(
+    myNewMode
+){
 
-    myMode=myModeValue;
+    myMode=
+        myNewMode;
+
 
     myUpdateStats();
 }
 
 
-/* ------------------------------------------------ */
-/* RUN                                             */
-/* ------------------------------------------------ */
+/* =========================================================
+   RUN / STOP
+   ========================================================= */
 
 function myToggleRun(){
 
-    myRunning=!myRunning;
+    myRunning=
+        !myRunning;
+
 
     myUpdateStats();
 }
 
 
-function mySingleEpoch(){
+/* =========================================================
+   SINGLE EPOCH
+   ========================================================= */
 
-    myRunEpoch();
+async function mySingleEpoch(){
 
+    if(myEpochBusy){
+
+        return;
+    }
+
+
+    await myRunEpoch();
 }
 
 
-function myManualPulse(){
+/* =========================================================
+   MANUAL STIMULATION
+   ========================================================= */
 
-    myRunEpoch(true);
+async function myStimulate(){
 
+    if(
+        myEpochBusy
+    ){
+
+        return;
+    }
+
+
+    await myRunEpoch(
+        true
+    );
 }
 
 
-/* ------------------------------------------------ */
-/* CLOCK                                            */
-/* ------------------------------------------------ */
+/* =========================================================
+   CLOCK
+   ========================================================= */
 
-function mySetClock(myValue){
+function mySetClock(
+    myValue
+){
 
     myClockScale=
-        Number(myValue);
+        Number(
+            myValue
+        );
 
 
     document.getElementById(
         "myClockValue"
     ).textContent=
-        myClockScale+"×";
-
+        myClockScale+
+        "×";
 }
 
 
-/* ------------------------------------------------ */
-/* LEARNING RATE                                    */
-/* ------------------------------------------------ */
+/* =========================================================
+   LEARNING RATE
+   ========================================================= */
 
-function mySetLearningRate(myValue){
+function mySetLearningRate(
+    myValue
+){
 
     myLearningRate=
-        Number(myValue)/1000;
+        Number(
+            myValue
+        )/
+        1000;
 
 
     document.getElementById(
         "myLearningValue"
     ).textContent=
-        myLearningRate.toFixed(3);
+        myLearningRate.toFixed(
+            3
+        );
 
+
+    if(myTfModel){
+
+        myTfModel.compile({
+
+            optimizer:
+                tf.train.adam(
+                    myLearningRate
+                ),
+
+            loss:
+                "categoricalCrossentropy",
+
+            metrics:[
+                "accuracy"
+            ]
+
+        });
+    }
 }
 
 
-/* ------------------------------------------------ */
-/* TARGET                                           */
-/* ------------------------------------------------ */
+/* =========================================================
+   TARGET
+   ========================================================= */
 
-function mySetTarget(myValue){
+function mySetTarget(
+    myValue
+){
 
-    myTarget=myValue;
+    myTarget=
+        myValue;
 
+
+    myUpdateStats();
 }
 
 
-/* ------------------------------------------------ */
-/* RESET                                            */
-/* ------------------------------------------------ */
+/* =========================================================
+   DISTANCE RULE
+   ========================================================= */
 
-function myResetWeights(){
+async function mySetDistanceRule(
+    myValue
+){
+
+    myDistanceRule=
+        myValue;
+
+
+    /*
+       Important:
+
+       The distance rule changes the
+       initialization only.
+
+       It does NOT continually overwrite
+       learned weights.
+    */
+
+    await myResetModel();
+}
+
+
+/* =========================================================
+   RESET MODEL
+   ========================================================= */
+
+async function myResetModel(){
+
+    myRunning=false;
 
     myEpoch=0;
 
@@ -1069,20 +1477,19 @@ function myResetWeights(){
 
     myLossHistory=[];
 
-    myInitializeWeights();
+    await myCreateTfModel();
 
-    myDrawConnections();
+    await myDrawConnections();
 
     myDrawLoss();
 
     myUpdateStats();
-
 }
 
 
-/* ------------------------------------------------ */
-/* TARGET ZONE                                      */
-/* ------------------------------------------------ */
+/* =========================================================
+   TARGET ZONE
+   ========================================================= */
 
 function myGetTargetIndex(){
 
@@ -1090,37 +1497,36 @@ function myGetTargetIndex(){
 
 
     for(
-        let myI=0;
-        myI<myZones.length;
-        myI++
+        let myZone of myZones
     ){
 
         if(
-            myZones[myI].type==="sense"
+            myZone.type==="sense"
         ){
 
             mySenseZones.push(
-                myZones[myI]
+                myZone
             );
-
         }
-
     }
 
 
-    if(mySenseZones.length===0){
+    if(
+        mySenseZones.length===0
+    ){
 
         return 0;
-
     }
 
 
-    if(myTarget==="center"){
+    if(
+        myTarget==="center"
+    ){
 
         let myBest=
             mySenseZones[0];
 
-        let myDistance=
+        let myBestDistance=
             Infinity;
 
 
@@ -1128,7 +1534,7 @@ function myGetTargetIndex(){
             let myZone of mySenseZones
         ){
 
-            let myCurrentDistance=
+            let myDistance=
                 Math.hypot(
                     myZone.x,
                     myZone.z
@@ -1136,75 +1542,77 @@ function myGetTargetIndex(){
 
 
             if(
-                myCurrentDistance<
-                myDistance
+                myDistance<
+                myBestDistance
             ){
 
-                myDistance=
-                    myCurrentDistance;
+                myBestDistance=
+                    myDistance;
 
                 myBest=
                     myZone;
-
             }
-
         }
 
 
         return myBest.index;
-
     }
 
 
-    if(myTarget==="edge"){
+    if(
+        myTarget==="edge"
+    ){
 
         let myBest=
             mySenseZones[0];
 
-        let myDistance=-Infinity;
+        let myBestDistance=
+            -Infinity;
 
 
         for(
             let myZone of mySenseZones
         ){
 
-            let myCurrentDistance=
-                Math.abs(myZone.x)+
-                Math.abs(myZone.z);
+            let myDistance=
+                Math.abs(
+                    myZone.x
+                )+
+                Math.abs(
+                    myZone.z
+                );
 
 
             if(
-                myCurrentDistance>
-                myDistance
+                myDistance>
+                myBestDistance
             ){
 
-                myDistance=
-                    myCurrentDistance;
+                myBestDistance=
+                    myDistance;
 
                 myBest=
                     myZone;
-
             }
-
         }
 
 
         return myBest.index;
-
     }
 
 
     let myBest=
         mySenseZones[0];
 
-    let myDistance=-Infinity;
+    let myBestDistance=
+        -Infinity;
 
 
     for(
         let myZone of mySenseZones
     ){
 
-        let myCurrentDistance=
+        let myDistance=
             Math.hypot(
                 myZone.x-7,
                 myZone.z-7
@@ -1212,259 +1620,305 @@ function myGetTargetIndex(){
 
 
         if(
-            myCurrentDistance>
-            myDistance
+            myDistance>
+            myBestDistance
         ){
 
-            myDistance=
-                myCurrentDistance;
+            myBestDistance=
+                myDistance;
 
             myBest=
                 myZone;
-
         }
-
     }
 
 
     return myBest.index;
-
 }
 
 
-/* ------------------------------------------------ */
-/* ONE TRAINING / INFERENCE EPOCH                   */
-/* ------------------------------------------------ */
+/* =========================================================
+   TRAINING / INFERENCE
+   ========================================================= */
 
-function myRunEpoch(myManual=false){
+async function myRunEpoch(
+    myManual=false
+){
 
-    if(myZones.length===0){
+    if(
+        !myTfModel ||
+        myEpochBusy
+    ){
 
         return;
-
     }
 
 
-    /*
-       Input represents a pulse at
-       the first stimulation zone.
-    */
-
-    let myInputs=
-        new Array(
-            myZones.length
-        ).fill(0);
+    myEpochBusy=true;
 
 
-    myInputs[0]=1;
+    try{
+
+        /*
+           Input stimulation pattern.
+
+           Zone 0 represents the active
+           stimulation site.
+        */
+
+        let myInputArray=
+            new Array(
+                myZones.length
+            ).fill(0);
 
 
-    /*
-       Forward propagation.
-    */
-
-    let myActivations=
-        new Array(
-            myZones.length
-        ).fill(0);
+        myInputArray[0]=1;
 
 
-    for(
-        let myJ=0;
-        myJ<myZones.length;
-        myJ++
-    ){
-
-        let mySum=0;
+        let myTargetIndex=
+            myGetTargetIndex();
 
 
-        for(
-            let myI=0;
-            myI<myZones.length;
-            myI++
-        ){
-
-            mySum+=
-                myInputs[myI]*
-                myWeights[myI][myJ];
-
-        }
+        let myTargetArray=
+            new Array(
+                myZones.length
+            ).fill(0);
 
 
-        myActivations[myJ]=
-            Math.tanh(mySum);
-
-    }
-
-
-    /*
-       Determine desired output.
-    */
-
-    let myTargetIndex=
-        myGetTargetIndex();
+        myTargetArray[
+            myTargetIndex
+        ]=1;
 
 
-    let myTargetValues=
-        new Array(
-            myZones.length
-        ).fill(0);
+        let myInputTensor=
+            tf.tensor2d([
+                myInputArray
+            ]);
 
 
-    myTargetValues[
-        myTargetIndex
-    ]=1;
-
-
-    /*
-       Calculate squared error.
-    */
-
-    let myError=0;
-
-
-    for(
-        let myI=0;
-        myI<myZones.length;
-        myI++
-    ){
-
-        let myDifference=
-            myTargetValues[myI]-
-            myActivations[myI];
-
-
-        myError+=
-            myDifference*
-            myDifference;
+        let myTargetTensor=
+            tf.tensor2d([
+                myTargetArray
+            ]);
 
 
         /*
-           Training changes weights.
+           TRAINING
 
-           In inference mode this section
-           deliberately does nothing.
+           fit() performs actual
+           backpropagation.
         */
 
         if(
             myMode==="training"
         ){
 
-            /*
-               Because the input is concentrated
-               on stimulation zone 0, this is
-               equivalent to a simple teaching
-               rule for the outgoing synapses.
-            */
+            let myResult=
+                await myTfModel.fit(
 
-            myWeights[0][myI]+=
-                myLearningRate*
-                myDifference;
+                    myInputTensor,
+
+                    myTargetTensor,
+
+                    {
+
+                        epochs:1,
+
+                        verbose:0
+
+                    }
+
+                );
+
+
+            myLoss=
+                Number(
+                    myResult
+                    .history
+                    .loss[0]
+                );
+
+
+            if(
+                myResult.history.accuracy
+            ){
+
+                myAccuracy=
+                    Number(
+                        myResult
+                        .history
+                        .accuracy[0]
+                    );
+            }
 
         }
 
-    }
+
+        /*
+           INFERENCE
+
+           No fit() call.
+           Therefore weights don't change.
+        */
+
+        else{
+
+            let myPrediction=
+                myTfModel.predict(
+                    myInputTensor
+                );
 
 
-    myLoss=
-        myError/
-        myZones.length;
+            let myPredictionArray=
+                Array.from(
+                    await myPrediction.data()
+                );
 
 
-    /*
-       Find predicted output.
-    */
-
-    let myPrediction=-1;
-
-    let myBestValue=-Infinity;
+            myPrediction.dispose();
 
 
-    for(
-        let myI=0;
-        myI<myZones.length;
-        myI++
-    ){
+            let myBestIndex=0;
+
+            let myBestValue=-Infinity;
+
+
+            for(
+                let myI=0;
+                myI<
+                myPredictionArray.length;
+                myI++
+            ){
+
+                if(
+                    myPredictionArray[myI]>
+                    myBestValue
+                ){
+
+                    myBestValue=
+                        myPredictionArray[myI];
+
+                    myBestIndex=
+                        myI;
+                }
+            }
+
+
+            myAccuracy=
+                myBestIndex===
+                myTargetIndex?
+                1:
+                0;
+
+
+            let myPredictionTensor=
+                tf.tensor2d([
+                    myPredictionArray
+                ]);
+
+
+            let myLossTensor=
+                tf.losses
+                .categoricalCrossentropy(
+
+                    myTargetTensor,
+
+                    myPredictionTensor
+
+                );
+
+
+            myLoss=
+                Number(
+                    (
+                        await
+                        myLossTensor.data()
+                    )[0]
+                );
+
+
+            myLossTensor.dispose();
+
+            myPredictionTensor.dispose();
+        }
+
+
+        /*
+           Get network output for
+           visualization.
+        */
+
+        let myOutputTensor=
+            myTfModel.predict(
+                myInputTensor
+            );
+
+
+        myCurrentActivations=
+            Array.from(
+                await myOutputTensor.data()
+            );
+
+
+        myOutputTensor.dispose();
+
+
+        myInputTensor.dispose();
+
+        myTargetTensor.dispose();
+
+
+        myEpoch++;
+
+
+        myLossHistory.push(
+            myLoss
+        );
+
 
         if(
-            myZones[myI].type!=="sense"
+            myLossHistory.length>200
         ){
 
-            continue;
-
+            myLossHistory.shift();
         }
 
+
+        myAnimateNetwork(
+            myCurrentActivations,
+            myTargetIndex
+        );
+
+
+        /*
+           Redraw connections periodically
+           rather than every frame.
+        */
 
         if(
-            myActivations[myI]>
-            myBestValue
+            myEpoch%3===0
         ){
 
-            myBestValue=
-                myActivations[myI];
-
-            myPrediction=
-                myI;
-
+            await myDrawConnections();
         }
 
-    }
 
+        myDrawLoss();
 
-    myAccuracy=
-        myPrediction===
-        myTargetIndex?
-        1:
-        0;
-
-
-    myEpoch++;
-
-
-    if(
-        myLossHistory.length>=200
-    ){
-
-        myLossHistory.shift();
+        myUpdateStats();
 
     }
 
+    finally{
 
-    myLossHistory.push(
-        myLoss
-    );
-
-
-    myAnimateNetwork(
-        myActivations,
-        myTargetIndex
-    );
-
-
-    /*
-       Redraw connections periodically
-       rather than every frame.
-    */
-
-    if(
-        myEpoch%3===0
-    ){
-
-        myDrawConnections();
-
+        myEpochBusy=false;
     }
-
-
-    myDrawLoss();
-
-    myUpdateStats();
-
 }
 
 
-/* ------------------------------------------------ */
-/* VISUAL ACTIVITY                                  */
-/* ------------------------------------------------ */
+/* =========================================================
+   NETWORK ACTIVITY
+   ========================================================= */
 
 function myAnimateNetwork(
     myActivations,
@@ -1472,8 +1926,16 @@ function myAnimateNetwork(
 ){
 
     /*
-       Sensor activity based on nearest zone.
+       Color the 1,000 sensor nodes according
+       to the nearest zone activation.
     */
+
+    let myColorAttribute=
+        mySensorPoints
+        .geometry
+        .attributes
+        .color;
+
 
     for(
         let myI=0;
@@ -1485,9 +1947,9 @@ function myAnimateNetwork(
             mySensors[myI];
 
 
-        let myNearest=0;
+        let myNearestIndex=0;
 
-        let myDistance=
+        let myNearestDistance=
             Infinity;
 
 
@@ -1501,78 +1963,42 @@ function myAnimateNetwork(
                 myZones[myJ];
 
 
-            let myCurrentDistance=
+            let myDistance=
                 Math.hypot(
-                    mySensor.x-myZone.x,
-                    mySensor.z-myZone.z
+
+                    mySensor.x-
+                    myZone.x,
+
+                    mySensor.z-
+                    myZone.z
+
                 );
 
 
             if(
-                myCurrentDistance<
-                myDistance
+                myDistance<
+                myNearestDistance
             ){
 
-                myDistance=
-                    myCurrentDistance;
+                myNearestDistance=
+                    myDistance;
 
-                myNearest=
+                myNearestIndex=
                     myJ;
-
             }
-
         }
 
 
         let myActivity=
             Math.abs(
                 myActivations[
-                    myNearest
-                ]
+                    myNearestIndex
+                ]||0
             );
-
-
-        /*
-           Add a little stochastic
-           biological-looking activity.
-        */
-
-        if(
-            Math.random()<.12
-        ){
-
-            myActivity=
-                Math.max(
-                    myActivity,
-                    Math.random()*.4
-                );
-
-        }
 
 
         mySensor.activity=
             myActivity;
-
-    }
-
-
-    /*
-       Update sensor colors.
-    */
-
-    let myColorAttribute=
-        mySensorPoints.geometry
-        .attributes.color;
-
-
-    for(
-        let myI=0;
-        myI<mySensors.length;
-        myI++
-    ){
-
-        let myActivity=
-            mySensors[myI].activity;
 
 
         let myColor=
@@ -1600,25 +2026,29 @@ function myAnimateNetwork(
             myColor.setHex(
                 0x38e070
             );
-
         }
 
 
         myColorAttribute.setXYZ(
-            myI,
-            myColor.r,
-            myColor.g,
-            myColor.b
-        );
 
+            myI,
+
+            myColor.r,
+
+            myColor.g,
+
+            myColor.b
+
+        );
     }
 
 
-    myColorAttribute.needsUpdate=true;
+    myColorAttribute.needsUpdate=
+        true;
 
 
     /*
-       Animate the zone rings.
+       Pulse the zone rings.
     */
 
     for(
@@ -1627,25 +2057,22 @@ function myAnimateNetwork(
         myI++
     ){
 
-        let myZone=
-            myZones[myI];
-
-
         let myRing=
             myZoneGroup.children[
                 myI*2+1
             ];
 
 
-        let myValue=
+        let myActivity=
             Math.abs(
-                myActivations[myI]
+                myActivations[myI]||0
             );
 
 
         let myScale=
             1+
-            myValue*.8;
+            myActivity*
+            .8;
 
 
         myRing.scale.set(
@@ -1653,12 +2080,12 @@ function myAnimateNetwork(
             myScale,
             myScale
         );
-
     }
 
 
     /*
-       Pulse all 32 stimulation sites.
+       Animate the 32 physical
+       stimulation sites.
     */
 
     for(
@@ -1668,54 +2095,40 @@ function myAnimateNetwork(
     ){
 
         let myMesh=
-            myStimGroup.children[myI];
+            myStimGroup.children[
+                myI
+            ];
 
 
         let myPulse=
-            .8+
+            .85+
             Math.sin(
                 myActivityTimer+
-                myI*.35
-            )*.25;
+                myI*.3
+            )*.15;
 
 
         if(
-            myZones.length>0
+            myI===0
         ){
 
-            let myZone=
-                myZones[
-                    myI%
-                    myZones.length
-                ];
-
-
-            if(
-                myZone.index===0
-            ){
-
-                myPulse+=
-                    Math.abs(
-                        myActivations[0]
-                    )*.8;
-
-            }
-
+            myPulse+=
+                Math.abs(
+                    myActivations[0]||0
+                );
         }
 
 
         myMesh.scale.setScalar(
             myPulse
         );
-
     }
-
 }
 
 
-/* ------------------------------------------------ */
-/* LOSS GRAPH                                       */
-/* ------------------------------------------------ */
+/* =========================================================
+   LOSS GRAPH
+   ========================================================= */
 
 function myDrawLoss(){
 
@@ -1739,12 +2152,8 @@ function myDrawLoss(){
     );
 
 
-    /*
-       Grid.
-    */
-
     myContext.strokeStyle=
-        "#1e293b";
+        "#202b40";
 
 
     for(
@@ -1772,7 +2181,6 @@ function myDrawLoss(){
         );
 
         myContext.stroke();
-
     }
 
 
@@ -1781,7 +2189,6 @@ function myDrawLoss(){
     ){
 
         return;
-
     }
 
 
@@ -1803,21 +2210,27 @@ function myDrawLoss(){
 
         let myX=
             myI/
-            (myLossHistory.length-1)*
+            (
+                myLossHistory.length-1
+            )*
             myCanvas.width;
 
 
         let myY=
             myCanvas.height-
+
             (
                 myLossHistory[myI]/
                 myMaximum*
-                (myCanvas.height-8)
-            )-
-            4;
+                (
+                    myCanvas.height-8
+                )
+            )-4;
 
 
-        if(myI===0){
+        if(
+            myI===0
+        ){
 
             myContext.moveTo(
                 myX,
@@ -1830,9 +2243,7 @@ function myDrawLoss(){
                 myX,
                 myY
             );
-
         }
-
     }
 
 
@@ -1842,16 +2253,17 @@ function myDrawLoss(){
 
     myContext.lineWidth=2;
 
+
     myContext.stroke();
 
-    myContext.lineWidth=1;
 
+    myContext.lineWidth=1;
 }
 
 
-/* ------------------------------------------------ */
-/* STATISTICS                                       */
-/* ------------------------------------------------ */
+/* =========================================================
+   STATISTICS
+   ========================================================= */
 
 function myUpdateStats(){
 
@@ -1859,11 +2271,10 @@ function myUpdateStats(){
         myGetTargetIndex();
 
 
-    let myTargetName=
-        myTargetIndex>=0 &&
-        myZones[myTargetIndex]?
-        "zone "+myTargetIndex:
-        "none";
+    let myRunningText=
+        myRunning?
+        "YES":
+        "NO";
 
 
     document.getElementById(
@@ -1872,38 +2283,42 @@ function myUpdateStats(){
 
         "Mode: "+
         myMode+
+
         "<br>"+
 
         "Running: "+
-        (
-            myRunning?
-            "YES":
-            "NO"
-        )+
+        myRunningText+
+
         "<br>"+
 
         "Topology: "+
         myTopology+
         " × "+
         myTopology+
+
         "<br>"+
 
         "Zones: "+
         myZones.length+
+
         "<br>"+
 
         "Stim sites: 32"+
+
         "<br>"+
 
-        "Visible sensors: 1,000 / 26,400"+
+        "Sensors: 1,000 / 26,400"+
+
         "<br>"+
 
         "Epoch: "+
         myEpoch+
+
         "<br>"+
 
         "Loss: "+
-        myLoss.toFixed(4)+
+        myLoss.toFixed(6)+
+
         "<br>"+
 
         "Accuracy: "+
@@ -1912,39 +2327,41 @@ function myUpdateStats(){
             100
         ).toFixed(1)+
         "%"+
+
         "<br>"+
 
         "Learning rate: "+
         myLearningRate.toFixed(3)+
+
         "<br>"+
 
-        "Target: "+
-        myTarget+
-        " ("+
-        myTargetName+
-        ")";
+        "Distance rule: "+
+        myDistanceRule+
 
+        "<br>"+
+
+        "Target zone: "+
+        myTargetIndex;
 }
 
 
-/* ------------------------------------------------ */
-/* ANIMATION LOOP                                   */
-/* ------------------------------------------------ */
+/* =========================================================
+   MAIN ANIMATION LOOP
+   ========================================================= */
 
-function myAnimate(myTime){
+function myAnimate(
+    myTime
+){
 
     requestAnimationFrame(
         myAnimate
     );
 
 
-    if(
-        !myLastTime
-    ){
+    if(!myLastTime){
 
         myLastTime=
             myTime;
-
     }
 
 
@@ -1958,68 +2375,69 @@ function myAnimate(myTime){
 
 
     myActivityTimer+=
-        myDelta*.01;
+        myDelta*
+        .01;
 
 
     /*
-       Training runs deliberately slower
-       than inference.
+       Simulation clock.
 
-       The clock slider multiplies the
-       virtual passage of time.
+       Training intentionally runs much
+       slower than visual rendering.
     */
 
-    if(myRunning){
+    if(
+        myRunning &&
+        !myEpochBusy
+    ){
 
-        myAccumulator+=
+        myClockAccumulator+=
             myDelta*
             myClockScale;
 
 
-        let myInterval;
+        let myInterval=
+            myMode==="training"?
+            1000:
+            180;
 
 
         if(
-            myMode==="training"
-        ){
-
-            myInterval=180;
-
-        }else{
-
-            myInterval=35;
-
-        }
-
-
-        while(
-            myAccumulator>=
+            myClockAccumulator>=
             myInterval
         ){
 
-            myAccumulator-=
-                myInterval;
+            myClockAccumulator=
+                0;
 
 
             myRunEpoch();
-
         }
-
     }
 
 
     /*
-       Slowly rotate the entire MEA.
+       Slow natural rotation.
 
-       Because every object belongs to
-       myArrayGroup, the 32 stimulation
-       sites, sensors, zones and connections
-       all rotate together.
+       Crucially, everything is inside
+       myArrayGroup, including:
+
+       - 1,000 sensors
+       - 32 stimulation sites
+       - zones
+       - connections
+       - array surface
+
+       Therefore they all rotate together.
     */
 
     myArrayGroup.rotation.y+=
         .0007;
 
+
+    /*
+       Mouse orbit / zoom / pan.
+    */
 
     myControls.update();
 
@@ -2028,13 +2446,12 @@ function myAnimate(myTime){
         myScene,
         myCamera
     );
-
 }
 
 
-/* ------------------------------------------------ */
-/* RESIZE                                           */
-/* ------------------------------------------------ */
+/* =========================================================
+   RESIZE
+   ========================================================= */
 
 function myResize(){
 
@@ -2050,13 +2467,12 @@ function myResize(){
         window.innerWidth,
         window.innerHeight
     );
-
 }
 
 
-/* ------------------------------------------------ */
-/* START                                            */
-/* ------------------------------------------------ */
+/* =========================================================
+   START
+   ========================================================= */
 
 myInitializeScene();
 
