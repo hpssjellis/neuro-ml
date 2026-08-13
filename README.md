@@ -18,6 +18,14 @@ Demo of the 3 layer manual training neural network I was messing with in the ear
 [My Manual NN Training ](https://hpssjellis.github.io/my-examples-of-neural-networks/public/nn.html) Try auto and manual training this network by adjusting the weights.<br>
 <img width="300"  alt="1990's manual neural network example" src="https://github.com/user-attachments/assets/6fe7c9cc-cd0e-4e90-9abc-65ffe0228f8f" />
 
+
+Demo of something that I am trying with [MaxWell Biosystems](https://www.mxwbio.com/products/maxone) this is very much in development, but try what I have so far at 
+[file:///C:/Users/keyfr/Downloads/maxOne-coding/maxone-sim.html](file:///C:/Users/keyfr/Downloads/maxOne-coding/maxone-sim.html). That link will always have the best version <br>
+<img width="1407" height="860" alt="image" src="https://github.com/user-attachments/assets/7164b0ee-13b4-433f-8688-eeffc6f87478" />
+
+
+
+
 # Project Proposal: Student-Designed Closed-Loop Neuroplasticity Experiments Using Bidirectional and High-Density Microelectrode Arrays
 
 ## Executive Summary
