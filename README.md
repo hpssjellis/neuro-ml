@@ -21,7 +21,7 @@ Demo of the 3 layer manual training neural network I was messing with in the ear
 
 Demo of something that I am trying with [MaxWell Biosystems](https://www.mxwbio.com/products/maxone) this is very much in development, but try what I have so far at 
 [file:///C:/Users/keyfr/Downloads/maxOne-coding/maxone-sim.html](file:///C:/Users/keyfr/Downloads/maxOne-coding/maxone-sim.html). That link will always have the best version <br>
-<img width="300" height="860" alt="image" src="https://github.com/user-attachments/assets/7164b0ee-13b4-433f-8688-eeffc6f87478" />
+<img width="300"  alt="image" src="https://github.com/user-attachments/assets/7164b0ee-13b4-433f-8688-eeffc6f87478" />
 
 
 <br><br><br><hr>
