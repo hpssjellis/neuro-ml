@@ -24,29 +24,54 @@ Demo of something that I am trying with [MaxWell Biosystems](https://www.mxwbio.
 <img width="300"  alt="MaxWell Biosystems" src="https://github.com/user-attachments/assets/7164b0ee-13b4-433f-8688-eeffc6f87478" />
 
 
-<br><br><br><hr>
+
+
+
+
+
+
+
+
+
+
+
+<hr>
 
 # Project Proposal: Student-Designed Closed-Loop Neuroplasticity Experiments Using Bidirectional and High-Density Microelectrode Arrays
 
 ## Executive Summary
 
-This project proposes a structured collaboration between secondary-school students and a neuroscience research laboratory using a **dual-platform electrophysiology architecture**: the **Cortical Labs CL1** bidirectional biological computer and the **MaxWell Biosystems MaxOne** High-Density Microelectrode Array (HD-MEA).
+This project proposes a structured collaboration between secondary-school students and a neuroscience research laboratory using a **three-stage electrophysiology architecture**: a **browser-based WetML simulation sandbox** for protocol design, the **Cortical Labs CL1** bidirectional biological computer for rapid closed-loop iteration, and the **MaxWell Biosystems MaxOne** High-Density Microelectrode Array (HD-MEA) for high-resolution mechanistic validation.
 
-The central objective is to enable students to design, implement, and analyze closed-loop reinforcement-learning experiments in cultured human iPSC-derived neural networks, while providing a scientifically rigorous pathway from rapid educational experimentation to high-resolution electrophysiological validation.
+The central objective is to enable students to design, implement, and analyze closed-loop reinforcement-learning experiments in cultured human iPSC-derived neural networks, while providing a scientifically rigorous pathway from no-hardware-required protocol design, through rapid educational experimentation, to high-resolution electrophysiological validation.
 
 The project is built around a **translation pipeline**:
 
-1. Students develop and optimize reinforcement algorithms and stimulation strategies on the CL1.
+0. Students design and rehearse stimulation-zone roles, truth tables, and frequency-based training protocols in a browser-based simulator, with no lab access required.
+1. Validated protocol designs are transferred to the CL1, where students develop and optimize reinforcement algorithms and stimulation strategies on living tissue.
 2. Successful algorithms are transferred to the MaxOne HD-MEA.
 3. High-density recordings reveal the spatial and network mechanisms underlying adaptive behavior.
 
-This dual-platform approach combines the educational accessibility and rapid iteration of the CL1 with the scientific power and spatial resolution of the MaxOne.
+This staged approach combines a zero-cost, zero-risk design environment with the educational accessibility and rapid iteration of the CL1 and the scientific power and spatial resolution of the MaxOne.
 
 This proposal builds directly on a validated body of published work rather than starting from first principles — specifically Kagan et al., *Neuron* (2022), the original DishBrain study, and the subsequent Cortical Labs research and product line that produced the CL1 (see **References**).
 
-## Why Two Platforms?
+## Why Three Stages?
 
-The CL1 and MaxOne address different scientific and educational objectives.
+The simulation sandbox, CL1, and MaxOne each address a different scientific and educational objective, and are designed to hand off directly to one another.
+
+### Stage 0: Browser-Based WetML Simulation Sandbox
+
+Before any student touches live tissue or paid compute time, protocols are designed and pressure-tested in a single-file, browser-based simulator (no installation, no build tools, runs on any classroom Chromebook). The sandbox models the same conceptual architecture used on the MaxOne and CL1:
+
+- **Physical zones vs. functional roles are separate.** A simulated topology (e.g. a 4×4 grid of zones) is deliberately oversized relative to the number of zones actually used for inference — mirroring the fact that only a subset of MaxOne's 26,400 electrodes are used as active stimulation or recording sites in any one protocol.
+- **Role assignment**: each zone is manually assigned as Unused, Inference Stimulation, Sensor, Encourage, or Discourage. Encourage/Discourage are training-only modulation roles and are never part of the inference input vector — a direct analog of using a subset of stimulation sites for reinforcement delivery versus task-relevant input/output.
+- **Frequency-based plasticity, not on/off stimulation.** Encourage and Discourage zones carry a 0–50 Hz training-frequency parameter rather than a binary flag, so students explore the core DishBrain/CL1 concept — that stimulation *frequency and predictability*, not stimulation presence alone, drives plasticity — before it costs lab time.
+- **Editable truth table** mapping inference stimulation patterns to desired sensor outputs, letting students define the "task" a protocol should learn.
+- **Influence matrix / heatmap** between stimulation and sensor zones, updated trial-by-trial via a simplified Hebbian-style rule, giving students an intuitive, immediately visible model of how repeated stimulation reshapes a mapping.
+- **Save/load of full protocol state** (topology, roles, frequencies, influence weights, truth table) and **Python protocol export**, so a design that performs well in simulation can be handed directly to the Software Engineering Team as a starting point for CL1/MaxOne implementation.
+
+This stage exists specifically to let students iterate on *task design, stimulation geometry, and reinforcement schedule* — the things they actually control — without touching tissue-safety parameters, cloud costs, or lab scheduling. It also gives the program a continuity-friendly artifact: the simulator and any saved protocol JSON files are plain browser-based files that outlive any single school year or piece of hardware.
 
 ### CL1: Bidirectional Closed-Loop Learning
 
@@ -81,17 +106,18 @@ The MaxOne provides **26,400 electrodes**, enabling:
 - regional plasticity measurements
 - high-resolution electrophysiological analysis
 
-Only a small subset of MaxOne electrodes (order of tens, not hundreds) are typically routed as active stimulation sites in published protocols, with the bulk of the array used for recording. The MaxOne is therefore the platform for understanding **why** a successful CL1 algorithm works, at a spatial resolution the CL1's 59 channels cannot provide.
+Only a small subset of MaxOne electrodes (order of tens, not hundreds) are typically routed as active stimulation sites in published protocols, with the bulk of the array used for recording — the same sparse-role principle rehearsed in the Stage 0 sandbox. The MaxOne is therefore the platform for understanding **why** a successful CL1 algorithm works, at a spatial resolution the CL1's 59 channels cannot provide.
 
-The two systems become complementary rather than redundant: CL1 for algorithm discovery and rapid iteration, MaxOne for mechanistic explanation.
+The three systems become complementary rather than redundant: the sandbox for protocol design and intuition-building at zero cost, the CL1 for algorithm discovery and rapid iteration on living tissue, and the MaxOne for mechanistic explanation at high spatial resolution.
 
 ## Scientific Objective
 
 Determine how programmable bidirectional electrode interactions and spatial stimulation geometries influence adaptive behavior, reinforcement learning, and network plasticity in cultured human neural networks.
 
-The project addresses two complementary questions:
+The project addresses three complementary questions:
 
-- **Algorithmic question (CL1):** Which reinforcement strategies produce the fastest and most stable adaptive behavior?
+- **Design question (Sandbox):** Which zone-role configurations, truth-table mappings, and frequency-based training schedules produce stable, learnable protocols in simulation?
+- **Algorithmic question (CL1):** Which of those reinforcement strategies produce the fastest and most stable adaptive behavior in living tissue?
 - **Mechanistic question (MaxOne):** What spatial and network-level electrophysiological changes accompany successful learning?
 
 ## Relationship to Published Work (DishBrain / Cortical Labs)
@@ -106,13 +132,13 @@ The project adopts already-validated stimulation safety parameters and this pred
 - network routing
 - software architecture
 
-The CL1 extends the educational implementation of the DishBrain paradigm, while the MaxOne provides the spatial resolution necessary for detailed electrophysiological analysis. Because the underlying stimulation physics (charge-balanced biphasic pulses, safe voltage/frequency envelopes) has already been characterized and productized across both platforms, students are not exploring untested tissue-safety parameters — they are exploring *task, schedule, and geometry design* on top of validated hardware.
+The Stage 0 sandbox is deliberately built around this same predictability/frequency framing — rather than an on/off "reward" model — so students internalize the correct mental model before ever touching a CL1 or MaxOne protocol. The CL1 extends the educational implementation of the DishBrain paradigm, while the MaxOne provides the spatial resolution necessary for detailed electrophysiological analysis. Because the underlying stimulation physics (charge-balanced biphasic pulses, safe voltage/frequency envelopes) has already been characterized and productized across both platforms, students are not exploring untested tissue-safety parameters — they are exploring *task, schedule, and geometry design* on top of validated hardware, starting in simulation and only later moving to tissue.
 
 ## Dual-Platform Experimental Architecture
 
 ### Stage 1: Algorithm Development (CL1)
 
-Students implement programmable closed-loop experiments using the CL1.
+Students implement programmable closed-loop experiments using the CL1, typically starting from a protocol already prototyped and saved from the Stage 0 sandbox.
 
 Example experiments:
 
@@ -126,11 +152,12 @@ Example experiments:
 
 The emphasis is rapid iteration. A typical experimental cycle:
 
-1. Design reinforcement algorithm.
-2. Run a 5–10 minute closed-loop experiment.
-3. Analyze behavioral metrics.
-4. Modify the algorithm.
-5. Repeat.
+1. Prototype and refine a reinforcement algorithm in the Stage 0 sandbox.
+2. Export the protocol design and implement it on the CL1.
+3. Run a 5–10 minute closed-loop experiment.
+4. Analyze behavioral metrics.
+5. Modify the algorithm (in the sandbox, on the CL1, or both).
+6. Repeat.
 
 Multiple experiments can be completed within a school term, and the sub-millisecond latency of the CL1 means the feedback loop is fast enough for students to iterate live during a class period rather than waiting on offline analysis.
 
@@ -151,6 +178,16 @@ Students investigate:
 This stage converts educational discoveries into mechanistic neuroscience experiments, and benefits from the MaxOne's much longer-running, larger cultures compared to a single CL1 unit's 59-channel footprint.
 
 ## Experimental Platform
+
+### Sandbox Investigations (Stage 0)
+
+Students will design and test, entirely in the browser:
+
+- zone role assignments (Inference Stim / Sensor / Encourage / Discourage)
+- sparse input/output mappings via editable truth tables
+- frequency-based training schedules for Encourage/Discourage zones
+- influence-matrix evolution under repeated trials
+- exported Python protocol scaffolds for handoff to Stage 1
 
 ### CL1 Investigations
 
@@ -179,6 +216,12 @@ Students will design spatial stimulation geometries, including:
 
 Learning will be defined as a measurable change in network behavior relative to baseline and control conditions.
 
+**Design Metrics (Sandbox)**
+
+- convergence of influence-matrix weights toward the target truth table
+- sensitivity of convergence to Encourage/Discourage frequency settings
+- stability of learned mappings when input patterns are cycled
+
 **Behavioral Metrics (CL1)**
 
 - response probability
@@ -203,19 +246,21 @@ Learning will be defined as a measurable change in network behavior relative to 
 - **Published negative-feedback example (DishBrain, Kagan et al. 2022):** unpredictable stimulation around 150 mV at 5 Hz for approximately 4 seconds following a "miss."
 - **Published positive-feedback logic:** predictable, low-entropy stimulation following a "hit" — reward is defined by predictability, not by a distinct reward waveform.
 - Both the CL1 and MaxOne handle charge-balancing and safe stimulation envelopes at the hardware/firmware level, so student work should be scoped to schedule and geometry design on top of these built-in safety constraints rather than raw electrical parameter selection.
+- The Stage 0 sandbox's 0–50 Hz training-frequency range is a simplified, non-biological placeholder for this predictable/unpredictable and low/high-frequency distinction — useful for building intuition, but explicitly not a substitute for the validated hardware-level parameters used at Stages 1 and 2.
 
 ## Three-Year Research Pipeline
 
-### Year 1: Rapid Closed-Loop Exploration (CL1)
+### Year 1: Simulation-First Rapid Exploration (Sandbox + CL1)
 
 Students focus on:
 
+- protocol design and rehearsal in the browser-based sandbox (no hardware dependency, usable from day one of the course)
 - reinforcement algorithms
 - adaptive control
 - software development
 - behavioral analysis
 
-The objective is high-throughput experimentation, feasible even via remote/cloud access to a CL1 unit if a physical unit is not locally available.
+The objective is high-throughput experimentation — starting entirely in simulation, then moving promising designs to the CL1 — feasible even via remote/cloud access to a CL1 unit if a physical unit is not locally available.
 
 ### Year 2: Longitudinal Learning Studies (CL1 + MaxOne)
 
@@ -245,9 +290,16 @@ The emphasis shifts from parameter exploration to hypothesis-driven neuroscience
 
 ## Continuity Note
 
-This program spans a multi-year biological and educational timeline that may extend past a single teacher's classroom tenure. To remain resilient to staff transitions (including planned retirement from full-time teaching), the program should be structured so that: (1) the software/data pipeline and experimental protocols are documented and version-controlled independently of any one individual, (2) the laboratory partner (family research contact) holds continuity of the biological/instrument side across cohorts, and (3) a designated in-school robotics/computing teacher of record is identified for each academic year, with the original proposer available in an advisory/consulting capacity post-retirement (e.g., via periodic TOC coverage or remote review of student software). The CL1's remote "Wetware as a Service" access model may also reduce continuity risk, since a physical unit does not need to remain sited at one school for the CL1-stage work to continue.
+This program spans a multi-year biological and educational timeline that may extend past a single teacher's classroom tenure. To remain resilient to staff transitions (including planned retirement from full-time teaching), the program should be structured so that: (1) the software/data pipeline and experimental protocols are documented and version-controlled independently of any one individual, (2) the laboratory partner (family research contact) holds continuity of the biological/instrument side across cohorts, and (3) a designated in-school robotics/computing teacher of record is identified for each academic year, with the original proposer available in an advisory/consulting capacity post-retirement (e.g., via periodic TOC coverage or remote review of student software). The CL1's remote "Wetware as a Service" access model may also reduce continuity risk, since a physical unit does not need to remain sited at one school for the CL1-stage work to continue. The Stage 0 browser-based sandbox further reduces continuity risk: it is a single, dependency-free HTML file that runs offline, requires no institutional account or ongoing subscription, and can be handed to any future teacher of record, TOC, or student cohort with zero setup — protocol files saved from it (JSON) are portable across school years independent of who is running the program.
 
 ## Student Research Roles
+
+### Protocol Design Team (Sandbox)
+
+- design zone-role layouts and sparse input/output mappings
+- author and iterate on truth tables
+- tune Encourage/Discourage frequency schedules and interpret influence-matrix convergence
+- export candidate protocols for the Software Engineering Team
 
 ### Reinforcement Learning Team
 
@@ -270,6 +322,7 @@ This program spans a multi-year biological and educational timeline that may ext
 
 ### Software Engineering Team
 
+- maintain and extend the Stage 0 simulation sandbox
 - implement real-time closed-loop control (Python, on top of the CL1 SDK and the MaxWell control API)
 - integrate CL1 and MaxOne APIs
 - validate timing precision
@@ -290,13 +343,13 @@ Parallel control conditions will include:
 - random reinforcement
 - sham reinforcement
 - algorithm-transfer controls
-- platform-comparison controls (CL1 versus MaxOne)
+- platform-comparison controls (Sandbox versus CL1 versus MaxOne)
 
 These controls distinguish reinforcement-dependent plasticity from spontaneous network dynamics and platform-specific artifacts, and mirror the control conditions used in the published DishBrain literature (e.g., feedback-without-sensory-input and sensory-input-without-feedback conditions, which showed no learning).
 
 ## Ethics and Laboratory Oversight
 
-All cell culture, stem-cell differentiation, and electrophysiology experiments will be conducted under the supervision of the host research laboratory and in accordance with institutional biosafety and ethics approvals.
+All cell culture, stem-cell differentiation, and electrophysiology experiments will be conducted under the supervision of the host research laboratory and in accordance with institutional biosafety and ethics approvals. The Stage 0 sandbox involves no biological material whatsoever and is exempt from this oversight; it is included here specifically so students can be assessed on protocol design *before* any request to work with live tissue is made, keeping the ethics-approval scope tightly bounded to Stages 1 and 2.
 
 Students will participate in approved activities including experimental design, software development, stimulation-program development, quantitative data analysis, and scientific interpretation. Biological materials will remain under laboratory control at all times.
 
@@ -304,17 +357,30 @@ Cortical Labs' own Chief Scientific Officer has publicly and directly addressed 
 
 ## Expected Deliverables
 
+- A browser-based, dependency-free WetML protocol design sandbox (Stage 0), including save/load and Python export
 - A validated closed-loop reinforcement-learning software framework
 - A library of adaptive stimulation algorithms
 - A library of spatial stimulation geometries
-- A cross-platform translation pipeline (CL1 → MaxOne)
+- A cross-platform translation pipeline (Sandbox → CL1 → MaxOne)
 - An anonymized electrophysiology dataset
 - Mechanistic analyses of adaptive network behavior
 - Student-authored scientific posters, reports, and manuscript contributions
 
 ## Significance
 
-This project creates a sustainable educational-to-research pipeline in which secondary-school students participate in authentic neuroscience while contributing directly to the development of next-generation bio-hybrid learning experiments.
+This project creates a sustainable educational-to-research pipeline in which secondary-school students participate in authentic neuroscience while contributing directly to the development of next-generation bio-hybrid learning experiments — starting from a zero-cost, zero-risk simulation environment and progressing, for validated designs, to living tissue.
+
+
+
+
+
+
+
+
+
+
+
+
 
 The CL1 enables students to rapidly explore how neural networks learn. The MaxOne enables researchers to determine how that learning is implemented across space and connectivity. Together, the two platforms transform student-designed reinforcement algorithms into high-resolution investigations of neural plasticity, creating a model that is simultaneously educationally accessible, scientifically rigorous, and capable of generating publishable neuroscience research.
 
