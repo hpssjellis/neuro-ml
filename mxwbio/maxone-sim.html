@@ -1,1 +1,566 @@
-<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1.0'><title>maxone-sim-v11</title><script src='https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js'></script><script src='https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js'></script><style>body{margin:0;background:#050810;color:#eef;font-family:Arial}#panel{position:absolute;left:10px;top:10px;width:360px;background:rgba(5,9,18,.95);padding:12px;border:1px solid #39445d;border-radius:8px}button,textarea{margin:3px}textarea{width:100%;height:140px}</style></head><body><div id='panel'><h2>MaxOne WetML V11</h2><p>22×46 selected electrodes (1,012), 32 stimulation sites, rectangular 2×4 mm MEA.</p><button onclick='setTopology(2)'>2×2</button><button onclick='setTopology(3)'>3×3</button><button onclick='setTopology(4)'>4×4</button><button onclick='setTopology(5)'>5×5</button><button onclick='toggleMode()' id='modeBtn'>MODE: TRAINING</button><button onclick='toggleRun()'>RUN / STOP</button><button onclick='singleTrial()'>SINGLE TRIAL</button><div id='stats'></div><textarea id='pythonArea'></textarea></div><script>let scene,camera,renderer,controls,arrayGroup,zones=[],electrodes=[],topology=2,running=false,mode='training';init();function init(){scene=new THREE.Scene();scene.background=new THREE.Color(0x050810);camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.1,1000);camera.position.set(0,7,14);renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(innerWidth,innerHeight);document.body.appendChild(renderer.domElement);controls=new THREE.OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.autoRotate=true;scene.add(new THREE.AmbientLight(0xffffff,.8));let light=new THREE.PointLight(0xffffff,1.2);light.position.set(0,8,8);scene.add(light);arrayGroup=new THREE.Group();scene.add(arrayGroup);let chip=new THREE.Mesh(new THREE.BoxGeometry(14,.08,7),new THREE.MeshPhongMaterial({color:0x101927}));arrayGroup.add(chip);let group=new THREE.Group();arrayGroup.add(group);for(let r=0;r<22;r++)for(let c=0;c<46;c++){let x=(c/45-.5)*13.5,z=(r/21-.5)*6.6;let m=new THREE.Mesh(new THREE.SphereGeometry(.06,7,7),new THREE.MeshBasicMaterial({color:0x35df72}));m.position.set(x,.04,z);group.add(m);electrodes.push({x,z,mesh:m});}setTopology(2);updatePython();animate();}function setTopology(n){topology=n;zones=[];updateStats();}function toggleMode(){mode=mode==='training'?'inference':'training';document.getElementById('modeBtn').textContent='MODE: '+mode.toUpperCase();}function toggleRun(){running=!running;}function singleTrial(){for(let e of electrodes)e.mesh.material.color.setHex(Math.random()<.025?0x35df72:0x102018);updateStats();}function updateStats(){document.getElementById('stats').innerHTML='Topology: '+topology+'×'+topology+'<br>Electrodes: 1,012<br>Mode: '+mode;}function updatePython(){document.getElementById('pythonArea').value='# MaxOne WetML V11\nfrom maxlab import system, chip\n# Generated protocol template';}function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,camera);}</script></body></html>
+<!DOCTYPE html>
+
+<html lang='en'>
+<head>
+<meta charset='UTF-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0'>
+<title>MaxOne WetML Simulator V10</title>
+
+<script src='https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js'></script>
+
+<script src='https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js'></script>
+
+</head>
+
+<body style='margin:0;overflow:hidden;background:#050810;color:white;font-family:Arial,sans-serif;'>
+
+<div id='myPanel' style='position:absolute;left:10px;top:10px;width:360px;background:rgba(5,9,18,0.95);padding:12px;border:1px solid #39445d;border-radius:8px;z-index:10;max-height:95vh;overflow:auto;'>
+
+<h2 style='margin-top:0'>MaxOne WetML Simulator V10</h2>
+
+<div style='font-size:12px;color:#9fb0c9;margin-bottom:10px;'>
+Physical chip: <b>120×220 = 26,400 electrodes</b><br>
+Selected recording grid: <b>22×46 = 1,012 electrodes</b><br>
+Physical aspect ratio: <b>2 mm × 4 mm</b>
+</div>
+
+<h3>Topology</h3>
+<input type='button' value='2×2' onclick='mySetTopology(2)'>
+<input type='button' value='3×3' onclick='mySetTopology(3)'>
+<input type='button' value='4×4' onclick='mySetTopology(4)'>
+<input type='button' value='5×5' onclick='mySetTopology(5)'>
+
+<h3>Run</h3>
+<input type='button' value='Training' onclick='mySetMode("training")'>
+<input type='button' value='Inference' onclick='mySetMode("inference")'>
+<input type='button' value='Run / Stop' onclick='myToggleRun()'>
+<input type='button' value='Single Trial' onclick='mySingleTrial()'>
+
+<h3>Selected Zone</h3>
+<div id='mySelectedZone' style='background:#08101b;padding:8px;font-family:monospace;font-size:12px;'>
+Click a zone in the 3D view
+</div>
+
+<div style='margin-top:8px;'>
+Desired output:
+<select id='myDesiredOutput' onchange='mySetDesiredOutput(this.value)'>
+<option value='0'>OFF</option>
+<option value='1'>ON</option>
+</select>
+</div>
+
+<div style='margin-top:8px;'>
+Controller:
+<input type='button' value='AUTO' onclick='mySetController("auto")'>
+<input type='button' value='EXCITE' onclick='mySetController("excite")'>
+<input type='button' value='INHIBIT' onclick='mySetController("inhib")'>
+</div>
+
+<h3>Statistics</h3>
+<div id='myStats' style='background:#08101b;padding:8px;font-family:monospace;font-size:12px;line-height:1.5;'></div>
+
+<h3>Trial</h3>
+<div id='myTrial' style='background:#08101b;padding:8px;font-family:monospace;font-size:11px;white-space:pre-wrap;'></div>
+
+</div>
+
+<script>
+
+let myScene;
+let myCamera;
+let myRenderer;
+let myControls;
+
+let myArrayGroup;
+let myZoneGroup;
+let myElectrodeGroup;
+let myStimGroup;
+
+let myRaycaster = new THREE.Raycaster();
+let myMouse = new THREE.Vector2();
+
+let myTopology = 2;
+let myZones = [];
+let myElectrodes = [];
+
+let mySelectedZone = -1;
+
+let myRunning = false;
+let myMode = 'training';
+
+let myEpoch = 0;
+let myTrial = 0;
+
+let myLastTime = 0;
+
+const myRows = 22;
+const myCols = 46;
+const myElectrodeCount = myRows * myCols;
+
+async function myInitialize(){
+
+myScene = new THREE.Scene();
+myScene.background = new THREE.Color(0x050810);
+
+myCamera = new THREE.PerspectiveCamera(
+50,
+window.innerWidth / window.innerHeight,
+0.1,
+1000
+);
+
+myCamera.position.set(0,8,12);
+
+myRenderer = new THREE.WebGLRenderer({antialias:true});
+myRenderer.setSize(window.innerWidth,window.innerHeight);
+myRenderer.setPixelRatio(window.devicePixelRatio);
+
+document.body.appendChild(myRenderer.domElement);
+
+myControls = new THREE.OrbitControls(
+myCamera,
+myRenderer.domElement
+);
+
+myControls.enableDamping = true;
+
+myScene.add(new THREE.AmbientLight(0xffffff,0.8));
+
+let myLight = new THREE.PointLight(0xffffff,1.2);
+myLight.position.set(0,10,8);
+myScene.add(myLight);
+
+myArrayGroup = new THREE.Group();
+myScene.add(myArrayGroup);
+
+myCreateChip();
+myCreateElectrodes();
+myCreateStimSites();
+mySetTopology(2);
+
+myRenderer.domElement.onclick = myPickZone;
+
+window.onresize = myResize;
+
+myAnimate();
+
+}
+
+function myCreateChip(){
+
+let myChip = new THREE.Mesh(
+new THREE.BoxGeometry(16,0.08,8),
+new THREE.MeshPhongMaterial({
+color:0x101927,
+transparent:true,
+opacity:0.65
+})
+);
+
+myChip.position.y = -0.05;
+myArrayGroup.add(myChip);
+
+let myGrid = new THREE.GridHelper(16,46,0x44556d,0x223040);
+myGrid.scale.z = 0.5;
+myArrayGroup.add(myGrid);
+
+}
+
+function myCreateElectrodes(){
+
+myElectrodeGroup = new THREE.Group();
+
+for(let myR=0; myR<myRows; myR++){
+
+for(let myC=0; myC<myCols; myC++){
+
+let myX = (myC/(myCols-1)-0.5)*15;
+let myZ = (myR/(myRows-1)-0.5)*7.5;
+
+let myMesh = new THREE.Mesh(
+new THREE.SphereGeometry(0.03,6,6),
+new THREE.MeshBasicMaterial({color:0x36dc72})
+);
+
+myMesh.position.set(myX,0.04,myZ);
+
+myElectrodeGroup.add(myMesh);
+
+myElectrodes.push({
+x:myX,
+z:myZ,
+mesh:myMesh,
+firing:true,
+zone:-1
+});
+
+}
+}
+
+myArrayGroup.add(myElectrodeGroup);
+
+}
+
+function myCreateStimSites(){
+
+myStimGroup = new THREE.Group();
+
+for(let myI=0; myI<32; myI++){
+
+let myMesh = new THREE.Mesh(
+new THREE.SphereGeometry(0.10,10,10),
+new THREE.MeshBasicMaterial({color:0xff4060})
+);
+
+myStimGroup.add(myMesh);
+
+}
+
+myArrayGroup.add(myStimGroup);
+
+}
+
+function mySetTopology(mySize){
+
+myTopology = mySize;
+
+if(myZoneGroup){
+myArrayGroup.remove(myZoneGroup);
+}
+
+myZoneGroup = new THREE.Group();
+
+myZones = [];
+
+let myIndex = 0;
+
+for(let myR=0; myR<mySize; myR++){
+
+for(let myC=0; myC<mySize; myC++){
+
+let myX = -6 + myC*(12/(mySize-1));
+let myZ = -3 + myR*(6/(mySize-1));
+
+let myDisc = new THREE.Mesh(
+new THREE.CylinderGeometry(0.9,0.9,0.05,24),
+new THREE.MeshBasicMaterial({
+color:0xffd040,
+transparent:true,
+opacity:0.16
+})
+);
+
+myDisc.position.set(myX,0.12,myZ);
+myDisc.userData.zone = myIndex;
+
+let myRing = new THREE.Mesh(
+new THREE.RingGeometry(0.86,0.92,24),
+new THREE.MeshBasicMaterial({
+color:0xffd040,
+side:THREE.DoubleSide
+})
+);
+
+myRing.rotation.x = -Math.PI/2;
+myRing.position.set(myX,0.16,myZ);
+myRing.userData.zone = myIndex;
+
+myZoneGroup.add(myDisc);
+myZoneGroup.add(myRing);
+
+myZones.push({
+index:myIndex,
+x:myX,
+z:myZ,
+desired:0,
+activity:0,
+controller:'auto',
+electrodes:[]
+});
+
+myIndex++;
+
+}
+}
+
+myArrayGroup.add(myZoneGroup);
+
+myAssignElectrodes();
+myPositionStimSites();
+myUpdateStats();
+
+}
+
+function myAssignElectrodes(){
+
+for(let myZone of myZones){
+myZone.electrodes = [];
+}
+
+for(let myE of myElectrodes){
+
+let myBest = 0;
+let myDistance = 1e9;
+
+for(let myZone of myZones){
+
+let myD = Math.hypot(
+myE.x-myZone.x,
+myE.z-myZone.z
+);
+
+if(myD<myDistance){
+myDistance = myD;
+myBest = myZone.index;
+}
+
+}
+
+myE.zone = myBest;
+myZones[myBest].electrodes.push(myE);
+
+}
+
+}
+
+function myPositionStimSites(){
+
+for(let myI=0; myI<32; myI++){
+
+let myZone = myZones[myI % myZones.length];
+
+let myAngle = myI/32*Math.PI*2;
+
+myStimGroup.children[myI].position.set(
+myZone.x + Math.cos(myAngle)*0.5,
+0.28,
+myZone.z + Math.sin(myAngle)*0.5
+);
+
+}
+
+}
+
+function myPickZone(myEvent){
+
+let myRect = myRenderer.domElement.getBoundingClientRect();
+
+myMouse.x = ((myEvent.clientX-myRect.left)/myRect.width)*2-1;
+myMouse.y = -((myEvent.clientY-myRect.top)/myRect.height)*2+1;
+
+myRaycaster.setFromCamera(myMouse,myCamera);
+
+let myHits = myRaycaster.intersectObjects(
+myZoneGroup.children
+);
+
+if(myHits.length===0) return;
+
+mySelectedZone = myHits[0].object.userData.zone;
+
+myUpdateSelectedZone();
+
+}
+
+function myUpdateSelectedZone(){
+
+if(mySelectedZone<0) return;
+
+let myZone = myZones[mySelectedZone];
+
+document.getElementById('mySelectedZone').innerHTML =
+'Zone: '+myZone.index+'<br>'+
+'Selected electrodes: '+myZone.electrodes.length+'<br>'+
+'Activity: '+myZone.activity.toFixed(3)+'<br>'+
+'Desired: '+(myZone.desired?'ON':'OFF')+'<br>'+
+'Controller: '+myZone.controller;
+
+document.getElementById('myDesiredOutput').value =
+String(myZone.desired);
+
+}
+
+function mySetDesiredOutput(myValue){
+
+if(mySelectedZone<0) return;
+
+myZones[mySelectedZone].desired =
+Number(myValue);
+
+myUpdateSelectedZone();
+
+}
+
+function mySetController(myMode){
+
+if(mySelectedZone<0) return;
+
+myZones[mySelectedZone].controller =
+myMode;
+
+myUpdateSelectedZone();
+
+}
+
+function mySingleTrial(){
+
+myTrial++;
+
+for(let myZone of myZones){
+
+let myFiring = 0;
+
+for(let myE of myZone.electrodes){
+
+myE.firing = Math.random() < 0.025;
+
+if(myE.firing) myFiring++;
+
+}
+
+myZone.activity = myFiring / Math.max(1,myZone.electrodes.length);
+
+if(myZone.controller==='excite'){
+myZone.activity = Math.min(1,myZone.activity+0.15);
+}
+
+if(myZone.controller==='inhib'){
+myZone.activity = Math.max(0,myZone.activity-0.15);
+}
+
+}
+
+if(myTrial % 4===0){
+myEpoch++;
+}
+
+myUpdateVisualization();
+myUpdateSelectedZone();
+myUpdateStats();
+
+document.getElementById('myTrial').textContent =
+'Epoch: '+myEpoch+'\\n'+
+'Trial: '+myTrial+'\\n\\n'+
+myZones.map(
+myZone=>'Zone '+myZone.index+
+' activity '+myZone.activity.toFixed(3)
+).join('\\n');
+
+}
+
+function myUpdateVisualization(){
+
+for(let myE of myElectrodes){
+
+myE.mesh.material.color.setHex(
+myE.firing ? 0xffd040 : 0x36dc72
+);
+
+}
+
+for(let myI=0; myI<myZones.length; myI++){
+
+let myZone = myZones[myI];
+
+let myDisc = myZoneGroup.children[myI*2];
+let myRing = myZoneGroup.children[myI*2+1];
+
+if(myI===mySelectedZone){
+myRing.material.color.setHex(0xffffff);
+}else{
+myRing.material.color.setHex(0xffd040);
+}
+
+if(myZone.controller==='excite'){
+myDisc.material.color.setHex(0xff80c0);
+}else if(myZone.controller==='inhib'){
+myDisc.material.color.setHex(0x4080ff);
+}else{
+myDisc.material.color.setHex(0xffd040);
+}
+
+let myScale = 1 + myZone.activity*0.6;
+
+myDisc.scale.set(myScale,myScale,myScale);
+myRing.scale.set(myScale,myScale,myScale);
+
+}
+
+}
+
+function myUpdateStats(){
+
+let myMean = myZones.reduce(
+(mySum,myZone)=>mySum+myZone.activity,
+0
+)/Math.max(1,myZones.length);
+
+document.getElementById('myStats').innerHTML =
+'Mode: '+myMode+'<br>'+
+'Topology: '+myTopology+' × '+myTopology+'<br>'+
+'Zones: '+myZones.length+'<br>'+
+'Selected electrodes: '+myElectrodeCount+'<br>'+
+'Epoch: '+myEpoch+'<br>'+
+'Trial: '+myTrial+'<br>'+
+'Mean activity: '+myMean.toFixed(3);
+
+}
+
+function mySetMode(myNewMode){
+
+myMode = myNewMode;
+
+}
+
+function myToggleRun(){
+
+myRunning = !myRunning;
+
+}
+
+function myAnimate(myTime){
+
+requestAnimationFrame(myAnimate);
+
+if(myRunning){
+
+if(myTime-myLastTime>400){
+
+myLastTime = myTime;
+mySingleTrial();
+
+}
+
+}
+
+myArrayGroup.rotation.y += 0.0006;
+
+myControls.update();
+
+myRenderer.render(
+myScene,
+myCamera
+);
+
+}
+
+function myResize(){
+
+myCamera.aspect =
+window.innerWidth/window.innerHeight;
+
+myCamera.updateProjectionMatrix();
+
+myRenderer.setSize(
+window.innerWidth,
+window.innerHeight
+);
+
+}
+
+myInitialize();
+
+</script>
+
+</body>
+</html>
