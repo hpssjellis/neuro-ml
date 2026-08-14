@@ -2,20 +2,22 @@
 
 # neuro-ml
 
-neuro machine learning
+neuro machine learning Started ~Aug 8th, 2026
 # By Jeremy Ellis [Github Profile](https://github.com/hpssjellis)
 
 Website of this README.md file: [https://hpssjellis.github.io/neuro-ml/](https://hpssjellis.github.io/neuro-ml/)
 
 Github Repository of this site [https://github.com/hpssjellis/neuro-ml](https://github.com/hpssjellis/neuro-ml)
 
+# All Demos [https://hpssjellis.github.io/neuro-ml/public/index.html](https://hpssjellis.github.io/neuro-ml/public/index.html)
 
-Demo of my Cl1 webpage [neuro-ml/public/index.html](https://hpssjellis.github.io/neuro-ml/public/index.html) not sure how userful it is but it is kind of fun <br>
+
+Demo of my Cl1 webpage [neuro-ml/cortecal-labs/cl1.html](https://hpssjellis.github.io/neuro-ml/cortecal-labs/cl1.html) not sure how userful it is but it is kind of fun <br>
 <img width="300" alt="web cl1" src="https://github.com/user-attachments/assets/fc479860-b224-4529-bcc6-9cbe65c05a73" />
 <br><br><hr>
 
 Demo of the 3 layer manual training neural network I was messing with in the early 1990's with a nicer interface than the text interface i had with Borland Pascal.
-[My Manual NN Training ](https://hpssjellis.github.io/my-examples-of-neural-networks/public/nn.html) Try auto and manual training this network by adjusting the weights.<br>
+[My ~1990 Manual NN Training ](https://hpssjellis.github.io/my-examples-of-neural-networks/public/nn.html) Try auto and manual training this network by adjusting the weights.<br>
 <img width="300"  alt="1990's manual neural network example" src="https://github.com/user-attachments/assets/6fe7c9cc-cd0e-4e90-9abc-65ffe0228f8f" />
 <br><br><hr>
 
