@@ -4,7 +4,7 @@
 <head>
 <meta charset='UTF-8'>
 <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-<title>MaxOne WetML Simulator V17</title>
+<title>MaxOne WetML Simulator V18</title>
 
 <script src='https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js'></script>
 
@@ -31,7 +31,7 @@
 
 <div id='myPanelInner' style='background:rgba(5,9,18,0.95);padding:12px;border:1px solid #39445d;border-radius:8px;max-height:96vh;overflow:auto;box-sizing:border-box;'>
 
-<h2 style='margin-top:0'>MaxOne WetML Simulator V17</h2>
+<h2 style='margin-top:0'>MaxOne WetML Simulator V18</h2>
 
 <div style='font-size:12px;margin-bottom:10px;'>
 GitHub: <a href='https://github.com/hpssjellis/neuro-ml' target='_blank' rel='noopener' style='color:#7fd0ff;'>hpssjellis/neuro-ml</a>
@@ -79,7 +79,7 @@ Zones ≠ roles: assign each zone a functional role below.
 <input type='button' value='Single Trial' onclick='myRunOnce()'>
 <input type='button' id='myRotateBtn' value='Rotation: On' onclick='myToggleAutoRotate()'>
 <br>
-<label style='font-size:12px;'><input type='checkbox' id='myCycleCheckbox' checked> Cycle truth-table patterns each trial</label>
+<label style='font-size:12px;'><input type='checkbox' id='myCycleCheckbox' checked onchange='mySyncCycleCheckbox(this)'> Cycle truth-table patterns each trial</label>
 
 <h3>Baseline Activity</h3>
 <div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Ongoing spontaneous firing across the whole well, independent of stimulation. Real cultured neurons on an HD-MEA typically show baseline spontaneous rates around 0.1–5 Hz per electrode, well before any deliberate stimulation — raise this to make more electrodes light up each trial.</div>
@@ -101,8 +101,37 @@ Role:
 </div>
 
 <div style='margin-top:8px;font-size:12px;'>
-Training frequency (Hz): <span id='myFreqLabel'>0</span><br>
+Stim Zone Training frequency (Hz): <span id='myFreqLabel'>0</span><br>
 <input type='range' min='0' max='50' step='1' value='0' id='myFreqSlider' style='width:100%;' oninput="myOnFrequencyChange(this.value)">
+</div>
+
+<h3>Multi-Electrode Burst Timing</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>
+MaxOne has only <b>32 physical stimulation units</b> on the whole chip, so firing every electrode in a zone at once usually isn't possible once a zone's electrode count exceeds that. Bigger zones have to be electrode-swapped ("time-multiplexed") through that fixed 32-electrode budget, one group at a time. Since real neurons respond on a millisecond timescale, this scheduling matters even before any training starts — pick a preset to start, or dial in fine control below.
+</div>
+
+Preset:
+<select id='myBurstPresetSelect' style='width:100%;margin-top:2px;'>
+<option value='representative'>Representative electrode only (1/zone, fastest, no sweep)</option>
+<option value='fast'>Fast sweep (10 electrodes/group, 5 ms dwell)</option>
+<option value='slow'>Slow sweep (4 electrodes/group, 40 ms dwell)</option>
+<option value='custom'>Custom (use sliders below)</option>
+</select>
+<input type='button' value='Apply Preset' onclick='myApplyBurstPreset()' style='margin-top:4px;'>
+
+<div style='font-size:12px;margin-top:8px;'>
+Electrodes active per swap group: <span id='myBurstGroupLabel'>1</span> <span style='color:#8fa0bf;'>(hardware max 32)</span><br>
+<input type='range' min='1' max='32' step='1' value='1' id='myBurstGroupSlider' style='width:100%;' oninput='myOnBurstSliderChange()'>
+
+Swap dwell time (ms): <span id='myBurstDwellLabel'>20</span><br>
+<input type='range' min='1' max='200' step='1' value='20' id='myBurstDwellSlider' style='width:100%;' oninput='myOnBurstSliderChange()'>
+
+Pulse phase width (µs): <span id='myBurstWidthLabel'>100</span><br>
+<input type='range' min='20' max='500' step='10' value='100' id='myBurstWidthSlider' style='width:100%;' oninput='myOnBurstSliderChange()'>
+</div>
+
+<div id='myBurstScheduleDiv' style='background:#08101b;padding:8px;font-family:monospace;font-size:11px;margin-top:8px;line-height:1.5;'>
+Select a zone to see its electrode-swap schedule.
 </div>
 
 <h3>Input Pattern (Inference Stim Zones)</h3>
@@ -127,6 +156,15 @@ Assign roles to see influence weights.
 <div id='myErrorChartDiv' style='background:#08101b;padding:8px;'>
 No trials run yet.
 </div>
+
+<h3>Duplicate Run</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Same controls as the Run section above, repeated here so you don't have to scroll back up while watching Statistics.</div>
+<input type='button' id='myModeToggleBtn2' value='Mode: Training' onclick='myToggleMode()' style='font-weight:bold;'>
+<input type='button' value='Run / Stop' onclick='myToggleRun()'>
+<input type='button' value='Single Trial' onclick='myRunOnce()'>
+<input type='button' id='myRotateBtn2' value='Rotation: On' onclick='myToggleAutoRotate()'>
+<br>
+<label style='font-size:12px;'><input type='checkbox' id='myCycleCheckbox2' checked onchange='mySyncCycleCheckbox(this)'> Cycle truth-table patterns each trial</label>
 
 <h3>Statistics</h3>
 <div id='myStats' style='background:#08101b;padding:8px;font-family:monospace;font-size:12px;line-height:1.5;'></div>
@@ -179,6 +217,11 @@ let mySelectedZone = -1;
 
 let myRunning = false;
 let myBaselineRate = 0.35;
+
+// ---- V18: multi-electrode burst / swap-group timing ----
+let myBurstElectrodesPerGroup = 1;
+let myBurstDwellMs = 20;
+let myBurstPulseWidthUs = 100;
 let myAutoRotate = true;
 let myMode = 'training';
 
@@ -1016,6 +1059,8 @@ document.getElementById('myRoleBtn_'+myR).classList.remove('myRoleBtnActive');
 document.getElementById('myFreqSlider').value = 0;
 document.getElementById('myFreqLabel').textContent = '0';
 
+myUpdateBurstSchedule();
+
 return;
 
 }
@@ -1041,6 +1086,8 @@ document.getElementById('myRoleBtn_'+myR).classList.remove('myRoleBtnActive');
 
 document.getElementById('myFreqSlider').value = myZone.freq;
 document.getElementById('myFreqLabel').textContent = String(myZone.freq);
+
+myUpdateBurstSchedule();
 
 }
 
@@ -1078,6 +1125,96 @@ document.getElementById('myFreqLabel').textContent = String(myValue);
 
 myUpdateSelectedZonePanel();
 myUpdateVisualization();
+
+}
+
+// ---- V18: multi-electrode burst / swap-group timing ----
+
+function myApplyBurstPreset(){
+
+let myPreset = document.getElementById('myBurstPresetSelect').value;
+
+if(myPreset==='representative'){
+myBurstElectrodesPerGroup = 1;
+myBurstDwellMs = 20;
+myBurstPulseWidthUs = 100;
+}else if(myPreset==='fast'){
+myBurstElectrodesPerGroup = 10;
+myBurstDwellMs = 5;
+myBurstPulseWidthUs = 100;
+}else if(myPreset==='slow'){
+myBurstElectrodesPerGroup = 4;
+myBurstDwellMs = 40;
+myBurstPulseWidthUs = 150;
+}
+// 'custom' leaves the current slider values as-is
+
+document.getElementById('myBurstGroupSlider').value = myBurstElectrodesPerGroup;
+document.getElementById('myBurstDwellSlider').value = myBurstDwellMs;
+document.getElementById('myBurstWidthSlider').value = myBurstPulseWidthUs;
+
+myUpdateBurstLabels();
+myUpdateBurstSchedule();
+
+}
+
+function myOnBurstSliderChange(){
+
+myBurstElectrodesPerGroup = Number(document.getElementById('myBurstGroupSlider').value);
+myBurstDwellMs = Number(document.getElementById('myBurstDwellSlider').value);
+myBurstPulseWidthUs = Number(document.getElementById('myBurstWidthSlider').value);
+
+document.getElementById('myBurstPresetSelect').value = 'custom';
+
+myUpdateBurstLabels();
+myUpdateBurstSchedule();
+
+}
+
+function myUpdateBurstLabels(){
+
+document.getElementById('myBurstGroupLabel').textContent = String(myBurstElectrodesPerGroup);
+document.getElementById('myBurstDwellLabel').textContent = String(myBurstDwellMs);
+document.getElementById('myBurstWidthLabel').textContent = String(myBurstPulseWidthUs);
+
+}
+
+function myUpdateBurstSchedule(){
+
+let myDiv = document.getElementById('myBurstScheduleDiv');
+
+if(!myDiv) return;
+
+if(mySelectedZone<0){
+myDiv.innerHTML = 'Select a zone to see its electrode-swap schedule.';
+return;
+}
+
+let myZone = myZones[mySelectedZone];
+let myCount = myZone.electrodes.length;
+
+if(myCount===0){
+myDiv.innerHTML = 'Zone '+myZone.index+' has no assigned electrodes.';
+return;
+}
+
+let myGroups = Math.ceil(myCount/myBurstElectrodesPerGroup);
+let mySweepMs = myGroups*myBurstDwellMs;
+
+let myLines = [];
+
+myLines.push('Zone '+myZone.index+' ('+myZone.role+'): '+myCount+' electrodes');
+myLines.push('Swap groups needed: '+myGroups+' (at '+myBurstElectrodesPerGroup+' electrode(s) live at once)');
+myLines.push('Full-zone sweep time: '+mySweepMs+' ms');
+myLines.push('Pulse phase width: '+myBurstPulseWidthUs+' &micro;s');
+
+if(myGroups>1){
+myLines.push('Only one group is ever live at a time -- the chip has 32 stim units total -- so covering every electrode in this zone takes '+mySweepMs+' ms even though '+myCount+' electrodes belong to it.');
+}else{
+myLines.push('Fits in a single swap group -- every electrode in this zone can be live simultaneously.');
+}
+
+myDiv.innerHTML = myLines.join('<br>');
 
 }
 
@@ -1273,9 +1410,11 @@ mySetMode(myMode==='training' ? 'inference' : 'training');
 
 function myUpdateModeButton(){
 
-let myBtn = document.getElementById('myModeToggleBtn');
+for(let myId of ['myModeToggleBtn','myModeToggleBtn2']){
 
-if(!myBtn) return;
+let myBtn = document.getElementById(myId);
+
+if(!myBtn) continue;
 
 if(myMode==='training'){
 myBtn.value = 'Mode: Training';
@@ -1289,15 +1428,32 @@ myBtn.style.color = '#fff';
 
 }
 
+}
+
 function myToggleAutoRotate(){
 
 myAutoRotate = !myAutoRotate;
 
-let myBtn = document.getElementById('myRotateBtn');
+for(let myId of ['myRotateBtn','myRotateBtn2']){
+
+let myBtn = document.getElementById(myId);
+
+if(!myBtn) continue;
 
 myBtn.value = 'Rotation: ' + (myAutoRotate ? 'On' : 'Off');
 myBtn.style.background = myAutoRotate ? '' : '#3a2a2a';
 myBtn.style.color = myAutoRotate ? '' : '#fff';
+
+}
+
+}
+
+function mySyncCycleCheckbox(mySource){
+
+let myOtherId = (mySource.id==='myCycleCheckbox') ? 'myCycleCheckbox2' : 'myCycleCheckbox';
+let myOther = document.getElementById(myOtherId);
+
+if(myOther) myOther.checked = mySource.checked;
 
 }
 
@@ -1592,7 +1748,7 @@ let myUrl = URL.createObjectURL(myBlob);
 
 let myA = document.createElement('a');
 myA.href = myUrl;
-myA.download = 'maxone-wetml-v17.json';
+myA.download = 'maxone-wetml-v18.json';
 myA.click();
 
 URL.revokeObjectURL(myUrl);
@@ -1679,8 +1835,8 @@ let myZ = myZones[myZi];
 return (myZ.electrodes.length>0) ? myZ.electrodes[0].id : null;
 }
 
-myLines.push('# MaxOne WetML V17 stimulation protocol');
-myLines.push('# Auto-generated from maxone-sim-v17.html');
+myLines.push('# MaxOne WetML V18 stimulation protocol');
+myLines.push('# Auto-generated from maxone-sim-v18.html');
 myLines.push('# Concept: plasticity through stimulation FREQUENCY changes, not on/off stimulation.');
 myLines.push('#');
 myLines.push('# This targets the real MaxLab Python API (mxwserver must be running, "maxlab"');
@@ -1694,9 +1850,12 @@ myLines.push('#    set a frequency on a group of electrodes, and no synchronous 
 myLines.push('#    "read" a sensor zone\'s output. This script builds a frequency out of');
 myLines.push('#    individual maxlab.Sequence() pulses spaced by maxlab.system.DelaySamples(),');
 myLines.push('#    and reads results back offline from the recorded data file instead.');
-myLines.push('# 2) MaxOne has exactly 32 physical on-chip StimulationUnits, so this script');
-myLines.push('#    stimulates through ONE representative electrode per stim/encourage/');
-myLines.push('#    discourage zone rather than every electrode in the zone.');
+myLines.push('# 2) MaxOne has exactly 32 physical on-chip StimulationUnits. Inference stim');
+myLines.push('#    zones always use ONE representative electrode (needed every trial, so it');
+myLines.push('#    has to stay fast). Encourage/discourage zones use BURST_ELECTRODES_PER_GROUP');
+myLines.push('#    below -- 1 means representative-only, >1 means the full zone is swept in');
+myLines.push('#    time-multiplexed groups via sweep_zone_electrodes(). Either way, only');
+myLines.push('#    BURST_ELECTRODES_PER_GROUP electrodes are ever live on the chip at once.');
 myLines.push('# 3) This is a teaching sandbox, not a validated protocol. Whether frequency-');
 myLines.push('#    based "encourage/discourage" stimulation actually shapes plasticity in a');
 myLines.push('#    real culture is an open research question. Use at your own risk.');
@@ -1713,6 +1872,14 @@ myLines.push('import maxlab');
 myLines.push('');
 myLines.push('TOPOLOGY = ' + myTopology);
 myLines.push('SAMPLE_PERIOD_S = 50e-6   # fixed HW property: 50 microseconds between recording samples');
+myLines.push('');
+myLines.push('# Multi-electrode swap-group timing (from the "Multi-Electrode Burst Timing" panel).');
+myLines.push('# The chip has only 32 stim units total, so a zone with more electrodes than');
+myLines.push('# BURST_ELECTRODES_PER_GROUP must be swept through in multiple time-multiplexed');
+myLines.push('# groups -- see sweep_zone_electrodes() below.');
+myLines.push('BURST_ELECTRODES_PER_GROUP = ' + myBurstElectrodesPerGroup + '   # electrodes live at once, per group (max 32)');
+myLines.push('BURST_DWELL_MS = ' + myBurstDwellMs + '            # how long each swap group stays connected');
+myLines.push('BURST_PULSE_WIDTH_US = ' + myBurstPulseWidthUs + '      # biphasic half-pulse width');
 myLines.push('');
 
 myLines.push('# Inference stim zones -- one representative electrode each (physical stim unit budget is 32)');
@@ -1737,19 +1904,20 @@ myLines.push('# All electrode ids belonging to sensor zones -- this is what actu
 myLines.push('SENSOR_RECORD_ELECTRODE_IDS = '+JSON.stringify(mySensorElectrodeIds));
 myLines.push('');
 
-myLines.push('# Training-only modulation zones (never part of the inference input vector)');
-myLines.push('# Again: one representative electrode per zone, since only 32 stim units exist.');
+myLines.push('# Training-only modulation zones (never part of the inference input vector).');
+myLines.push('# "sample_electrode_id" is used in representative-only mode; "electrode_ids" is');
+myLines.push('# the full zone electrode list, used when sweeping (see BURST_* constants below).');
 myLines.push('ENCOURAGE_ZONES = [');
 for(let myZi of myEncourageZones){
 let myZ = myZones[myZi];
-myLines.push('    {"zone": '+myZ.index+', "sample_electrode_id": '+myRepElectrodeId(myZi)+', "frequency_hz": '+myZ.freq+'},');
+myLines.push('    {"zone": '+myZ.index+', "sample_electrode_id": '+myRepElectrodeId(myZi)+', "frequency_hz": '+myZ.freq+', "electrode_ids": '+JSON.stringify(myZ.electrodes.map(myE=>myE.id))+'},');
 }
 myLines.push(']');
 myLines.push('');
 myLines.push('DISCOURAGE_ZONES = [');
 for(let myZi of myDiscourageZones){
 let myZ = myZones[myZi];
-myLines.push('    {"zone": '+myZ.index+', "sample_electrode_id": '+myRepElectrodeId(myZi)+', "frequency_hz": '+myZ.freq+'},');
+myLines.push('    {"zone": '+myZ.index+', "sample_electrode_id": '+myRepElectrodeId(myZi)+', "frequency_hz": '+myZ.freq+', "electrode_ids": '+JSON.stringify(myZ.electrodes.map(myE=>myE.id))+'},');
 }
 myLines.push(']');
 myLines.push('');
@@ -1831,6 +1999,30 @@ myLines.push('    seq.append(maxlab.chip.DAC(dac_no, 512))');
 myLines.push('    return seq');
 myLines.push('');
 
+myLines.push('def chunk(items, n):');
+myLines.push('    for i in range(0, len(items), n):');
+myLines.push('        yield items[i:i + n]');
+myLines.push('');
+
+myLines.push('def sweep_zone_electrodes(array, electrode_ids, dac_no, pulses_per_group=3):');
+myLines.push('    """Time-multiplex through a zone\'s full electrode list in groups of');
+myLines.push('    BURST_ELECTRODES_PER_GROUP, since the chip only has 32 stim units total.');
+myLines.push('    Connects each group, fires a few pulses, disconnects, moves to the next');
+myLines.push('    group. This is the "electrode swapping" the burst-timing UI schedules.');
+myLines.push('    Only used when BURST_ELECTRODES_PER_GROUP > 1 (see run_training_protocol)."""');
+myLines.push('    half_delay = max(1, round((BURST_PULSE_WIDTH_US * 1e-6) / SAMPLE_PERIOD_S))');
+myLines.push('    for group in chunk(electrode_ids, BURST_ELECTRODES_PER_GROUP):');
+myLines.push('        for electrode_id in group:');
+myLines.push('            array.connect_electrode_to_stimulation(electrode_id)');
+myLines.push('        array.download()');
+myLines.push('        for _ in range(pulses_per_group):');
+myLines.push('            biphasic_pulse(dac_no=dac_no, half_pulse_delay_samples=half_delay).send()');
+myLines.push('        time.sleep(BURST_DWELL_MS / 1000.0)');
+myLines.push('        for electrode_id in group:');
+myLines.push('            array.disconnect_electrode_from_stimulation(electrode_id)');
+myLines.push('        array.download()');
+myLines.push('');
+
 myLines.push('def run_zone_frequency_burst(dac_no, frequency_hz, duration_s=2.0):');
 myLines.push('    """Fire biphasic pulses at ~frequency_hz for duration_s seconds. This is the');
 myLines.push('    simulator\'s Encourage/Discourage concept translated into real pulses -- it');
@@ -1866,8 +2058,11 @@ myLines.push('');
 myLines.push('    stim_dac = {z["sample_electrode_id"]: i % 3 for i, z in enumerate(INFERENCE_STIM_ZONES)}');
 myLines.push('');
 myLines.push('    for zone in ENCOURAGE_ZONES + DISCOURAGE_ZONES:');
-myLines.push('        dac_no = stim_units[zone["sample_electrode_id"]] % 3 if zone["sample_electrode_id"] in stim_units else 0');
-myLines.push('        run_zone_frequency_burst(dac_no, zone["frequency_hz"])');
+myLines.push('        if BURST_ELECTRODES_PER_GROUP <= 1:');
+myLines.push('            dac_no = stim_units[zone["sample_electrode_id"]] % 3 if zone["sample_electrode_id"] in stim_units else 0');
+myLines.push('            run_zone_frequency_burst(dac_no, zone["frequency_hz"])');
+myLines.push('        else:');
+myLines.push('            sweep_zone_electrodes(array, zone["electrode_ids"], dac_no=0)');
 myLines.push('');
 myLines.push('    for pattern, desired in TRUTH_TABLE.items():');
 myLines.push('        stim_bits = [int(b) for b in pattern.split(",")] if pattern else []');
