@@ -4,7 +4,7 @@
 <head>
 <meta charset='UTF-8'>
 <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-<title>MaxOne WetML Simulator V13</title>
+<title>MaxOne WetML Simulator V14</title>
 
 <script src='https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js'></script>
 
@@ -23,9 +23,11 @@
 
 <body style='margin:0;overflow:hidden;background:#050810;color:white;font-family:Arial,sans-serif;'>
 
-<div id='myPanel' style='position:absolute;left:10px;top:10px;width:400px;background:rgba(5,9,18,0.95);padding:12px;border:1px solid #39445d;border-radius:8px;z-index:10;max-height:96vh;overflow:auto;'>
+<div id='myPanel' style='position:absolute;left:10px;top:10px;width:400px;background:rgba(5,9,18,0.95);padding:12px;border:1px solid #39445d;border-radius:8px;z-index:10;max-height:96vh;overflow:auto;box-sizing:border-box;'>
 
-<h2 style='margin-top:0'>MaxOne WetML Simulator V13</h2>
+<div id='myResizeHandle' title='Drag to resize' style='position:absolute;top:0;right:0;width:8px;height:100%;cursor:ew-resize;background:rgba(127,208,255,0.08);'></div>
+
+<h2 style='margin-top:0'>MaxOne WetML Simulator V14</h2>
 
 <div style='font-size:12px;margin-bottom:10px;'>
 GitHub: <a href='https://github.com/hpssjellis/neuro-ml' target='_blank' rel='noopener' style='color:#7fd0ff;'>hpssjellis/neuro-ml</a>
@@ -39,13 +41,22 @@ Selected recording grid: <b>22×46 = 1,012 electrodes</b><br>
 Zones ≠ roles: assign each zone a functional role below.
 </div>
 
+<h3>Random Seed</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Same seed + same actions = identical randomized topology, truth table and weights. Useful for comparing runs or reproducing a classroom demo.</div>
+<input type='number' id='mySeedInput' style='width:110px;' value='0'>
+<input type='button' value='Apply Seed' onclick='myApplySeedFromInput()'>
+<input type='button' value='🎲 New Seed' onclick='myNewRandomSeed()'>
+
 <h3>Topology</h3>
 <input type='button' value='2×2' onclick='mySetTopology(2)'>
 <input type='button' value='3×3' onclick='mySetTopology(3)'>
 <input type='button' value='4×4' onclick='mySetTopology(4)'>
 <input type='button' value='5×5' onclick='mySetTopology(5)'>
-<input type='button' value='🎲 Randomize' onclick='myRandomizeTopology()' style='background:#4a2f66;color:#fff;margin-left:6px;'>
-<div style='font-size:11px;color:#8fa0bf;margin-top:4px;'>Randomly assigns roles: N zones stim, N sensor, N encourage/discourage (N = floor(total zones / 3)), then randomizes the truth table and influence weights.</div>
+<br style='line-height:6px;'>
+<input type='button' value='🎲 Randomize' onclick='myRandomizeTopology()' style='background:#4a2f66;color:#fff;margin-top:6px;'>
+<input type='button' value='Clear Roles' onclick='myClearRoles()' style='margin-top:6px;'>
+<input type='button' id='myUndoBtn' value='Undo' onclick='myUndoLastChange()' style='margin-top:6px;' disabled>
+<div style='font-size:11px;color:#8fa0bf;margin-top:4px;'>Randomly assigns roles: N zones stim, N sensor, N encourage/discourage (N = floor(total zones / 3)), then randomizes the truth table and influence weights. Clear Roles resets everything to Unused. Undo restores the state from just before the last Randomize / Clear.</div>
 
 <div style='font-size:11px;margin-top:6px;'>
 <span style='display:inline-block;width:10px;height:10px;background:#ff4060;margin-right:3px;'></span>Stim&nbsp;
@@ -96,6 +107,12 @@ Assign roles to see the truth table.
 <div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Rows = stim zones, columns = sensor zones. Click a cell to raise weight (+0.1), shift-click to lower (-0.1).</div>
 <div id='myInfluenceDiv' style='background:#08101b;padding:8px;overflow:auto;max-height:220px;'>
 Assign roles to see influence weights.
+</div>
+
+<h3>Training Progress</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Mean absolute error (desired vs actual sensor output) over recent trials. Lower is better.</div>
+<div id='myErrorChartDiv' style='background:#08101b;padding:8px;'>
+No trials run yet.
 </div>
 
 <h3>Statistics</h3>
@@ -163,6 +180,36 @@ let myCurrentPatternIndex = 0;
 let myLastStimCount = -1;
 let myLastSensorCount = -1;
 
+// ---- V14 additions: seeded RNG, undo snapshot, error history ----
+
+let mySeed = Math.floor(Date.now()%1e9);
+let myRngState = mySeed;
+
+function myMulberry32(mySeedVal){
+return function(){
+mySeedVal |= 0;
+mySeedVal = (mySeedVal + 0x6D2B79F5) | 0;
+let myT = Math.imul(mySeedVal ^ (mySeedVal>>>15), 1 | mySeedVal);
+myT = (myT + Math.imul(myT ^ (myT>>>7), 61 | myT)) ^ myT;
+return ((myT ^ (myT>>>14)) >>> 0) / 4294967296;
+};
+}
+
+let myRngFn = myMulberry32(mySeed);
+
+function myRandom(){
+return myRngFn();
+}
+
+function myReseed(myNewSeed){
+mySeed = myNewSeed >>> 0;
+myRngFn = myMulberry32(mySeed);
+}
+
+let myUndoSnapshot = null;
+
+let myErrorHistory = []; // recent mean-abs-error per trial, for the training progress chart
+
 const myRoleColors = {
 unused:     {dim:0x333344, bright:0x8888aa},
 stim:       {dim:0x661020, bright:0xff4060},
@@ -218,7 +265,75 @@ window.onresize = myResize;
 
 myUpdateModeButton();
 
+document.getElementById('mySeedInput').value = String(mySeed);
+
+myUpdateUndoButton();
+
+myInitPanelResize();
+
 myAnimate();
+
+}
+
+function myInitPanelResize(){
+
+let myPanel = document.getElementById('myPanel');
+let myHandle = document.getElementById('myResizeHandle');
+
+let myResizing = false;
+let myStartX = 0;
+let myStartWidth = 0;
+
+function myStart(myClientX){
+myResizing = true;
+myStartX = myClientX;
+myStartWidth = myPanel.offsetWidth;
+document.body.style.userSelect = 'none';
+myHandle.style.background = 'rgba(127,208,255,0.35)';
+}
+
+function myMove(myClientX){
+if(!myResizing) return;
+let myDelta = myClientX - myStartX;
+let myMax = Math.max(320, window.innerWidth - 40);
+let myNewWidth = Math.max(320, Math.min(myMax, myStartWidth + myDelta));
+myPanel.style.width = myNewWidth + 'px';
+}
+
+function myEnd(){
+myResizing = false;
+document.body.style.userSelect = '';
+myHandle.style.background = 'rgba(127,208,255,0.08)';
+}
+
+myHandle.addEventListener('mousedown', function(myEvent){
+myStart(myEvent.clientX);
+myEvent.preventDefault();
+});
+
+document.addEventListener('mousemove', function(myEvent){
+myMove(myEvent.clientX);
+});
+
+document.addEventListener('mouseup', myEnd);
+
+myHandle.addEventListener('touchstart', function(myEvent){
+myStart(myEvent.touches[0].clientX);
+}, {passive:true});
+
+document.addEventListener('touchmove', function(myEvent){
+if(myResizing) myMove(myEvent.touches[0].clientX);
+}, {passive:true});
+
+document.addEventListener('touchend', myEnd);
+
+myHandle.addEventListener('mouseenter', function(){
+if(!myResizing) myHandle.style.background = 'rgba(127,208,255,0.2)';
+});
+
+myHandle.addEventListener('mouseleave', function(){
+if(!myResizing) myHandle.style.background = 'rgba(127,208,255,0.08)';
+});
 
 }
 
@@ -297,6 +412,10 @@ myArrayGroup.add(myStimGroup);
 }
 
 function mySetTopology(mySize){
+
+myRunning = false;
+myErrorHistory = [];
+myUndoSnapshot = null;
 
 myTopology = mySize;
 
@@ -383,6 +502,8 @@ myRenderInfluenceHeatmap();
 myUpdateVisualization();
 myUpdateStats();
 myUpdateSelectedZonePanel();
+myRenderErrorChart();
+myUpdateUndoButton();
 
 }
 
@@ -483,7 +604,7 @@ for(let myI=0; myI<myStimZones.length; myI++){
 for(let myJ=0; myJ<mySensorZones.length; myJ++){
 let myKey = myI+'_'+myJ;
 if(!(myKey in myInfluence)){
-myInfluence[myKey] = +(0.05+Math.random()*0.2).toFixed(3);
+myInfluence[myKey] = +(0.05+myRandom()*0.2).toFixed(3);
 }
 }
 }
@@ -504,7 +625,7 @@ function myShuffleArray(myArr){
 
 for(let myI=myArr.length-1; myI>0; myI--){
 
-let myJ = Math.floor(Math.random()*(myI+1));
+let myJ = Math.floor(myRandom()*(myI+1));
 
 let myTemp = myArr[myI];
 myArr[myI] = myArr[myJ];
@@ -516,7 +637,107 @@ return myArr;
 
 }
 
+function myTakeSnapshot(){
+
+myUndoSnapshot = {
+topology: myTopology,
+zoneRoles: myZones.map(myZ=>myZ.role),
+zoneFreqs: myZones.map(myZ=>myZ.freq),
+influence: JSON.parse(JSON.stringify(myInfluence)),
+truthTable: JSON.parse(JSON.stringify(myTruthTable)),
+inputPattern: myInputPattern.slice(),
+currentPatternIndex: myCurrentPatternIndex,
+errorHistory: myErrorHistory.slice()
+};
+
+myUpdateUndoButton();
+
+}
+
+function myUndoLastChange(){
+
+if(!myUndoSnapshot) return;
+if(myUndoSnapshot.topology !== myTopology) return;
+
+for(let myI=0; myI<myZones.length; myI++){
+myZones[myI].role = myUndoSnapshot.zoneRoles[myI] || 'unused';
+myZones[myI].freq = myUndoSnapshot.zoneFreqs[myI] || 0;
+}
+
+myInfluence = myUndoSnapshot.influence;
+myTruthTable = myUndoSnapshot.truthTable;
+myInputPattern = myUndoSnapshot.inputPattern;
+myCurrentPatternIndex = myUndoSnapshot.currentPatternIndex;
+myErrorHistory = myUndoSnapshot.errorHistory;
+
+myUndoSnapshot = null;
+myRunning = false;
+
+myRecomputeRoleArrays();
+
+myLastStimCount = myStimZones.length;
+myLastSensorCount = mySensorZones.length;
+
+mySelectedZone = -1;
+
+myRenderInputPattern();
+myRenderTruthTable();
+myRenderInfluenceHeatmap();
+myUpdateVisualization();
+myUpdateStats();
+myUpdateSelectedZonePanel();
+myRenderErrorChart();
+myUpdateUndoButton();
+
+}
+
+function myUpdateUndoButton(){
+
+let myBtn = document.getElementById('myUndoBtn');
+
+if(!myBtn) return;
+
+myBtn.disabled = !myUndoSnapshot;
+
+}
+
+function myClearRoles(){
+
+myTakeSnapshot();
+
+myRunning = false;
+myErrorHistory = [];
+
+for(let myZone of myZones){
+myZone.role = 'unused';
+myZone.freq = 0;
+}
+
+myInfluence = {};
+myInputPattern = [];
+myCurrentPatternIndex = 0;
+
+myRecomputeRoleArrays();
+myRebuildTruthTable(true);
+
+mySelectedZone = -1;
+
+myRenderInputPattern();
+myRenderTruthTable();
+myRenderInfluenceHeatmap();
+myUpdateVisualization();
+myUpdateStats();
+myUpdateSelectedZonePanel();
+myRenderErrorChart();
+
+}
+
 function myRandomizeTopology(){
+
+myTakeSnapshot();
+
+myRunning = false;
+myErrorHistory = [];
 
 for(let myZone of myZones){
 myZone.role = 'unused';
@@ -541,8 +762,8 @@ for(let myI=0; myI<myPerRole; myI++){
 
 let myZone = myZones[myOrder[myPtr++]];
 
-myZone.role = (Math.random()<0.5) ? 'encourage' : 'discourage';
-myZone.freq = 10 + Math.round(Math.random()*30);
+myZone.role = (myRandom()<0.5) ? 'encourage' : 'discourage';
+myZone.freq = 10 + Math.round(myRandom()*30);
 
 }
 
@@ -552,10 +773,10 @@ myRecomputeRoleArrays();
 myRebuildTruthTable(true);
 
 for(let myKey of Object.keys(myTruthTable)){
-myTruthTable[myKey] = myTruthTable[myKey].map(()=>(Math.random()<0.5 ? 1 : 0));
+myTruthTable[myKey] = myTruthTable[myKey].map(()=>(myRandom()<0.5 ? 1 : 0));
 }
 
-myInputPattern = myInputPattern.map(()=>(Math.random()<0.5 ? 1 : 0));
+myInputPattern = myInputPattern.map(()=>(myRandom()<0.5 ? 1 : 0));
 
 mySelectedZone = -1;
 
@@ -565,6 +786,7 @@ myRenderInfluenceHeatmap();
 myUpdateVisualization();
 myUpdateStats();
 myUpdateSelectedZonePanel();
+myRenderErrorChart();
 
 }
 
@@ -915,6 +1137,32 @@ myBtn.style.color = '#fff';
 
 }
 
+// ---- V14: seed control ----
+
+function myApplySeedFromInput(){
+
+let myInput = document.getElementById('mySeedInput');
+
+let myVal = parseInt(myInput.value,10);
+
+if(isNaN(myVal)) myVal = 0;
+
+myReseed(myVal);
+
+myInput.value = String(myVal>>>0);
+
+}
+
+function myNewRandomSeed(){
+
+let myVal = Math.floor(Math.random()*1e9);
+
+myReseed(myVal);
+
+document.getElementById('mySeedInput').value = String(myVal);
+
+}
+
 function myToggleRun(){
 
 myRunning = !myRunning;
@@ -993,17 +1241,17 @@ mySetInfluence(myI,myJ,myNext);
 for(let myZone of myZones){
 
 if(myZone.role==='stim'){
-myZone.activity = (myInputPattern[myZone.stimIndex]||0)*(0.85+Math.random()*0.15);
+myZone.activity = (myInputPattern[myZone.stimIndex]||0)*(0.85+myRandom()*0.15);
 }else if(myZone.role==='sensor'){
 myZone.activity = myActual[myZone.sensorIndex]||0;
 }else if(myZone.role==='encourage' || myZone.role==='discourage'){
 myZone.activity = myZone.freq/50;
 }else{
-myZone.activity = Math.random()*0.05;
+myZone.activity = myRandom()*0.05;
 }
 
 for(let myE of myZone.electrodes){
-myE.firing = Math.random() < (0.02+myZone.activity*0.3);
+myE.firing = myRandom() < (0.02+myZone.activity*0.3);
 }
 
 }
@@ -1016,6 +1264,22 @@ if(myTrial % 4===0){
 myEpoch++;
 }
 
+if(myM>0){
+
+let myErrSum = 0;
+
+for(let myJ=0; myJ<myM; myJ++){
+myErrSum += Math.abs(myDesired[myJ]-myActual[myJ]);
+}
+
+myErrorHistory.push(myErrSum/myM);
+
+if(myErrorHistory.length>150){
+myErrorHistory.shift();
+}
+
+}
+
 myRenderInputPattern();
 myRenderTruthTable();
 myRenderInfluenceHeatmap();
@@ -1023,6 +1287,41 @@ myUpdateVisualization();
 myUpdateSelectedZonePanel();
 myUpdateStats();
 myUpdateTrialLog(myKey,myDesired,myActual);
+myRenderErrorChart();
+
+}
+
+function myRenderErrorChart(){
+
+let myDiv = document.getElementById('myErrorChartDiv');
+
+if(!myDiv) return;
+
+if(myErrorHistory.length===0){
+myDiv.innerHTML = 'No trials run yet.';
+return;
+}
+
+let myW = 300;
+let myH = 60;
+
+let myPoints = myErrorHistory.map((myErr,myI)=>{
+let myX = (myErrorHistory.length===1) ? 0 : (myI/(myErrorHistory.length-1))*myW;
+let myY = myH - Math.max(0,Math.min(1,myErr))*myH;
+return myX.toFixed(1)+','+myY.toFixed(1);
+}).join(' ');
+
+let myLatest = myErrorHistory[myErrorHistory.length-1];
+
+let myHtml =
+"<svg width='100%' height='"+myH+"' viewBox='0 0 "+myW+" "+myH+"' preserveAspectRatio='none' style='display:block;'>"+
+"<line x1='0' y1='"+(myH/2)+"' x2='"+myW+"' y2='"+(myH/2)+"' stroke='#223040' stroke-width='1'/>"+
+"<polyline points='"+myPoints+"' fill='none' stroke='#4090ff' stroke-width='1.5'/>"+
+"</svg>"+
+"<div style='font-size:11px;color:#8fa0bf;margin-top:2px;'>Latest error: "+myLatest.toFixed(3)+
+" &nbsp;|&nbsp; Trials shown: "+myErrorHistory.length+"</div>";
+
+myDiv.innerHTML = myHtml;
 
 }
 
@@ -1110,6 +1409,7 @@ function mySaveJSON(){
 
 let myData = {
 topology: myTopology,
+seed: mySeed,
 zones: myZones.map(myZ=>({
 index: myZ.index,
 x: myZ.x,
@@ -1128,7 +1428,7 @@ let myUrl = URL.createObjectURL(myBlob);
 
 let myA = document.createElement('a');
 myA.href = myUrl;
-myA.download = 'maxone-wetml-v13.json';
+myA.download = 'maxone-wetml-v14.json';
 myA.click();
 
 URL.revokeObjectURL(myUrl);
@@ -1156,6 +1456,11 @@ return;
 
 mySetTopology(myData.topology || 2);
 
+if(myData.seed!==undefined){
+myReseed(myData.seed);
+document.getElementById('mySeedInput').value = String(mySeed);
+}
+
 if(myData.zones){
 for(let myZ of myData.zones){
 if(myZones[myZ.index]){
@@ -1179,6 +1484,8 @@ myRenderInfluenceHeatmap();
 myUpdateVisualization();
 myUpdateStats();
 myUpdateSelectedZonePanel();
+myRenderErrorChart();
+myUpdateUndoButton();
 
 };
 
@@ -1194,8 +1501,8 @@ function myGeneratePython(){
 
 let myLines = [];
 
-myLines.push('# MaxOne WetML V13 stimulation protocol');
-myLines.push('# Auto-generated from maxone-sim-v13.html');
+myLines.push('# MaxOne WetML V14 stimulation protocol');
+myLines.push('# Auto-generated from maxone-sim-v14.html');
 myLines.push('# Concept: plasticity through stimulation FREQUENCY changes, not on/off stimulation.');
 myLines.push('');
 myLines.push('from maxlab import system, chip, saving');
