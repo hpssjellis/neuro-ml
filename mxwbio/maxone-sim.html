@@ -4,24 +4,39 @@
 <head>
 <meta charset='UTF-8'>
 <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-<title>MaxOne WetML Simulator V10</title>
+<title>MaxOne WetML Simulator V13</title>
 
 <script src='https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js'></script>
 
 <script src='https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js'></script>
 
+<style>
+.myRoleBtn{opacity:0.55;}
+.myRoleBtnActive{opacity:1;outline:2px solid #fff;}
+.myTruthRowActive{background:#1c2c1c !important;}
+.mySmallTable{border-collapse:collapse;font-size:11px;font-family:monospace;}
+.mySmallTable td,.mySmallTable th{border:1px solid #2a3550;padding:3px 6px;text-align:center;}
+.myHeatCell{cursor:pointer;user-select:none;}
+</style>
+
 </head>
 
 <body style='margin:0;overflow:hidden;background:#050810;color:white;font-family:Arial,sans-serif;'>
 
-<div id='myPanel' style='position:absolute;left:10px;top:10px;width:360px;background:rgba(5,9,18,0.95);padding:12px;border:1px solid #39445d;border-radius:8px;z-index:10;max-height:95vh;overflow:auto;'>
+<div id='myPanel' style='position:absolute;left:10px;top:10px;width:400px;background:rgba(5,9,18,0.95);padding:12px;border:1px solid #39445d;border-radius:8px;z-index:10;max-height:96vh;overflow:auto;'>
 
-<h2 style='margin-top:0'>MaxOne WetML Simulator V10</h2>
+<h2 style='margin-top:0'>MaxOne WetML Simulator V13</h2>
+
+<div style='font-size:12px;margin-bottom:10px;'>
+GitHub: <a href='https://github.com/hpssjellis/neuro-ml' target='_blank' rel='noopener' style='color:#7fd0ff;'>hpssjellis/neuro-ml</a>
+&nbsp;|&nbsp;
+LinkedIn: <a href='https://www.linkedin.com/in/jeremy-ellis-4237a9bb/' target='_blank' rel='noopener' style='color:#7fd0ff;'>Jeremy Ellis</a>
+</div>
 
 <div style='font-size:12px;color:#9fb0c9;margin-bottom:10px;'>
 Physical chip: <b>120×220 = 26,400 electrodes</b><br>
 Selected recording grid: <b>22×46 = 1,012 electrodes</b><br>
-Physical aspect ratio: <b>2 mm × 4 mm</b>
+Zones ≠ roles: assign each zone a functional role below.
 </div>
 
 <h3>Topology</h3>
@@ -29,12 +44,23 @@ Physical aspect ratio: <b>2 mm × 4 mm</b>
 <input type='button' value='3×3' onclick='mySetTopology(3)'>
 <input type='button' value='4×4' onclick='mySetTopology(4)'>
 <input type='button' value='5×5' onclick='mySetTopology(5)'>
+<input type='button' value='🎲 Randomize' onclick='myRandomizeTopology()' style='background:#4a2f66;color:#fff;margin-left:6px;'>
+<div style='font-size:11px;color:#8fa0bf;margin-top:4px;'>Randomly assigns roles: N zones stim, N sensor, N encourage/discourage (N = floor(total zones / 3)), then randomizes the truth table and influence weights.</div>
+
+<div style='font-size:11px;margin-top:6px;'>
+<span style='display:inline-block;width:10px;height:10px;background:#ff4060;margin-right:3px;'></span>Stim&nbsp;
+<span style='display:inline-block;width:10px;height:10px;background:#30ff90;margin-right:3px;'></span>Sensor&nbsp;
+<span style='display:inline-block;width:10px;height:10px;background:#4090ff;margin-right:3px;'></span>Encourage&nbsp;
+<span style='display:inline-block;width:10px;height:10px;background:#b050ff;margin-right:3px;'></span>Discourage&nbsp;
+<span style='display:inline-block;width:10px;height:10px;background:#8888aa;margin-right:3px;'></span>Unused
+</div>
 
 <h3>Run</h3>
-<input type='button' value='Training' onclick='mySetMode("training")'>
-<input type='button' value='Inference' onclick='mySetMode("inference")'>
+<input type='button' id='myModeToggleBtn' value='Mode: Training' onclick='myToggleMode()' style='font-weight:bold;'>
 <input type='button' value='Run / Stop' onclick='myToggleRun()'>
-<input type='button' value='Single Trial' onclick='mySingleTrial()'>
+<input type='button' value='Single Trial' onclick='myRunOnce()'>
+<br>
+<label style='font-size:12px;'><input type='checkbox' id='myCycleCheckbox'> Cycle truth-table patterns each trial</label>
 
 <h3>Selected Zone</h3>
 <div id='mySelectedZone' style='background:#08101b;padding:8px;font-family:monospace;font-size:12px;'>
@@ -42,25 +68,50 @@ Click a zone in the 3D view
 </div>
 
 <div style='margin-top:8px;'>
-Desired output:
-<select id='myDesiredOutput' onchange='mySetDesiredOutput(this.value)'>
-<option value='0'>OFF</option>
-<option value='1'>ON</option>
-</select>
+Role:
+<input class='myRoleBtn' id='myRoleBtn_unused' type='button' value='Unused' onclick="myint_SetZoneRole('unused')">
+<input class='myRoleBtn' id='myRoleBtn_stim' type='button' value='Inference Stim' onclick="myint_SetZoneRole('stim')">
+<input class='myRoleBtn' id='myRoleBtn_sensor' type='button' value='Sensor' onclick="myint_SetZoneRole('sensor')">
+<input class='myRoleBtn' id='myRoleBtn_encourage' type='button' value='Encourage' onclick="myint_SetZoneRole('encourage')">
+<input class='myRoleBtn' id='myRoleBtn_discourage' type='button' value='Discourage' onclick="myint_SetZoneRole('discourage')">
 </div>
 
-<div style='margin-top:8px;'>
-Controller:
-<input type='button' value='AUTO' onclick='mySetController("auto")'>
-<input type='button' value='EXCITE' onclick='mySetController("excite")'>
-<input type='button' value='INHIBIT' onclick='mySetController("inhib")'>
+<div style='margin-top:8px;font-size:12px;'>
+Training frequency (Hz): <span id='myFreqLabel'>0</span><br>
+<input type='range' min='0' max='50' step='1' value='0' id='myFreqSlider' style='width:100%;' oninput="myOnFrequencyChange(this.value)">
+</div>
+
+<h3>Input Pattern (Inference Stim Zones)</h3>
+<div id='myInputPatternDiv' style='background:#08101b;padding:8px;font-family:monospace;font-size:12px;'>
+No inference stim zones assigned yet.
+</div>
+
+<h3>Truth Table</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Click an output bit to toggle desired sensor state. Pattern bit order follows stim-zone assignment order.</div>
+<div id='myTruthTableDiv' style='background:#08101b;padding:8px;overflow:auto;max-height:220px;'>
+Assign roles to see the truth table.
+</div>
+
+<h3>Influence Heatmap</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Rows = stim zones, columns = sensor zones. Click a cell to raise weight (+0.1), shift-click to lower (-0.1).</div>
+<div id='myInfluenceDiv' style='background:#08101b;padding:8px;overflow:auto;max-height:220px;'>
+Assign roles to see influence weights.
 </div>
 
 <h3>Statistics</h3>
 <div id='myStats' style='background:#08101b;padding:8px;font-family:monospace;font-size:12px;line-height:1.5;'></div>
 
-<h3>Trial</h3>
+<h3>Trial Log</h3>
 <div id='myTrial' style='background:#08101b;padding:8px;font-family:monospace;font-size:11px;white-space:pre-wrap;'></div>
+
+<h3>Save / Load</h3>
+<input type='button' value='Save JSON' onclick='mySaveJSON()'>
+<input type='button' value='Load JSON' onclick="document.getElementById('myLoadFile').click()">
+<input type='file' id='myLoadFile' accept='.json' style='display:none;' onchange='myLoadJSON(event)'>
+
+<h3>Python Export</h3>
+<input type='button' value='Generate Python Protocol' onclick='myGeneratePython()'>
+<textarea id='myPythonArea' style='width:100%;height:160px;background:#08101b;color:#bcd;font-family:monospace;font-size:11px;margin-top:6px;'></textarea>
 
 </div>
 
@@ -96,6 +147,29 @@ let myLastTime = 0;
 const myRows = 22;
 const myCols = 46;
 const myElectrodeCount = myRows * myCols;
+
+// ---- V12 role / training engine state ----
+
+let myStimZones = [];       // array of zone indices, in assignment order
+let mySensorZones = [];     // array of zone indices, in assignment order
+let myEncourageZones = [];  // array of zone indices
+let myDiscourageZones = []; // array of zone indices
+
+let myInfluence = {};       // key "stimIdx_sensorIdx" -> weight (-1..1)
+let myTruthTable = {};      // key "0,1,0" (pattern) -> [desired bits]
+let myInputPattern = [];    // current input bit vector, length = myStimZones.length
+let myCurrentPatternIndex = 0;
+
+let myLastStimCount = -1;
+let myLastSensorCount = -1;
+
+const myRoleColors = {
+unused:     {dim:0x333344, bright:0x8888aa},
+stim:       {dim:0x661020, bright:0xff4060},
+sensor:     {dim:0x105030, bright:0x30ff90},
+encourage:  {dim:0x102040, bright:0x4090ff},
+discourage: {dim:0x301040, bright:0xb050ff}
+};
 
 async function myInitialize(){
 
@@ -141,6 +215,8 @@ mySetTopology(2);
 myRenderer.domElement.onclick = myPickZone;
 
 window.onresize = myResize;
+
+myUpdateModeButton();
 
 myAnimate();
 
@@ -190,7 +266,7 @@ myElectrodes.push({
 x:myX,
 z:myZ,
 mesh:myMesh,
-firing:true,
+firing:false,
 zone:-1
 });
 
@@ -244,7 +320,7 @@ let myZ = -3 + myR*(6/(mySize-1));
 let myDisc = new THREE.Mesh(
 new THREE.CylinderGeometry(0.9,0.9,0.05,24),
 new THREE.MeshBasicMaterial({
-color:0xffd040,
+color:myRoleColors.unused.bright,
 transparent:true,
 opacity:0.16
 })
@@ -256,7 +332,7 @@ myDisc.userData.zone = myIndex;
 let myRing = new THREE.Mesh(
 new THREE.RingGeometry(0.86,0.92,24),
 new THREE.MeshBasicMaterial({
-color:0xffd040,
+color:myRoleColors.unused.bright,
 side:THREE.DoubleSide
 })
 );
@@ -272,10 +348,12 @@ myZones.push({
 index:myIndex,
 x:myX,
 z:myZ,
-desired:0,
+role:'unused',
+freq:0,
 activity:0,
-controller:'auto',
-electrodes:[]
+electrodes:[],
+stimIndex:-1,
+sensorIndex:-1
 });
 
 myIndex++;
@@ -286,8 +364,25 @@ myIndex++;
 myArrayGroup.add(myZoneGroup);
 
 myAssignElectrodes();
+
+myLastStimCount = -1;
+myLastSensorCount = -1;
+myInfluence = {};
+myInputPattern = [];
+myCurrentPatternIndex = 0;
+
+myRecomputeRoleArrays();
+myRebuildTruthTable(true);
 myPositionStimSites();
+
+mySelectedZone = -1;
+
+myRenderInputPattern();
+myRenderTruthTable();
+myRenderInfluenceHeatmap();
+myUpdateVisualization();
 myUpdateStats();
+myUpdateSelectedZonePanel();
 
 }
 
@@ -325,9 +420,17 @@ myZones[myBest].electrodes.push(myE);
 
 function myPositionStimSites(){
 
+if(myStimZones.length===0){
+myStimGroup.visible = false;
+return;
+}
+
+myStimGroup.visible = true;
+
 for(let myI=0; myI<32; myI++){
 
-let myZone = myZones[myI % myZones.length];
+let myZoneIdx = myStimZones[myI % myStimZones.length];
+let myZone = myZones[myZoneIdx];
 
 let myAngle = myI/32*Math.PI*2;
 
@@ -340,6 +443,175 @@ myZone.z + Math.sin(myAngle)*0.5
 }
 
 }
+
+// ---- role bookkeeping ----
+
+function myRecomputeRoleArrays(){
+
+myStimZones = [];
+mySensorZones = [];
+myEncourageZones = [];
+myDiscourageZones = [];
+
+for(let myZone of myZones){
+
+if(myZone.role==='stim'){
+myZone.stimIndex = myStimZones.length;
+myStimZones.push(myZone.index);
+}else{
+myZone.stimIndex = -1;
+}
+
+if(myZone.role==='sensor'){
+myZone.sensorIndex = mySensorZones.length;
+mySensorZones.push(myZone.index);
+}else{
+myZone.sensorIndex = -1;
+}
+
+if(myZone.role==='encourage'){
+myEncourageZones.push(myZone.index);
+}
+
+if(myZone.role==='discourage'){
+myDiscourageZones.push(myZone.index);
+}
+
+}
+
+for(let myI=0; myI<myStimZones.length; myI++){
+for(let myJ=0; myJ<mySensorZones.length; myJ++){
+let myKey = myI+'_'+myJ;
+if(!(myKey in myInfluence)){
+myInfluence[myKey] = +(0.05+Math.random()*0.2).toFixed(3);
+}
+}
+}
+
+if(myInputPattern.length !== myStimZones.length){
+let myOld = myInputPattern;
+myInputPattern = new Array(myStimZones.length).fill(0);
+for(let myI=0; myI<Math.min(myOld.length,myInputPattern.length); myI++){
+myInputPattern[myI] = myOld[myI];
+}
+}
+
+myPositionStimSites();
+
+}
+
+function myShuffleArray(myArr){
+
+for(let myI=myArr.length-1; myI>0; myI--){
+
+let myJ = Math.floor(Math.random()*(myI+1));
+
+let myTemp = myArr[myI];
+myArr[myI] = myArr[myJ];
+myArr[myJ] = myTemp;
+
+}
+
+return myArr;
+
+}
+
+function myRandomizeTopology(){
+
+for(let myZone of myZones){
+myZone.role = 'unused';
+myZone.freq = 0;
+}
+
+let myOrder = myShuffleArray(myZones.map(myZ=>myZ.index));
+
+let myPerRole = Math.floor(myZones.length/3);
+
+let myPtr = 0;
+
+for(let myI=0; myI<myPerRole; myI++){
+myZones[myOrder[myPtr++]].role = 'stim';
+}
+
+for(let myI=0; myI<myPerRole; myI++){
+myZones[myOrder[myPtr++]].role = 'sensor';
+}
+
+for(let myI=0; myI<myPerRole; myI++){
+
+let myZone = myZones[myOrder[myPtr++]];
+
+myZone.role = (Math.random()<0.5) ? 'encourage' : 'discourage';
+myZone.freq = 10 + Math.round(Math.random()*30);
+
+}
+
+myInfluence = {};
+
+myRecomputeRoleArrays();
+myRebuildTruthTable(true);
+
+for(let myKey of Object.keys(myTruthTable)){
+myTruthTable[myKey] = myTruthTable[myKey].map(()=>(Math.random()<0.5 ? 1 : 0));
+}
+
+myInputPattern = myInputPattern.map(()=>(Math.random()<0.5 ? 1 : 0));
+
+mySelectedZone = -1;
+
+myRenderInputPattern();
+myRenderTruthTable();
+myRenderInfluenceHeatmap();
+myUpdateVisualization();
+myUpdateStats();
+myUpdateSelectedZonePanel();
+
+}
+
+function myGetInfluence(myStimIdx,mySensorIdx){
+let myKey = myStimIdx+'_'+mySensorIdx;
+if(!(myKey in myInfluence)){
+myInfluence[myKey] = 0.15;
+}
+return myInfluence[myKey];
+}
+
+function mySetInfluence(myStimIdx,mySensorIdx,myValue){
+myInfluence[myStimIdx+'_'+mySensorIdx] = +myValue.toFixed(3);
+}
+
+function myIntToBits(myInt,myLength){
+let myBits = new Array(myLength).fill(0);
+for(let myB=0; myB<Math.min(myLength,6); myB++){
+myBits[myB] = (myInt>>myB)&1;
+}
+return myBits;
+}
+
+function myRebuildTruthTable(myForce){
+
+let myN = myStimZones.length;
+let myM = mySensorZones.length;
+
+if(myForce || myN!==myLastStimCount || myM!==myLastSensorCount){
+
+myTruthTable = {};
+
+let myPatternCount = Math.min(Math.pow(2,Math.max(myN,0)),64);
+
+for(let myI=0; myI<myPatternCount; myI++){
+let myBits = myIntToBits(myI,myN);
+myTruthTable[myBits.join(',')] = new Array(myM).fill(0);
+}
+
+myLastStimCount = myN;
+myLastSensorCount = myM;
+
+}
+
+}
+
+// ---- picking / zone editing ----
 
 function myPickZone(myEvent){
 
@@ -358,102 +630,429 @@ if(myHits.length===0) return;
 
 mySelectedZone = myHits[0].object.userData.zone;
 
-myUpdateSelectedZone();
+myUpdateSelectedZonePanel();
+myUpdateVisualization();
 
 }
 
-function myUpdateSelectedZone(){
+function myUpdateSelectedZonePanel(){
 
-if(mySelectedZone<0) return;
+let myButtons = ['unused','stim','sensor','encourage','discourage'];
+
+if(mySelectedZone<0){
+
+document.getElementById('mySelectedZone').innerHTML = 'Click a zone in the 3D view';
+
+for(let myR of myButtons){
+document.getElementById('myRoleBtn_'+myR).classList.remove('myRoleBtnActive');
+}
+
+document.getElementById('myFreqSlider').value = 0;
+document.getElementById('myFreqLabel').textContent = '0';
+
+return;
+
+}
 
 let myZone = myZones[mySelectedZone];
 
 document.getElementById('mySelectedZone').innerHTML =
 'Zone: '+myZone.index+'<br>'+
-'Selected electrodes: '+myZone.electrodes.length+'<br>'+
+'Role: '+myZone.role+'<br>'+
+'Assigned electrodes: '+myZone.electrodes.length+'<br>'+
 'Activity: '+myZone.activity.toFixed(3)+'<br>'+
-'Desired: '+(myZone.desired?'ON':'OFF')+'<br>'+
-'Controller: '+myZone.controller;
+'Training frequency: '+myZone.freq+' Hz'+
+(myZone.role==='stim' ? '<br>Stim index: '+myZone.stimIndex : '')+
+(myZone.role==='sensor' ? '<br>Sensor index: '+myZone.sensorIndex : '');
 
-document.getElementById('myDesiredOutput').value =
-String(myZone.desired);
+for(let myR of myButtons){
+if(myR===myZone.role){
+document.getElementById('myRoleBtn_'+myR).classList.add('myRoleBtnActive');
+}else{
+document.getElementById('myRoleBtn_'+myR).classList.remove('myRoleBtnActive');
+}
+}
+
+document.getElementById('myFreqSlider').value = myZone.freq;
+document.getElementById('myFreqLabel').textContent = String(myZone.freq);
 
 }
 
-function mySetDesiredOutput(myValue){
+function myint_SetZoneRole(myRole){
 
 if(mySelectedZone<0) return;
 
-myZones[mySelectedZone].desired =
-Number(myValue);
+let myZone = myZones[mySelectedZone];
 
-myUpdateSelectedZone();
+myZone.role = myRole;
+
+if((myRole==='encourage' || myRole==='discourage') && myZone.freq===0){
+myZone.freq = 20;
+}
+
+myRecomputeRoleArrays();
+myRebuildTruthTable(false);
+
+myRenderInputPattern();
+myRenderTruthTable();
+myRenderInfluenceHeatmap();
+myUpdateVisualization();
+myUpdateSelectedZonePanel();
+myUpdateStats();
 
 }
 
-function mySetController(myMode){
+function myOnFrequencyChange(myValue){
 
 if(mySelectedZone<0) return;
 
-myZones[mySelectedZone].controller =
-myMode;
+myZones[mySelectedZone].freq = Number(myValue);
 
-myUpdateSelectedZone();
+document.getElementById('myFreqLabel').textContent = String(myValue);
+
+myUpdateSelectedZonePanel();
+myUpdateVisualization();
 
 }
 
-function mySingleTrial(){
+// ---- input pattern UI ----
+
+function myRenderInputPattern(){
+
+let myDiv = document.getElementById('myInputPatternDiv');
+
+if(myStimZones.length===0){
+myDiv.innerHTML = 'No inference stim zones assigned yet.';
+return;
+}
+
+let myHtml = '';
+
+for(let myI=0; myI<myStimZones.length; myI++){
+
+let myZoneIdx = myStimZones[myI];
+let myBit = myInputPattern[myI] || 0;
+
+myHtml += 'Stim['+myI+'] (zone '+myZoneIdx+'): '+
+'<input type="button" value="'+(myBit?'1':'0')+'" onclick="myToggleInputBit('+myI+')" style="width:32px;">'+' ';
+
+}
+
+myDiv.innerHTML = myHtml;
+
+}
+
+function myToggleInputBit(myI){
+
+myInputPattern[myI] = myInputPattern[myI] ? 0 : 1;
+
+myRenderInputPattern();
+myRenderTruthTable();
+
+}
+
+// ---- truth table UI ----
+
+function myRenderTruthTable(){
+
+let myDiv = document.getElementById('myTruthTableDiv');
+
+let myKeys = Object.keys(myTruthTable);
+
+if(myKeys.length===0){
+myDiv.innerHTML = 'Assign at least one Inference Stim zone and one Sensor zone.';
+return;
+}
+
+let myM = mySensorZones.length;
+
+let myHtml = "<table class='mySmallTable'><tr><th>Input</th><th colspan='"+Math.max(myM,1)+"'>Desired Output</th></tr>";
+
+let myCurrentKey = myInputPattern.join(',');
+
+for(let myKey of myKeys){
+
+let myDesired = myTruthTable[myKey];
+
+let myRowClass = (myKey===myCurrentKey) ? ' class="myTruthRowActive"' : '';
+
+myHtml += '<tr'+myRowClass+'><td>['+myKey+']</td>';
+
+for(let myJ=0; myJ<myM; myJ++){
+
+myHtml += '<td class="myHeatCell" onclick="myToggleTruthOutput(\''+myKey+'\','+myJ+')">'+(myDesired[myJ]||0)+'</td>';
+
+}
+
+if(myM===0){
+myHtml += '<td>(no sensors)</td>';
+}
+
+myHtml += '</tr>';
+
+}
+
+myHtml += '</table>';
+
+if(myLastStimCount>6){
+myHtml += "<div style='font-size:10px;color:#e0a040;margin-top:4px;'>Note: more than 6 stim zones — truth table capped at 64 patterns.</div>";
+}
+
+myDiv.innerHTML = myHtml;
+
+}
+
+function myToggleTruthOutput(myKey,myJ){
+
+myTruthTable[myKey][myJ] = myTruthTable[myKey][myJ] ? 0 : 1;
+
+myRenderTruthTable();
+
+}
+
+// ---- influence heatmap UI ----
+
+function myRenderInfluenceHeatmap(myEvent){
+
+let myDiv = document.getElementById('myInfluenceDiv');
+
+if(myStimZones.length===0 || mySensorZones.length===0){
+myDiv.innerHTML = 'Assign at least one Inference Stim zone and one Sensor zone.';
+return;
+}
+
+let myHtml = "<table class='mySmallTable'><tr><th></th>";
+
+for(let myJ=0; myJ<mySensorZones.length; myJ++){
+myHtml += '<th>Sensor['+myJ+']</th>';
+}
+
+myHtml += '</tr>';
+
+for(let myI=0; myI<myStimZones.length; myI++){
+
+myHtml += '<tr><th>Stim['+myI+']</th>';
+
+for(let myJ=0; myJ<mySensorZones.length; myJ++){
+
+let myW = myGetInfluence(myI,myJ);
+
+let myColor = myWeightToColor(myW);
+
+myHtml += '<td class="myHeatCell" style="background:'+myColor+'" '+
+'onclick="myOnHeatmapClick(event,'+myI+','+myJ+')">'+myW.toFixed(2)+'</td>';
+
+}
+
+myHtml += '</tr>';
+
+}
+
+myHtml += '</table>';
+
+myDiv.innerHTML = myHtml;
+
+}
+
+function myWeightToColor(myW){
+
+if(myW>=0){
+let myG = Math.round(60+myW*180);
+return 'rgba(30,'+myG+',80,0.85)';
+}else{
+let myR = Math.round(60+(-myW)*180);
+return 'rgba('+myR+',40,50,0.85)';
+}
+
+}
+
+function myOnHeatmapClick(myEvent,myI,myJ){
+
+let myCur = myGetInfluence(myI,myJ);
+
+let myDelta = myEvent && myEvent.shiftKey ? -0.1 : 0.1;
+
+let myNext = Math.max(-1,Math.min(1,myCur+myDelta));
+
+mySetInfluence(myI,myJ,myNext);
+
+myRenderInfluenceHeatmap();
+
+}
+
+// ---- simulation ----
+
+function mySetMode(myNewMode){
+
+myMode = myNewMode;
+
+myUpdateModeButton();
+myUpdateStats();
+
+}
+
+function myToggleMode(){
+
+mySetMode(myMode==='training' ? 'inference' : 'training');
+
+}
+
+function myUpdateModeButton(){
+
+let myBtn = document.getElementById('myModeToggleBtn');
+
+if(!myBtn) return;
+
+if(myMode==='training'){
+myBtn.value = 'Mode: Training';
+myBtn.style.background = '#2a6b3a';
+myBtn.style.color = '#fff';
+}else{
+myBtn.value = 'Mode: Inference';
+myBtn.style.background = '#1c3f66';
+myBtn.style.color = '#fff';
+}
+
+}
+
+function myToggleRun(){
+
+myRunning = !myRunning;
+
+}
+
+function myRunOnce(){
 
 myTrial++;
 
+let myN = myStimZones.length;
+let myM = mySensorZones.length;
+
+let myCycle = document.getElementById('myCycleCheckbox').checked;
+
+if(myCycle && myN>0){
+
+let myPatternCount = Math.min(Math.pow(2,myN),64);
+
+myInputPattern = myIntToBits(myCurrentPatternIndex % myPatternCount, myN);
+
+}
+
+let myKey = myInputPattern.join(',');
+
+let myDesired = myTruthTable[myKey] || new Array(myM).fill(0);
+
+let myActual = new Array(myM).fill(0);
+
+for(let myJ=0; myJ<myM; myJ++){
+
+let myRaw = 0;
+
+for(let myI=0; myI<myN; myI++){
+myRaw += myInputPattern[myI]*myGetInfluence(myI,myJ);
+}
+
+myActual[myJ] = Math.max(0,Math.min(1,myRaw));
+
+}
+
+if(myMode==='training' && myN>0 && myM>0){
+
+let myEncFreqs = myEncourageZones.map(myZi=>myZones[myZi].freq);
+let myDiscFreqs = myDiscourageZones.map(myZi=>myZones[myZi].freq);
+
+let myEncGain = myEncFreqs.length ? (myEncFreqs.reduce((a,b)=>a+b,0)/myEncFreqs.length)/50 : 0;
+let myDiscGain = myDiscFreqs.length ? (myDiscFreqs.reduce((a,b)=>a+b,0)/myDiscFreqs.length)/50 : 0;
+
+let myEta = 0.02 + 0.25*myEncGain;
+
+for(let myI=0; myI<myN; myI++){
+
+if(myInputPattern[myI]===0) continue;
+
+for(let myJ=0; myJ<myM; myJ++){
+
+let myError = myDesired[myJ]-myActual[myJ];
+
+let myDelta = myEta*myError;
+
+if(myError<0){
+myDelta -= myDiscGain*0.15;
+}
+
+let myCur = myGetInfluence(myI,myJ);
+let myNext = Math.max(-1,Math.min(1,myCur+myDelta));
+
+mySetInfluence(myI,myJ,myNext);
+
+}
+}
+
+}
+
 for(let myZone of myZones){
 
-let myFiring = 0;
+if(myZone.role==='stim'){
+myZone.activity = (myInputPattern[myZone.stimIndex]||0)*(0.85+Math.random()*0.15);
+}else if(myZone.role==='sensor'){
+myZone.activity = myActual[myZone.sensorIndex]||0;
+}else if(myZone.role==='encourage' || myZone.role==='discourage'){
+myZone.activity = myZone.freq/50;
+}else{
+myZone.activity = Math.random()*0.05;
+}
 
 for(let myE of myZone.electrodes){
-
-myE.firing = Math.random() < 0.025;
-
-if(myE.firing) myFiring++;
+myE.firing = Math.random() < (0.02+myZone.activity*0.3);
+}
 
 }
 
-myZone.activity = myFiring / Math.max(1,myZone.electrodes.length);
-
-if(myZone.controller==='excite'){
-myZone.activity = Math.min(1,myZone.activity+0.15);
-}
-
-if(myZone.controller==='inhib'){
-myZone.activity = Math.max(0,myZone.activity-0.15);
-}
-
+if(myCycle && myN>0){
+myCurrentPatternIndex++;
 }
 
 if(myTrial % 4===0){
 myEpoch++;
 }
 
+myRenderInputPattern();
+myRenderTruthTable();
+myRenderInfluenceHeatmap();
 myUpdateVisualization();
-myUpdateSelectedZone();
+myUpdateSelectedZonePanel();
 myUpdateStats();
-
-document.getElementById('myTrial').textContent =
-'Epoch: '+myEpoch+'\\n'+
-'Trial: '+myTrial+'\\n\\n'+
-myZones.map(
-myZone=>'Zone '+myZone.index+
-' activity '+myZone.activity.toFixed(3)
-).join('\\n');
+myUpdateTrialLog(myKey,myDesired,myActual);
 
 }
+
+function myUpdateTrialLog(myKey,myDesired,myActual){
+
+let myErrText = myDesired.map((myD,myJ)=>{
+let myA = myActual[myJ]!==undefined ? myActual[myJ].toFixed(2) : '-';
+return 'S'+myJ+': desired='+myD+' actual='+myA;
+}).join('\n');
+
+document.getElementById('myTrial').textContent =
+'Epoch: '+myEpoch+'\n'+
+'Trial: '+myTrial+'\n'+
+'Mode: '+myMode+'\n'+
+'Input pattern: ['+myKey+']\n\n'+
+myErrText;
+
+}
+
+// ---- visualization ----
 
 function myUpdateVisualization(){
 
 for(let myE of myElectrodes){
 
+let myZone = myZones[myE.zone];
+let myColors = myZone ? myRoleColors[myZone.role] : myRoleColors.unused;
+
 myE.mesh.material.color.setHex(
-myE.firing ? 0xffd040 : 0x36dc72
+myE.firing ? 0xffffff : myColors.dim
 );
 
 }
@@ -465,18 +1064,14 @@ let myZone = myZones[myI];
 let myDisc = myZoneGroup.children[myI*2];
 let myRing = myZoneGroup.children[myI*2+1];
 
+let myColors = myRoleColors[myZone.role];
+
+myDisc.material.color.setHex(myColors.bright);
+
 if(myI===mySelectedZone){
 myRing.material.color.setHex(0xffffff);
 }else{
-myRing.material.color.setHex(0xffd040);
-}
-
-if(myZone.controller==='excite'){
-myDisc.material.color.setHex(0xff80c0);
-}else if(myZone.controller==='inhib'){
-myDisc.material.color.setHex(0x4080ff);
-}else{
-myDisc.material.color.setHex(0xffd040);
+myRing.material.color.setHex(myColors.bright);
 }
 
 let myScale = 1 + myZone.activity*0.6;
@@ -498,25 +1093,194 @@ let myMean = myZones.reduce(
 document.getElementById('myStats').innerHTML =
 'Mode: '+myMode+'<br>'+
 'Topology: '+myTopology+' × '+myTopology+'<br>'+
-'Zones: '+myZones.length+'<br>'+
-'Selected electrodes: '+myElectrodeCount+'<br>'+
+'Total zones: '+myZones.length+'<br>'+
+'Inference stim zones: '+myStimZones.length+'<br>'+
+'Sensor zones: '+mySensorZones.length+'<br>'+
+'Encourage zones: '+myEncourageZones.length+'<br>'+
+'Discourage zones: '+myDiscourageZones.length+'<br>'+
 'Epoch: '+myEpoch+'<br>'+
 'Trial: '+myTrial+'<br>'+
 'Mean activity: '+myMean.toFixed(3);
 
 }
 
-function mySetMode(myNewMode){
+// ---- save / load ----
 
-myMode = myNewMode;
+function mySaveJSON(){
+
+let myData = {
+topology: myTopology,
+zones: myZones.map(myZ=>({
+index: myZ.index,
+x: myZ.x,
+z: myZ.z,
+role: myZ.role,
+freq: myZ.freq
+})),
+truthTable: myTruthTable,
+influence: myInfluence,
+inputPattern: myInputPattern,
+currentPatternIndex: myCurrentPatternIndex
+};
+
+let myBlob = new Blob([JSON.stringify(myData,null,2)],{type:'application/json'});
+let myUrl = URL.createObjectURL(myBlob);
+
+let myA = document.createElement('a');
+myA.href = myUrl;
+myA.download = 'maxone-wetml-v13.json';
+myA.click();
+
+URL.revokeObjectURL(myUrl);
 
 }
 
-function myToggleRun(){
+function myLoadJSON(myEvent){
 
-myRunning = !myRunning;
+let myFile = myEvent.target.files[0];
+
+if(!myFile) return;
+
+let myReader = new FileReader();
+
+myReader.onload = function(myE){
+
+let myData;
+
+try{
+myData = JSON.parse(myE.target.result);
+}catch(myErr){
+alert('Could not parse JSON file.');
+return;
+}
+
+mySetTopology(myData.topology || 2);
+
+if(myData.zones){
+for(let myZ of myData.zones){
+if(myZones[myZ.index]){
+myZones[myZ.index].role = myZ.role || 'unused';
+myZones[myZ.index].freq = myZ.freq || 0;
+}
+}
+}
+
+myRecomputeRoleArrays();
+myRebuildTruthTable(true);
+
+if(myData.truthTable) myTruthTable = myData.truthTable;
+if(myData.influence) myInfluence = myData.influence;
+if(myData.inputPattern) myInputPattern = myData.inputPattern;
+if(myData.currentPatternIndex!==undefined) myCurrentPatternIndex = myData.currentPatternIndex;
+
+myRenderInputPattern();
+myRenderTruthTable();
+myRenderInfluenceHeatmap();
+myUpdateVisualization();
+myUpdateStats();
+myUpdateSelectedZonePanel();
+
+};
+
+myReader.readAsText(myFile);
+
+myEvent.target.value = '';
 
 }
+
+// ---- python export ----
+
+function myGeneratePython(){
+
+let myLines = [];
+
+myLines.push('# MaxOne WetML V13 stimulation protocol');
+myLines.push('# Auto-generated from maxone-sim-v13.html');
+myLines.push('# Concept: plasticity through stimulation FREQUENCY changes, not on/off stimulation.');
+myLines.push('');
+myLines.push('from maxlab import system, chip, saving');
+myLines.push('');
+myLines.push('TOPOLOGY = ' + myTopology);
+myLines.push('');
+
+myLines.push('# Inference stimulation zones (index -> chip zone / electrode group)');
+myLines.push('INFERENCE_STIM_ZONES = [');
+for(let myI=0; myI<myStimZones.length; myI++){
+let myZ = myZones[myStimZones[myI]];
+myLines.push('    {"stim_index": '+myI+', "zone": '+myZ.index+', "electrode_count": '+myZ.electrodes.length+'},');
+}
+myLines.push(']');
+myLines.push('');
+
+myLines.push('# Sensor (recording) zones');
+myLines.push('SENSOR_ZONES = [');
+for(let myJ=0; myJ<mySensorZones.length; myJ++){
+let myZ = myZones[mySensorZones[myJ]];
+myLines.push('    {"sensor_index": '+myJ+', "zone": '+myZ.index+', "electrode_count": '+myZ.electrodes.length+'},');
+}
+myLines.push(']');
+myLines.push('');
+
+myLines.push('# Training-only modulation zones (never part of the inference input vector)');
+myLines.push('ENCOURAGE_ZONES = [');
+for(let myZi of myEncourageZones){
+let myZ = myZones[myZi];
+myLines.push('    {"zone": '+myZ.index+', "frequency_hz": '+myZ.freq+'},');
+}
+myLines.push(']');
+myLines.push('');
+myLines.push('DISCOURAGE_ZONES = [');
+for(let myZi of myDiscourageZones){
+let myZ = myZones[myZi];
+myLines.push('    {"zone": '+myZ.index+', "frequency_hz": '+myZ.freq+'},');
+}
+myLines.push(']');
+myLines.push('');
+
+myLines.push('# Truth table: input stim pattern -> desired sensor pattern');
+myLines.push('TRUTH_TABLE = {');
+for(let myKey of Object.keys(myTruthTable)){
+myLines.push('    "'+myKey+'": '+JSON.stringify(myTruthTable[myKey])+',');
+}
+myLines.push('}');
+myLines.push('');
+
+myLines.push('# Influence matrix weight[stim_index][sensor_index]');
+myLines.push('INFLUENCE_MATRIX = {');
+for(let myKey of Object.keys(myInfluence)){
+myLines.push('    "'+myKey+'": '+myInfluence[myKey]+',');
+}
+myLines.push('}');
+myLines.push('');
+
+myLines.push('def run_training_protocol(array):');
+myLines.push('    """');
+myLines.push('    Applies frequency-based stimulation to ENCOURAGE_ZONES and');
+myLines.push('    DISCOURAGE_ZONES while presenting INFERENCE_STIM_ZONES patterns');
+myLines.push('    from TRUTH_TABLE, and reads SENSOR_ZONES to evaluate plasticity');
+myLines.push('    of the mapping over time. Simplified Hebbian-style update is');
+myLines.push('    assumed to run in the accompanying analysis pipeline.');
+myLines.push('    """');
+myLines.push('    for zone in ENCOURAGE_ZONES:');
+myLines.push('        array.set_stimulation_frequency(zone["zone"], zone["frequency_hz"])');
+myLines.push('    for zone in DISCOURAGE_ZONES:');
+myLines.push('        array.set_stimulation_frequency(zone["zone"], zone["frequency_hz"])');
+myLines.push('    for pattern, desired in TRUTH_TABLE.items():');
+myLines.push('        stim_bits = [int(b) for b in pattern.split(",")] if pattern else []');
+myLines.push('        array.present_pattern(INFERENCE_STIM_ZONES, stim_bits)');
+myLines.push('        response = array.read_sensor_zones(SENSOR_ZONES)');
+myLines.push('        # compare response against `desired` and log for offline analysis');
+myLines.push('');
+myLines.push("if __name__ == '__main__':");
+myLines.push('    array = system.Array()');
+myLines.push('    array.initialize()');
+myLines.push('    run_training_protocol(array)');
+
+document.getElementById('myPythonArea').value = myLines.join('\n');
+
+}
+
+// ---- animation loop ----
 
 function myAnimate(myTime){
 
@@ -527,7 +1291,7 @@ if(myRunning){
 if(myTime-myLastTime>400){
 
 myLastTime = myTime;
-mySingleTrial();
+myRunOnce();
 
 }
 
