@@ -4,7 +4,7 @@
 <head>
 <meta charset='UTF-8'>
 <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-<title>MaxOne WetML Simulator V14</title>
+<title>MaxOne WetML Simulator V16</title>
 
 <script src='https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js'></script>
 
@@ -23,11 +23,15 @@
 
 <body style='margin:0;overflow:hidden;background:#050810;color:white;font-family:Arial,sans-serif;'>
 
-<div id='myPanel' style='position:absolute;left:10px;top:10px;width:400px;background:rgba(5,9,18,0.95);padding:12px;border:1px solid #39445d;border-radius:8px;z-index:10;max-height:96vh;overflow:auto;box-sizing:border-box;'>
+<div id='myHoverTooltip' style='position:fixed;pointer-events:none;background:rgba(10,14,24,0.95);border:1px solid #39445d;padding:6px 8px;font-size:11px;font-family:monospace;border-radius:4px;display:none;z-index:20;white-space:nowrap;line-height:1.5;'></div>
 
-<div id='myResizeHandle' title='Drag to resize' style='position:absolute;top:0;right:0;width:8px;height:100%;cursor:ew-resize;background:rgba(127,208,255,0.08);'></div>
+<div id='myPanel' style='position:absolute;left:10px;top:10px;width:400px;z-index:10;box-sizing:border-box;'>
 
-<h2 style='margin-top:0'>MaxOne WetML Simulator V14</h2>
+<div id='myResizeHandle' title='Drag to resize' style='position:absolute;top:0;bottom:0;right:-5px;width:10px;cursor:ew-resize;background:rgba(127,208,255,0.18);border-radius:4px;z-index:12;'></div>
+
+<div id='myPanelInner' style='background:rgba(5,9,18,0.95);padding:12px;border:1px solid #39445d;border-radius:8px;max-height:96vh;overflow:auto;box-sizing:border-box;'>
+
+<h2 style='margin-top:0'>MaxOne WetML Simulator V16</h2>
 
 <div style='font-size:12px;margin-bottom:10px;'>
 GitHub: <a href='https://github.com/hpssjellis/neuro-ml' target='_blank' rel='noopener' style='color:#7fd0ff;'>hpssjellis/neuro-ml</a>
@@ -38,6 +42,7 @@ LinkedIn: <a href='https://www.linkedin.com/in/jeremy-ellis-4237a9bb/' target='_
 <div style='font-size:12px;color:#9fb0c9;margin-bottom:10px;'>
 Physical chip: <b>120×220 = 26,400 electrodes</b><br>
 Selected recording grid: <b>22×46 = 1,012 electrodes</b><br>
+The real MaxOne has <b>32 movable stimulating electrodes</b>, which could also be used to briefly encourage or discourage zones.<br>
 Zones ≠ roles: assign each zone a functional role below.
 </div>
 
@@ -52,11 +57,13 @@ Zones ≠ roles: assign each zone a functional role below.
 <input type='button' value='3×3' onclick='mySetTopology(3)'>
 <input type='button' value='4×4' onclick='mySetTopology(4)'>
 <input type='button' value='5×5' onclick='mySetTopology(5)'>
+<input type='button' value='6×6' onclick='mySetTopology(6)'>
+<input type='button' value='7×7' onclick='mySetTopology(7)'>
 <br style='line-height:6px;'>
 <input type='button' value='🎲 Randomize' onclick='myRandomizeTopology()' style='background:#4a2f66;color:#fff;margin-top:6px;'>
 <input type='button' value='Clear Roles' onclick='myClearRoles()' style='margin-top:6px;'>
 <input type='button' id='myUndoBtn' value='Undo' onclick='myUndoLastChange()' style='margin-top:6px;' disabled>
-<div style='font-size:11px;color:#8fa0bf;margin-top:4px;'>Randomly assigns roles: N zones stim, N sensor, N encourage/discourage (N = floor(total zones / 3)), then randomizes the truth table and influence weights. Clear Roles resets everything to Unused. Undo restores the state from just before the last Randomize / Clear.</div>
+<div style='font-size:11px;color:#8fa0bf;margin-top:4px;'>Randomly assigns roles: N zones stim, N sensor, N encourage/discourage (N = floor(total zones / 3)), then randomizes the truth table and influence weights. On the 2×2 grid (too small for a third role group) it splits evenly into 2 stim / 2 sensor with no encourage/discourage zones. Clear Roles resets everything to Unused. Undo restores the state from just before the last Randomize / Clear.</div>
 
 <div style='font-size:11px;margin-top:6px;'>
 <span style='display:inline-block;width:10px;height:10px;background:#ff4060;margin-right:3px;'></span>Stim&nbsp;
@@ -70,8 +77,9 @@ Zones ≠ roles: assign each zone a functional role below.
 <input type='button' id='myModeToggleBtn' value='Mode: Training' onclick='myToggleMode()' style='font-weight:bold;'>
 <input type='button' value='Run / Stop' onclick='myToggleRun()'>
 <input type='button' value='Single Trial' onclick='myRunOnce()'>
+<input type='button' id='myRotateBtn' value='Rotation: On' onclick='myToggleAutoRotate()'>
 <br>
-<label style='font-size:12px;'><input type='checkbox' id='myCycleCheckbox'> Cycle truth-table patterns each trial</label>
+<label style='font-size:12px;'><input type='checkbox' id='myCycleCheckbox' checked> Cycle truth-table patterns each trial</label>
 
 <h3>Selected Zone</h3>
 <div id='mySelectedZone' style='background:#08101b;padding:8px;font-family:monospace;font-size:12px;'>
@@ -130,6 +138,17 @@ No trials run yet.
 <input type='button' value='Generate Python Protocol' onclick='myGeneratePython()'>
 <textarea id='myPythonArea' style='width:100%;height:160px;background:#08101b;color:#bcd;font-family:monospace;font-size:11px;margin-top:6px;'></textarea>
 
+<h3>How this training actually works</h3>
+<div style='font-size:11px;color:#9fb0c9;background:#08101b;padding:8px;line-height:1.5;'>
+Each trial, the current stim pattern is multiplied through a simple weight matrix (one weight per stim→sensor pair) to get an "actual" sensor output. In <b>Training</b> mode, any gap between that output and the truth table's desired output nudges the relevant weights up or down (a basic error-correction / Hebbian-style rule) — the size of the nudge scales with the average frequency set on the Encourage zones, while Discourage zones bias weight changes downward. In <b>Inference</b> mode, weights are just read out, not changed. This is a rough software analogy for how repeated, targeted electrical stimulation might reinforce or weaken pathways in a living neural culture on a real HD-MEA chip — it does <b>not</b> model real neuron biophysics, plasticity mechanisms, or noise.
+</div>
+
+<div style='font-size:11px;color:#ffb066;background:#1c1408;border:1px solid #4a3410;padding:8px;margin-top:8px;line-height:1.5;'>
+⚠️ <b>This is a simulation only.</b> It is a teaching sandbox for exploring the idea of closed-loop stimulation and training on an HD-MEA array. Whether anything like this training rule actually works on real biological neurons is an open research question that would require significant wet-lab validation. Use at your own risk — do not treat this tool's output as a validated protocol for real hardware or living tissue.
+</div>
+
+</div>
+
 </div>
 
 <script>
@@ -154,6 +173,7 @@ let myElectrodes = [];
 let mySelectedZone = -1;
 
 let myRunning = false;
+let myAutoRotate = true;
 let myMode = 'training';
 
 let myEpoch = 0;
@@ -260,6 +280,12 @@ myCreateStimSites();
 mySetTopology(2);
 
 myRenderer.domElement.onclick = myPickZone;
+
+myRenderer.domElement.addEventListener('mousemove', myOnHoverMove);
+
+myRenderer.domElement.addEventListener('mouseleave', function(){
+document.getElementById('myHoverTooltip').style.display = 'none';
+});
 
 window.onresize = myResize;
 
@@ -429,6 +455,14 @@ myZones = [];
 
 let myIndex = 0;
 
+// Zones sit in a fixed 12x6 rectangle. As the grid gets denser the
+// row spacing (short axis) becomes the limiting factor, so shrink the
+// disc/ring radius once it would otherwise overlap its neighbors.
+let myRowSpacing = 6/(mySize-1);
+let myZoneRadius = Math.min(0.9, Math.max(0.28, myRowSpacing/2 - 0.12));
+let myRingInner = myZoneRadius*0.955;
+let myRingOuter = myZoneRadius*1.02;
+
 for(let myR=0; myR<mySize; myR++){
 
 for(let myC=0; myC<mySize; myC++){
@@ -437,7 +471,7 @@ let myX = -6 + myC*(12/(mySize-1));
 let myZ = -3 + myR*(6/(mySize-1));
 
 let myDisc = new THREE.Mesh(
-new THREE.CylinderGeometry(0.9,0.9,0.05,24),
+new THREE.CylinderGeometry(myZoneRadius,myZoneRadius,0.05,24),
 new THREE.MeshBasicMaterial({
 color:myRoleColors.unused.bright,
 transparent:true,
@@ -449,7 +483,7 @@ myDisc.position.set(myX,0.12,myZ);
 myDisc.userData.zone = myIndex;
 
 let myRing = new THREE.Mesh(
-new THREE.RingGeometry(0.86,0.92,24),
+new THREE.RingGeometry(myRingInner,myRingOuter,24),
 new THREE.MeshBasicMaterial({
 color:myRoleColors.unused.bright,
 side:THREE.DoubleSide
@@ -746,9 +780,26 @@ myZone.freq = 0;
 
 let myOrder = myShuffleArray(myZones.map(myZ=>myZ.index));
 
-let myPerRole = Math.floor(myZones.length/3);
-
 let myPtr = 0;
+
+if(myZones.length < 6){
+
+// Too small to fit a third role group (e.g. 2x2 = 4 zones): split evenly
+// between stim and sensor only, no encourage/discourage zones.
+
+let myPerRole = Math.floor(myZones.length/2);
+
+for(let myI=0; myI<myPerRole; myI++){
+myZones[myOrder[myPtr++]].role = 'stim';
+}
+
+for(let myI=0; myI<myPerRole; myI++){
+myZones[myOrder[myPtr++]].role = 'sensor';
+}
+
+}else{
+
+let myPerRole = Math.floor(myZones.length/3);
 
 for(let myI=0; myI<myPerRole; myI++){
 myZones[myOrder[myPtr++]].role = 'stim';
@@ -764,6 +815,8 @@ let myZone = myZones[myOrder[myPtr++]];
 
 myZone.role = (myRandom()<0.5) ? 'encourage' : 'discourage';
 myZone.freq = 10 + Math.round(myRandom()*30);
+
+}
 
 }
 
@@ -854,6 +907,53 @@ mySelectedZone = myHits[0].object.userData.zone;
 
 myUpdateSelectedZonePanel();
 myUpdateVisualization();
+
+}
+
+function myOnHoverMove(myEvent){
+
+let myRect = myRenderer.domElement.getBoundingClientRect();
+
+myMouse.x = ((myEvent.clientX-myRect.left)/myRect.width)*2-1;
+myMouse.y = -((myEvent.clientY-myRect.top)/myRect.height)*2+1;
+
+myRaycaster.setFromCamera(myMouse,myCamera);
+
+let myHits = myRaycaster.intersectObjects(myZoneGroup.children);
+
+let myTooltip = document.getElementById('myHoverTooltip');
+
+if(myHits.length===0){
+myTooltip.style.display = 'none';
+return;
+}
+
+let myIndex = myHits[0].object.userData.zone;
+let myZone = myZones[myIndex];
+
+let myLines = [
+'<b>Zone '+myZone.index+'</b> ('+myZone.role+')',
+'Activity: '+myZone.activity.toFixed(3),
+'Electrodes: '+myZone.electrodes.length
+];
+
+if(myZone.role==='stim'){
+myLines.push('Stim index: '+myZone.stimIndex);
+myLines.push('Input bit: '+(myInputPattern[myZone.stimIndex]!==undefined ? myInputPattern[myZone.stimIndex] : '-'));
+}
+
+if(myZone.role==='sensor'){
+myLines.push('Sensor index: '+myZone.sensorIndex);
+}
+
+if(myZone.role==='encourage' || myZone.role==='discourage'){
+myLines.push('Training freq: '+myZone.freq+' Hz');
+}
+
+myTooltip.innerHTML = myLines.join('<br>');
+myTooltip.style.left = (myEvent.clientX+14)+'px';
+myTooltip.style.top = (myEvent.clientY+14)+'px';
+myTooltip.style.display = 'block';
 
 }
 
@@ -1134,6 +1234,18 @@ myBtn.value = 'Mode: Inference';
 myBtn.style.background = '#1c3f66';
 myBtn.style.color = '#fff';
 }
+
+}
+
+function myToggleAutoRotate(){
+
+myAutoRotate = !myAutoRotate;
+
+let myBtn = document.getElementById('myRotateBtn');
+
+myBtn.value = 'Rotation: ' + (myAutoRotate ? 'On' : 'Off');
+myBtn.style.background = myAutoRotate ? '' : '#3a2a2a';
+myBtn.style.color = myAutoRotate ? '' : '#fff';
 
 }
 
@@ -1428,7 +1540,7 @@ let myUrl = URL.createObjectURL(myBlob);
 
 let myA = document.createElement('a');
 myA.href = myUrl;
-myA.download = 'maxone-wetml-v14.json';
+myA.download = 'maxone-wetml-v16.json';
 myA.click();
 
 URL.revokeObjectURL(myUrl);
@@ -1501,7 +1613,7 @@ function myGeneratePython(){
 
 let myLines = [];
 
-myLines.push('# MaxOne WetML V14 stimulation protocol');
+myLines.push('# MaxOne WetML V16 stimulation protocol');
 myLines.push('# Auto-generated from maxone-sim-v14.html');
 myLines.push('# Concept: plasticity through stimulation FREQUENCY changes, not on/off stimulation.');
 myLines.push('');
@@ -1604,7 +1716,9 @@ myRunOnce();
 
 }
 
+if(myAutoRotate){
 myArrayGroup.rotation.y += 0.0006;
+}
 
 myControls.update();
 
