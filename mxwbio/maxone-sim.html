@@ -4,7 +4,7 @@
 <head>
 <meta charset='UTF-8'>
 <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-<title>MaxOne WetML Simulator V16</title>
+<title>MaxOne WetML Simulator V17</title>
 
 <script src='https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js'></script>
 
@@ -31,7 +31,7 @@
 
 <div id='myPanelInner' style='background:rgba(5,9,18,0.95);padding:12px;border:1px solid #39445d;border-radius:8px;max-height:96vh;overflow:auto;box-sizing:border-box;'>
 
-<h2 style='margin-top:0'>MaxOne WetML Simulator V16</h2>
+<h2 style='margin-top:0'>MaxOne WetML Simulator V17</h2>
 
 <div style='font-size:12px;margin-bottom:10px;'>
 GitHub: <a href='https://github.com/hpssjellis/neuro-ml' target='_blank' rel='noopener' style='color:#7fd0ff;'>hpssjellis/neuro-ml</a>
@@ -80,6 +80,11 @@ Zones ≠ roles: assign each zone a functional role below.
 <input type='button' id='myRotateBtn' value='Rotation: On' onclick='myToggleAutoRotate()'>
 <br>
 <label style='font-size:12px;'><input type='checkbox' id='myCycleCheckbox' checked> Cycle truth-table patterns each trial</label>
+
+<h3>Baseline Activity</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Ongoing spontaneous firing across the whole well, independent of stimulation. Real cultured neurons on an HD-MEA typically show baseline spontaneous rates around 0.1–5 Hz per electrode, well before any deliberate stimulation — raise this to make more electrodes light up each trial.</div>
+Baseline firing rate: <span id='myBaselineLabel'>35%</span><br>
+<input type='range' min='0' max='100' step='1' value='35' id='myBaselineSlider' style='width:100%;' oninput='myOnBaselineChange(this.value)'>
 
 <h3>Selected Zone</h3>
 <div id='mySelectedZone' style='background:#08101b;padding:8px;font-family:monospace;font-size:12px;'>
@@ -173,6 +178,7 @@ let myElectrodes = [];
 let mySelectedZone = -1;
 
 let myRunning = false;
+let myBaselineRate = 0.35;
 let myAutoRotate = true;
 let myMode = 'training';
 
@@ -404,6 +410,7 @@ myMesh.position.set(myX,0.04,myZ);
 myElectrodeGroup.add(myMesh);
 
 myElectrodes.push({
+id: myR*myCols+myC,
 x:myX,
 z:myZ,
 mesh:myMesh,
@@ -797,7 +804,9 @@ for(let myI=0; myI<myPerRole; myI++){
 myZones[myOrder[myPtr++]].role = 'sensor';
 }
 
-}else{
+}else if(myTopology<=3){
+
+// 3x3: symmetric 3-way split (3 stim / 3 sensor / 3 encourage-discourage).
 
 let myPerRole = Math.floor(myZones.length/3);
 
@@ -818,6 +827,32 @@ myZone.freq = 10 + Math.round(myRandom()*30);
 
 }
 
+}else{
+
+// Above 3x3: keep it simple. Always exactly 3 stim / 3 sensor zones
+// (so the input/output pattern size stays small and easy to reason
+// about), but still scale the encourage/discourage pool with grid size.
+
+let myStimSensorCount = 3;
+let myEncDiscCount = Math.floor(myZones.length/3);
+
+for(let myI=0; myI<myStimSensorCount; myI++){
+myZones[myOrder[myPtr++]].role = 'stim';
+}
+
+for(let myI=0; myI<myStimSensorCount; myI++){
+myZones[myOrder[myPtr++]].role = 'sensor';
+}
+
+for(let myI=0; myI<myEncDiscCount; myI++){
+
+let myZone = myZones[myOrder[myPtr++]];
+
+myZone.role = (myRandom()<0.5) ? 'encourage' : 'discourage';
+myZone.freq = 10 + Math.round(myRandom()*30);
+
+}
+
 }
 
 myInfluence = {};
@@ -825,8 +860,17 @@ myInfluence = {};
 myRecomputeRoleArrays();
 myRebuildTruthTable(true);
 
+// Truth table is not randomized: each stim zone is matched 1:1 to the
+// sensor zone assigned in the same order, so the desired output pattern
+// always equals the input pattern (stim i "on" -> sensor i desired "on").
+
 for(let myKey of Object.keys(myTruthTable)){
-myTruthTable[myKey] = myTruthTable[myKey].map(()=>(myRandom()<0.5 ? 1 : 0));
+
+let myBits = myKey.length ? myKey.split(',').map(Number) : [];
+let myM = myTruthTable[myKey].length;
+
+myTruthTable[myKey] = new Array(myM).fill(0).map((myV,myJ)=> myBits[myJ]!==undefined ? myBits[myJ] : 0);
+
 }
 
 myInputPattern = myInputPattern.map(()=>(myRandom()<0.5 ? 1 : 0));
@@ -1034,6 +1078,14 @@ document.getElementById('myFreqLabel').textContent = String(myValue);
 
 myUpdateSelectedZonePanel();
 myUpdateVisualization();
+
+}
+
+function myOnBaselineChange(myValue){
+
+myBaselineRate = Number(myValue)/100;
+
+document.getElementById('myBaselineLabel').textContent = myValue+'%';
 
 }
 
@@ -1359,11 +1411,11 @@ myZone.activity = myActual[myZone.sensorIndex]||0;
 }else if(myZone.role==='encourage' || myZone.role==='discourage'){
 myZone.activity = myZone.freq/50;
 }else{
-myZone.activity = myRandom()*0.05;
+myZone.activity = myBaselineRate*(0.3+myRandom()*0.7);
 }
 
 for(let myE of myZone.electrodes){
-myE.firing = myRandom() < (0.02+myZone.activity*0.3);
+myE.firing = myRandom() < Math.min(0.95, 0.02 + myBaselineRate*0.3 + myZone.activity*0.3);
 }
 
 }
@@ -1540,7 +1592,7 @@ let myUrl = URL.createObjectURL(myBlob);
 
 let myA = document.createElement('a');
 myA.href = myUrl;
-myA.download = 'maxone-wetml-v16.json';
+myA.download = 'maxone-wetml-v17.json';
 myA.click();
 
 URL.revokeObjectURL(myUrl);
@@ -1613,20 +1665,61 @@ function myGeneratePython(){
 
 let myLines = [];
 
-myLines.push('# MaxOne WetML V16 stimulation protocol');
-myLines.push('# Auto-generated from maxone-sim-v14.html');
+let myTotalStimCapable = myStimZones.length + myEncourageZones.length + myDiscourageZones.length;
+
+let mySensorElectrodeIds = [];
+for(let myZi of mySensorZones){
+for(let myE of myZones[myZi].electrodes){
+mySensorElectrodeIds.push(myE.id);
+}
+}
+
+function myRepElectrodeId(myZi){
+let myZ = myZones[myZi];
+return (myZ.electrodes.length>0) ? myZ.electrodes[0].id : null;
+}
+
+myLines.push('# MaxOne WetML V17 stimulation protocol');
+myLines.push('# Auto-generated from maxone-sim-v17.html');
 myLines.push('# Concept: plasticity through stimulation FREQUENCY changes, not on/off stimulation.');
-myLines.push('');
-myLines.push('from maxlab import system, chip, saving');
-myLines.push('');
-myLines.push('TOPOLOGY = ' + myTopology);
+myLines.push('#');
+myLines.push('# This targets the real MaxLab Python API (mxwserver must be running, "maxlab"');
+myLines.push('# package importable -- normally on the MaxLab Live acquisition PC):');
+myLines.push('#   https://api-docs.mxwbio.com/section_api/subsections/api_python.html');
+myLines.push('#');
+myLines.push('# CAVEATS -- please read before running on real hardware:');
+myLines.push('# 1) "Zones" and per-zone "training frequency" are this simulator\'s teaching');
+myLines.push('#    abstraction. The real API has no such concept -- there is no function to');
+myLines.push('#    set a frequency on a group of electrodes, and no synchronous function to');
+myLines.push('#    "read" a sensor zone\'s output. This script builds a frequency out of');
+myLines.push('#    individual maxlab.Sequence() pulses spaced by maxlab.system.DelaySamples(),');
+myLines.push('#    and reads results back offline from the recorded data file instead.');
+myLines.push('# 2) MaxOne has exactly 32 physical on-chip StimulationUnits, so this script');
+myLines.push('#    stimulates through ONE representative electrode per stim/encourage/');
+myLines.push('#    discourage zone rather than every electrode in the zone.');
+myLines.push('# 3) This is a teaching sandbox, not a validated protocol. Whether frequency-');
+myLines.push('#    based "encourage/discourage" stimulation actually shapes plasticity in a');
+myLines.push('#    real culture is an open research question. Use at your own risk.');
 myLines.push('');
 
-myLines.push('# Inference stimulation zones (index -> chip zone / electrode group)');
+if(myTotalStimCapable>32){
+myLines.push('# WARNING: '+myTotalStimCapable+' stim-capable zones selected, but MaxOne only has');
+myLines.push('# 32 physical stimulation units. Reduce the topology/randomize pool before running.');
+myLines.push('');
+}
+
+myLines.push('import time');
+myLines.push('import maxlab');
+myLines.push('');
+myLines.push('TOPOLOGY = ' + myTopology);
+myLines.push('SAMPLE_PERIOD_S = 50e-6   # fixed HW property: 50 microseconds between recording samples');
+myLines.push('');
+
+myLines.push('# Inference stim zones -- one representative electrode each (physical stim unit budget is 32)');
 myLines.push('INFERENCE_STIM_ZONES = [');
 for(let myI=0; myI<myStimZones.length; myI++){
 let myZ = myZones[myStimZones[myI]];
-myLines.push('    {"stim_index": '+myI+', "zone": '+myZ.index+', "electrode_count": '+myZ.electrodes.length+'},');
+myLines.push('    {"stim_index": '+myI+', "zone": '+myZ.index+', "sample_electrode_id": '+myRepElectrodeId(myZ.index)+', "electrode_count": '+myZ.electrodes.length+'},');
 }
 myLines.push(']');
 myLines.push('');
@@ -1640,23 +1733,29 @@ myLines.push('    {"sensor_index": '+myJ+', "zone": '+myZ.index+', "electrode_co
 myLines.push(']');
 myLines.push('');
 
+myLines.push('# All electrode ids belonging to sensor zones -- this is what actually gets recorded');
+myLines.push('SENSOR_RECORD_ELECTRODE_IDS = '+JSON.stringify(mySensorElectrodeIds));
+myLines.push('');
+
 myLines.push('# Training-only modulation zones (never part of the inference input vector)');
+myLines.push('# Again: one representative electrode per zone, since only 32 stim units exist.');
 myLines.push('ENCOURAGE_ZONES = [');
 for(let myZi of myEncourageZones){
 let myZ = myZones[myZi];
-myLines.push('    {"zone": '+myZ.index+', "frequency_hz": '+myZ.freq+'},');
+myLines.push('    {"zone": '+myZ.index+', "sample_electrode_id": '+myRepElectrodeId(myZi)+', "frequency_hz": '+myZ.freq+'},');
 }
 myLines.push(']');
 myLines.push('');
 myLines.push('DISCOURAGE_ZONES = [');
 for(let myZi of myDiscourageZones){
 let myZ = myZones[myZi];
-myLines.push('    {"zone": '+myZ.index+', "frequency_hz": '+myZ.freq+'},');
+myLines.push('    {"zone": '+myZ.index+', "sample_electrode_id": '+myRepElectrodeId(myZi)+', "frequency_hz": '+myZ.freq+'},');
 }
 myLines.push(']');
 myLines.push('');
 
-myLines.push('# Truth table: input stim pattern -> desired sensor pattern');
+myLines.push('# Truth table: input stim pattern -> desired sensor pattern (identity mapping:');
+myLines.push('# stim i "on" always maps to sensor i desired "on")');
 myLines.push('TRUTH_TABLE = {');
 for(let myKey of Object.keys(myTruthTable)){
 myLines.push('    "'+myKey+'": '+JSON.stringify(myTruthTable[myKey])+',');
@@ -1664,7 +1763,8 @@ myLines.push('    "'+myKey+'": '+JSON.stringify(myTruthTable[myKey])+',');
 myLines.push('}');
 myLines.push('');
 
-myLines.push('# Influence matrix weight[stim_index][sensor_index]');
+myLines.push('# Influence matrix weight[stim_index][sensor_index] -- simulator bookkeeping only,');
+myLines.push('# never sent to the hardware. Kept here for reference / offline comparison.');
 myLines.push('INFLUENCE_MATRIX = {');
 for(let myKey of Object.keys(myInfluence)){
 myLines.push('    "'+myKey+'": '+myInfluence[myKey]+',');
@@ -1672,28 +1772,120 @@ myLines.push('    "'+myKey+'": '+myInfluence[myKey]+',');
 myLines.push('}');
 myLines.push('');
 
-myLines.push('def run_training_protocol(array):');
-myLines.push('    """');
-myLines.push('    Applies frequency-based stimulation to ENCOURAGE_ZONES and');
-myLines.push('    DISCOURAGE_ZONES while presenting INFERENCE_STIM_ZONES patterns');
-myLines.push('    from TRUTH_TABLE, and reads SENSOR_ZONES to evaluate plasticity');
-myLines.push('    of the mapping over time. Simplified Hebbian-style update is');
-myLines.push('    assumed to run in the accompanying analysis pipeline.');
-myLines.push('    """');
-myLines.push('    for zone in ENCOURAGE_ZONES:');
-myLines.push('        array.set_stimulation_frequency(zone["zone"], zone["frequency_hz"])');
-myLines.push('    for zone in DISCOURAGE_ZONES:');
-myLines.push('        array.set_stimulation_frequency(zone["zone"], zone["frequency_hz"])');
+myLines.push('def hz_to_delay_samples(frequency_hz):');
+myLines.push('    """Convert a target pulse rate (Hz) into the DelaySamples() value to use');
+myLines.push('    between successive pulses inside a maxlab.Sequence()."""');
+myLines.push('    if frequency_hz <= 0:');
+myLines.push('        return None');
+myLines.push('    period_s = 1.0 / frequency_hz');
+myLines.push('    return max(1, round(period_s / SAMPLE_PERIOD_S))');
+myLines.push('');
+
+myLines.push('def setup_array():');
+myLines.push('    """Select + route recording electrodes and connect one representative');
+myLines.push('    electrode per stim-capable zone to a physical stimulation unit."""');
+myLines.push('    array = maxlab.chip.Array(\'online\')');
+myLines.push('    array.reset()');
+myLines.push('');
+myLines.push('    stim_capable_ids = (');
+myLines.push('        [z["sample_electrode_id"] for z in INFERENCE_STIM_ZONES if z["sample_electrode_id"] is not None] +');
+myLines.push('        [z["sample_electrode_id"] for z in ENCOURAGE_ZONES if z["sample_electrode_id"] is not None] +');
+myLines.push('        [z["sample_electrode_id"] for z in DISCOURAGE_ZONES if z["sample_electrode_id"] is not None]');
+myLines.push('    )');
+myLines.push('');
+myLines.push('    array.select_electrodes(SENSOR_RECORD_ELECTRODE_IDS)');
+myLines.push('    array.select_stimulation_electrodes(stim_capable_ids)');
+myLines.push('    array.route()');
+myLines.push('');
+myLines.push('    stim_units = {}');
+myLines.push('    for electrode_id in stim_capable_ids:');
+myLines.push('        array.connect_electrode_to_stimulation(electrode_id)');
+myLines.push('        stim_units[electrode_id] = int(array.query_stimulation_at_electrode(electrode_id))');
+myLines.push('');
+myLines.push('    array.download()');
+myLines.push('    time.sleep(maxlab.util.Timing.waitAfterDownload)');
+myLines.push('');
+myLines.push('    return array, stim_units');
+myLines.push('');
+
+myLines.push('def configure_stimulation_units(stim_units):');
+myLines.push('    """Power up each stim unit in voltage mode. DAC channels are shared/round-');
+myLines.push('    robin across units since MaxOne only has 3 analog DAC channels -- this is');
+myLines.push('    fine here because zones are stimulated one at a time, never simultaneously."""');
+myLines.push('    for i, (electrode_id, unit_no) in enumerate(stim_units.items()):');
+myLines.push('        unit = maxlab.chip.StimulationUnit(unit_no)');
+myLines.push('        unit.power_up(True).connect(True).dac_source(i % 3).set_voltage_mode()');
+myLines.push('        maxlab.send(unit)');
+myLines.push('    maxlab.send(maxlab.chip.Core().enable_stimulation_power(True))');
+myLines.push('');
+
+myLines.push('def biphasic_pulse(dac_no=0, amplitude_bits=100, half_pulse_delay_samples=4):');
+myLines.push('    """Positive-first, biphasic voltage pulse (see MaxLab API docs, Stimulation');
+myLines.push('    section). The stim buffer is an inverting amplifier, hence subtract-then-add."""');
+myLines.push('    seq = maxlab.Sequence()');
+myLines.push('    seq.append(maxlab.chip.DAC(dac_no, 512 - amplitude_bits))');
+myLines.push('    seq.append(maxlab.system.DelaySamples(half_pulse_delay_samples))');
+myLines.push('    seq.append(maxlab.chip.DAC(dac_no, 512 + amplitude_bits))');
+myLines.push('    seq.append(maxlab.system.DelaySamples(half_pulse_delay_samples))');
+myLines.push('    seq.append(maxlab.chip.DAC(dac_no, 512))');
+myLines.push('    return seq');
+myLines.push('');
+
+myLines.push('def run_zone_frequency_burst(dac_no, frequency_hz, duration_s=2.0):');
+myLines.push('    """Fire biphasic pulses at ~frequency_hz for duration_s seconds. This is the');
+myLines.push('    simulator\'s Encourage/Discourage concept translated into real pulses -- it');
+myLines.push('    is a sketch, not a validated biological training protocol."""');
+myLines.push('    delay_samples = hz_to_delay_samples(frequency_hz)');
+myLines.push('    if delay_samples is None:');
+myLines.push('        return');
+myLines.push('    n_pulses = max(1, round(duration_s * frequency_hz))');
+myLines.push('    for _ in range(n_pulses):');
+myLines.push('        biphasic_pulse(dac_no=dac_no).send()');
+myLines.push('        time.sleep(delay_samples * SAMPLE_PERIOD_S)');
+myLines.push('');
+
+myLines.push('def run_training_protocol():');
+myLines.push('    maxlab.util.initialize()');
+myLines.push('    time.sleep(maxlab.util.Timing.waitInit)');
+myLines.push('    maxlab.util.offset()');
+myLines.push('    time.sleep(maxlab.util.Timing.waitInMX1Offset)  # MaxOne offset wait');
+myLines.push('');
+myLines.push('    array, stim_units = setup_array()');
+myLines.push('    configure_stimulation_units(stim_units)');
+myLines.push('');
+myLines.push('    config = array.get_config()');
+myLines.push('    sensor_channels = config.get_channels_for_electrodes(SENSOR_RECORD_ELECTRODE_IDS)');
+myLines.push('');
+myLines.push('    saving = maxlab.saving.Saving()');
+myLines.push('    saving.open_directory(\'.\')');
+myLines.push('    saving.start_file(\'maxone_wetml_session\')');
+myLines.push('    saving.group_delete_all()');
+myLines.push('    saving.group_define(0, \'sensor_zones\', sensor_channels)');
+myLines.push('    saving.start_recording()');
+myLines.push('');
+myLines.push('    stim_dac = {z["sample_electrode_id"]: i % 3 for i, z in enumerate(INFERENCE_STIM_ZONES)}');
+myLines.push('');
+myLines.push('    for zone in ENCOURAGE_ZONES + DISCOURAGE_ZONES:');
+myLines.push('        dac_no = stim_units[zone["sample_electrode_id"]] % 3 if zone["sample_electrode_id"] in stim_units else 0');
+myLines.push('        run_zone_frequency_burst(dac_no, zone["frequency_hz"])');
+myLines.push('');
 myLines.push('    for pattern, desired in TRUTH_TABLE.items():');
 myLines.push('        stim_bits = [int(b) for b in pattern.split(",")] if pattern else []');
-myLines.push('        array.present_pattern(INFERENCE_STIM_ZONES, stim_bits)');
-myLines.push('        response = array.read_sensor_zones(SENSOR_ZONES)');
-myLines.push('        # compare response against `desired` and log for offline analysis');
+myLines.push('        for bit, zone in zip(stim_bits, INFERENCE_STIM_ZONES):');
+myLines.push('            if bit and zone["sample_electrode_id"] is not None:');
+myLines.push('                biphasic_pulse(dac_no=stim_dac[zone["sample_electrode_id"]]).send()');
+myLines.push('        time.sleep(0.2)');
+myLines.push('        # NOTE: there is no synchronous "read sensor" call in the MaxLab API --');
+myLines.push('        # compare `desired` against the recorded file offline (e.g. spike counts');
+myLines.push('        # per sensor_channels group) once the recording is complete.');
 myLines.push('');
+myLines.push('    saving.stop_recording()');
+myLines.push('    time.sleep(maxlab.util.Timing.waitAfterRecording)');
+myLines.push('    saving.stop_file()');
+myLines.push('');
+
 myLines.push("if __name__ == '__main__':");
-myLines.push('    array = system.Array()');
-myLines.push('    array.initialize()');
-myLines.push('    run_training_protocol(array)');
+myLines.push('    run_training_protocol()');
 
 document.getElementById('myPythonArea').value = myLines.join('\n');
 
