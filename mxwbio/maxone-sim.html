@@ -4,7 +4,7 @@
 <head>
 <meta charset='UTF-8'>
 <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-<title>MaxOne WetML Simulator V18</title>
+<title>MaxOne WetML Simulator V19</title>
 
 <script src='https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js'></script>
 
@@ -31,7 +31,7 @@
 
 <div id='myPanelInner' style='background:rgba(5,9,18,0.95);padding:12px;border:1px solid #39445d;border-radius:8px;max-height:96vh;overflow:auto;box-sizing:border-box;'>
 
-<h2 style='margin-top:0'>MaxOne WetML Simulator V18</h2>
+<h2 style='margin-top:0'>MaxOne WetML Simulator V19</h2>
 
 <div style='font-size:12px;margin-bottom:10px;'>
 GitHub: <a href='https://github.com/hpssjellis/neuro-ml' target='_blank' rel='noopener' style='color:#7fd0ff;'>hpssjellis/neuro-ml</a>
@@ -45,6 +45,84 @@ Selected recording grid: <b>22×46 = 1,012 electrodes</b><br>
 The real MaxOne has <b>32 movable stimulating electrodes</b>, which could also be used to briefly encourage or discourage zones.<br>
 Zones ≠ roles: assign each zone a functional role below.
 </div>
+
+<div style='font-size:12px;color:#ffd699;background:#1c1408;border:1px solid #4a3410;padding:8px;margin-bottom:10px;line-height:1.5;'>
+<b>What this tool is:</b> a <b>data-driven HD-MEA protocol hypothesis generator and experimental design sandbox</b> — <b>not</b> a validated biological simulator. The idea is baseline-first: every experiment here starts from observing what a culture is already doing (synthetic or MaxOne-recorded) before any stimulation protocol is designed on top of it. Runs entirely in the browser; no MaxOne data required (see Educational Mode note near Save/Load).
+</div>
+
+<h3>Phase 1: Baseline</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Observe the culture first. Generate a synthetic culture (no MaxOne needed) or upload a real baseline recording as CSV (columns: <code>electrode,time_ms</code>) before assigning zone roles below.</div>
+
+<input type='button' value='Generate synthetic culture' onclick='myGenerateSyntheticBaseline()' style='background:#2a4a6b;color:#fff;'>
+<input type='button' value='Upload MaxOne baseline' onclick='myUploadBaselineFile()'>
+<input type='file' id='myBaselineFileInput' accept='.csv' style='display:none;' onchange='myOnBaselineFileChosen(event)'>
+<br style='line-height:6px;'>
+<input type='button' id='myBaselineReplayBtn' value='Replay baseline' onclick='myToggleBaselineReplay()' style='margin-top:6px;'>
+<input type='button' value='Clear baseline' onclick='myClearBaseline()' style='margin-top:6px;'>
+
+<div style='margin-top:8px;font-size:12px;'>
+Culture age:
+<select id='myBaseAgeSelect'>
+<option value='young'>Young</option>
+<option value='developing' selected>Developing</option>
+<option value='mature'>Mature</option>
+<option value='highlysync'>Highly synchronized</option>
+</select>
+<br>
+
+Mean firing rate (Hz): <span id='myBaseRateLabel'>1.0</span><br>
+<input type='range' min='0.1' max='5' step='0.1' value='1.0' id='myBaseRateSlider' style='width:100%;' oninput="document.getElementById('myBaseRateLabel').textContent=this.value">
+
+Burst frequency (bursts/sec): <span id='myBaseBurstFreqLabel'>0.5</span><br>
+<input type='range' min='0.1' max='2' step='0.1' value='0.5' id='myBaseBurstFreqSlider' style='width:100%;' oninput="document.getElementById('myBaseBurstFreqLabel').textContent=this.value">
+
+Burst duration (ms): <span id='myBaseBurstDurLabel'>200</span><br>
+<input type='range' min='50' max='500' step='10' value='200' id='myBaseBurstDurSlider' style='width:100%;' oninput="document.getElementById('myBaseBurstDurLabel').textContent=this.value">
+
+Burst propagation speed:
+<select id='myBaseSpeedSelect'>
+<option value='slow'>Slow</option>
+<option value='medium' selected>Medium</option>
+<option value='fast'>Fast</option>
+</select>
+<br>
+
+Activity hotspots: <span id='myBaseHotspotLabel'>4</span><br>
+<input type='range' min='1' max='10' step='1' value='4' id='myBaseHotspotSlider' style='width:100%;' oninput="document.getElementById('myBaseHotspotLabel').textContent=this.value">
+
+Connectivity:
+<select id='myBaseConnSelect'>
+<option value='sparse'>Sparse</option>
+<option value='local' selected>Local</option>
+<option value='small-world'>Small-world</option>
+<option value='hub'>Hub dominated</option>
+</select>
+</div>
+
+<div id='myBaselineStatsDiv' style='background:#08101b;padding:8px;font-family:monospace;font-size:11px;margin-top:8px;line-height:1.5;'>No baseline loaded.</div>
+
+<div style='margin-top:8px;font-size:12px;'>
+<input type='button' id='myBaselineViewBtn' value='View: Zones' onclick='myToggleBaselineView()'>
+<input type='button' value='Use baseline to initialize simulation' onclick='myUseBaselineToInitialize()' style='background:#2a6b3a;color:#fff;'>
+<br>
+Replay time: <span id='myBaselineTimeLabel'>0.00s</span><br>
+<input type='range' min='0' max='8000' step='10' value='0' id='myBaselineTimeSlider' style='width:100%;' oninput='myOnBaselineTimeSlider(this.value)'>
+</div>
+
+<div style='font-size:11px;margin-top:6px;'>
+<span style='display:inline-block;width:10px;height:10px;background:#3050ff;margin-right:3px;'></span>Silent&nbsp;
+<span style='display:inline-block;width:10px;height:10px;background:#30ff90;margin-right:3px;'></span>Low&nbsp;
+<span style='display:inline-block;width:10px;height:10px;background:#ffe030;margin-right:3px;'></span>Moderate&nbsp;
+<span style='display:inline-block;width:10px;height:10px;background:#ff4060;margin-right:3px;'></span>High&nbsp;
+<span style='display:inline-block;width:10px;height:10px;background:#ffffff;margin-right:3px;'></span>Burst-active now
+</div>
+
+<h3>Automatic Zone Suggestions</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Computed from the baseline once loaded. Suggestions retarget when the topology changes.</div>
+<div id='myBaselineSuggestDiv' style='background:#08101b;padding:8px;font-family:monospace;font-size:11px;line-height:1.5;'>Load or generate a baseline first.</div>
+
+<h3>Phase 2: Protocol Design</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:10px;'>Everything below designs and tests a stimulation protocol on top of the baseline (or from scratch if no baseline is loaded).</div>
 
 <h3>Random Seed</h3>
 <div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Same seed + same actions = identical randomized topology, truth table and weights. Useful for comparing runs or reproducing a classroom demo.</div>
@@ -139,6 +217,17 @@ Select a zone to see its electrode-swap schedule.
 No inference stim zones assigned yet.
 </div>
 
+<h3>Experimental Objective</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>What this protocol is optimizing for. All modes reuse the same weight-update mechanism below, just aimed at a different target — "Truth-table learning" is the only mode where the Truth Table itself is the target.</div>
+<select id='myObjectiveSelect' onchange='myOnObjectiveModeChange()' style='width:100%;'>
+<option value='truthtable'>Truth-table learning</option>
+<option value='connectivity'>Connectivity strengthening</option>
+<option value='directionality'>Directionality (A→B propagation)</option>
+<option value='burstlocalization'>Burst localization</option>
+<option value='latency'>Response latency</option>
+<option value='stability'>Stability</option>
+</select>
+
 <h3>Truth Table</h3>
 <div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Click an output bit to toggle desired sensor state. Pattern bit order follows stim-zone assignment order.</div>
 <div id='myTruthTableDiv' style='background:#08101b;padding:8px;overflow:auto;max-height:220px;'>
@@ -169,8 +258,20 @@ No trials run yet.
 <h3>Statistics</h3>
 <div id='myStats' style='background:#08101b;padding:8px;font-family:monospace;font-size:12px;line-height:1.5;'></div>
 
+<h3>Research Dashboard</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Baseline metrics (Phase 1) alongside training metrics (Phase 2), for a single at-a-glance view.</div>
+<div id='myDashboardDiv' style='background:#08101b;padding:8px;font-family:monospace;font-size:11px;line-height:1.5;'></div>
+
+<h3>Experimental Comparison</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Store snapshots of the current topology/zones/schedule/objective/baseline to compare protocols side by side.</div>
+<input type='button' value='Store current run' onclick='myAddExperimentToComparison()'>
+<div id='myComparisonDiv' style='background:#08101b;padding:8px;overflow:auto;max-height:200px;margin-top:6px;'>No experiments stored yet. Click "Store current run" to add one.</div>
+
 <h3>Trial Log</h3>
 <div id='myTrial' style='background:#08101b;padding:8px;font-family:monospace;font-size:11px;white-space:pre-wrap;'></div>
+
+<h3>Educational Mode</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:10px;line-height:1.5;'>No MaxOne hardware or data required: generate a synthetic culture, observe its bursts and hotspots, place zones from the automatic suggestions (or by hand), and store/compare protocols — the whole Phase 1 → Phase 2 workflow works standalone for classroom use.</div>
 
 <h3>Save / Load</h3>
 <input type='button' value='Save JSON' onclick='mySaveJSON()'>
@@ -279,6 +380,18 @@ let myUndoSnapshot = null;
 
 let myErrorHistory = []; // recent mean-abs-error per trial, for the training progress chart
 
+// ---- V19: baseline-first workflow state ----
+let myBaseline = null;            // baseline object, see myGenerateSyntheticBaseline / myBuildBaselineFromSpikes
+let myBaselineViewMode = 'zones'; // 'zones' | 'baseline'
+let myBaselinePlaying = false;
+let myBaselineTime = 0;           // ms into the baseline recording, for replay
+let myLastBaselineFrameTime = 0;
+let myZoneConnCache = null;       // cached zone-to-zone connectivity matrix {key,matrix}
+let myZoneSuggestions = [];       // current automatic zone suggestions
+let myObjectiveMode = 'truthtable';
+let myExperiments = [];           // stored protocol snapshots for comparison mode
+let myBaselineInitialized = false;
+
 const myRoleColors = {
 unused:     {dim:0x333344, bright:0x8888aa},
 stim:       {dim:0x661020, bright:0xff4060},
@@ -345,6 +458,11 @@ document.getElementById('mySeedInput').value = String(mySeed);
 myUpdateUndoButton();
 
 myInitPanelResize();
+
+myRenderBaselineStats();
+myRenderBaselineSuggestions();
+myRenderComparisonTable();
+myRenderResearchDashboard();
 
 myAnimate();
 
@@ -556,7 +674,8 @@ freq:0,
 activity:0,
 electrodes:[],
 stimIndex:-1,
-sensorIndex:-1
+sensorIndex:-1,
+baselineBias:0
 });
 
 myIndex++;
@@ -588,6 +707,15 @@ myUpdateStats();
 myUpdateSelectedZonePanel();
 myRenderErrorChart();
 myUpdateUndoButton();
+
+myZoneConnCache = null;
+
+if(myBaseline){
+myComputeZoneSuggestions();
+myRenderBaselineSuggestions();
+}
+
+myRenderResearchDashboard();
 
 }
 
@@ -1508,8 +1636,6 @@ myInputPattern = myIntToBits(myCurrentPatternIndex % myPatternCount, myN);
 
 let myKey = myInputPattern.join(',');
 
-let myDesired = myTruthTable[myKey] || new Array(myM).fill(0);
-
 let myActual = new Array(myM).fill(0);
 
 for(let myJ=0; myJ<myM; myJ++){
@@ -1524,6 +1650,8 @@ myActual[myJ] = Math.max(0,Math.min(1,myRaw));
 
 }
 
+let myDesired = myComputeDesiredOutput(myKey, myActual);
+
 if(myMode==='training' && myN>0 && myM>0){
 
 let myEncFreqs = myEncourageZones.map(myZi=>myZones[myZi].freq);
@@ -1533,6 +1661,10 @@ let myEncGain = myEncFreqs.length ? (myEncFreqs.reduce((a,b)=>a+b,0)/myEncFreqs.
 let myDiscGain = myDiscFreqs.length ? (myDiscFreqs.reduce((a,b)=>a+b,0)/myDiscFreqs.length)/50 : 0;
 
 let myEta = 0.02 + 0.25*myEncGain;
+
+if(myObjectiveMode==='latency'){
+myEta *= (50/Math.max(5,myBurstDwellMs));
+}
 
 for(let myI=0; myI<myN; myI++){
 
@@ -1567,11 +1699,11 @@ myZone.activity = myActual[myZone.sensorIndex]||0;
 }else if(myZone.role==='encourage' || myZone.role==='discourage'){
 myZone.activity = myZone.freq/50;
 }else{
-myZone.activity = myBaselineRate*(0.3+myRandom()*0.7);
+myZone.activity = myBaselineRate*(0.3+myRandom()*0.7) + (myZone.baselineBias||0)*0.4;
 }
 
 for(let myE of myZone.electrodes){
-myE.firing = myRandom() < Math.min(0.95, 0.02 + myBaselineRate*0.3 + myZone.activity*0.3);
+myE.firing = myRandom() < Math.min(0.95, 0.02 + myBaselineRate*0.3 + myZone.activity*0.3 + (myZone.baselineBias||0)*0.15);
 }
 
 }
@@ -1665,6 +1797,11 @@ myErrText;
 
 function myUpdateVisualization(){
 
+if(myBaselineViewMode==='baseline' && myBaseline){
+myUpdateBaselineVisualization();
+return;
+}
+
 for(let myE of myElectrodes){
 
 let myZone = myZones[myE.zone];
@@ -1721,6 +1858,8 @@ document.getElementById('myStats').innerHTML =
 'Trial: '+myTrial+'<br>'+
 'Mean activity: '+myMean.toFixed(3);
 
+myRenderResearchDashboard();
+
 }
 
 // ---- save / load ----
@@ -1740,7 +1879,15 @@ freq: myZ.freq
 truthTable: myTruthTable,
 influence: myInfluence,
 inputPattern: myInputPattern,
-currentPatternIndex: myCurrentPatternIndex
+currentPatternIndex: myCurrentPatternIndex,
+objectiveMode: myObjectiveMode,
+burstElectrodesPerGroup: myBurstElectrodesPerGroup,
+burstDwellMs: myBurstDwellMs,
+burstPulseWidthUs: myBurstPulseWidthUs,
+baseline: myBaseline && myBaseline.source==='synthetic' ?
+{source:'synthetic', params:myBaseline.params} :
+(myBaseline ? {source:'upload', note:'raw spike data not saved -- re-upload the CSV to restore'} : null),
+experiments: myExperiments
 };
 
 let myBlob = new Blob([JSON.stringify(myData,null,2)],{type:'application/json'});
@@ -1748,7 +1895,7 @@ let myUrl = URL.createObjectURL(myBlob);
 
 let myA = document.createElement('a');
 myA.href = myUrl;
-myA.download = 'maxone-wetml-v18.json';
+myA.download = 'maxone-wetml-v19.json';
 myA.click();
 
 URL.revokeObjectURL(myUrl);
@@ -1798,6 +1945,53 @@ if(myData.influence) myInfluence = myData.influence;
 if(myData.inputPattern) myInputPattern = myData.inputPattern;
 if(myData.currentPatternIndex!==undefined) myCurrentPatternIndex = myData.currentPatternIndex;
 
+if(myData.objectiveMode){
+myObjectiveMode = myData.objectiveMode;
+let mySel = document.getElementById('myObjectiveSelect');
+if(mySel) mySel.value = myObjectiveMode;
+}
+
+if(myData.burstElectrodesPerGroup!==undefined){
+myBurstElectrodesPerGroup = myData.burstElectrodesPerGroup;
+myBurstDwellMs = myData.burstDwellMs;
+myBurstPulseWidthUs = myData.burstPulseWidthUs;
+document.getElementById('myBurstGroupSlider').value = myBurstElectrodesPerGroup;
+document.getElementById('myBurstDwellSlider').value = myBurstDwellMs;
+document.getElementById('myBurstWidthSlider').value = myBurstPulseWidthUs;
+myUpdateBurstLabels();
+}
+
+if(myData.experiments){
+myExperiments = myData.experiments;
+myRenderComparisonTable();
+}
+
+if(myData.baseline && myData.baseline.source==='synthetic'){
+
+let myP = myData.baseline.params;
+
+document.getElementById('myBaseAgeSelect').value = myP.age;
+document.getElementById('myBaseRateSlider').value = myP.meanRate;
+document.getElementById('myBaseRateLabel').textContent = myP.meanRate;
+document.getElementById('myBaseBurstFreqSlider').value = myP.burstFreq;
+document.getElementById('myBaseBurstFreqLabel').textContent = myP.burstFreq;
+document.getElementById('myBaseBurstDurSlider').value = myP.burstDur;
+document.getElementById('myBaseBurstDurLabel').textContent = myP.burstDur;
+document.getElementById('myBaseSpeedSelect').value = myP.speed;
+document.getElementById('myBaseHotspotSlider').value = myP.hotspotCount;
+document.getElementById('myBaseHotspotLabel').textContent = myP.hotspotCount;
+document.getElementById('myBaseConnSelect').value = myP.connType;
+
+myGenerateSyntheticBaseline();
+
+}else if(myData.baseline && myData.baseline.source==='upload'){
+
+document.getElementById('myBaselineStatsDiv').innerHTML =
+'A MaxOne upload baseline was saved in this file, but raw spike data is not '+
+'stored in the JSON. Re-upload the original CSV to restore it.';
+
+}
+
 myRenderInputPattern();
 myRenderTruthTable();
 myRenderInfluenceHeatmap();
@@ -1835,8 +2029,10 @@ let myZ = myZones[myZi];
 return (myZ.electrodes.length>0) ? myZ.electrodes[0].id : null;
 }
 
-myLines.push('# MaxOne WetML V18 stimulation protocol');
-myLines.push('# Auto-generated from maxone-sim-v18.html');
+myLines.push('# MaxOne WetML V19 stimulation protocol');
+myLines.push('# Auto-generated from maxone-sim-v19.html');
+myLines.push('# Positioning: a data-driven HD-MEA protocol hypothesis generator / experimental');
+myLines.push('# design sandbox -- NOT a validated biological simulator.');
 myLines.push('# Concept: plasticity through stimulation FREQUENCY changes, not on/off stimulation.');
 myLines.push('#');
 myLines.push('# This targets the real MaxLab Python API (mxwserver must be running, "maxlab"');
@@ -1866,6 +2062,25 @@ myLines.push('# WARNING: '+myTotalStimCapable+' stim-capable zones selected, but
 myLines.push('# 32 physical stimulation units. Reduce the topology/randomize pool before running.');
 myLines.push('');
 }
+
+myLines.push('# ---- Phase 1: baseline-derived context ----');
+if(myBaseline){
+myLines.push('# Baseline source: '+myBaseline.source);
+myLines.push('# Duration: '+(myBaseline.durationMs/1000).toFixed(1)+' s, detected bursts: '+myBaseline.bursts.length);
+myLines.push('# Mean firing rate: '+myBaseline.meanFiringRate.toFixed(3)+' Hz, burst rate: '+myBaseline.burstRate.toFixed(3)+'/s');
+myLines.push('# Sync index: '+myBaseline.syncIndex.toFixed(3)+', active electrode fraction: '+(myBaseline.activeFraction*100).toFixed(1)+'%');
+}else{
+myLines.push('# No baseline was loaded when this protocol was exported.');
+}
+myLines.push('BASELINE_SOURCE = "'+(myBaseline?myBaseline.source:'none')+'"');
+myLines.push('BASELINE_MEAN_FIRING_RATE_HZ = '+(myBaseline?myBaseline.meanFiringRate.toFixed(4):'None'));
+myLines.push('BASELINE_BURST_RATE_HZ = '+(myBaseline?myBaseline.burstRate.toFixed(4):'None'));
+myLines.push('BASELINE_SYNC_INDEX = '+(myBaseline?myBaseline.syncIndex.toFixed(4):'None'));
+myLines.push('');
+myLines.push('# ---- Phase 2: protocol metadata ----');
+myLines.push('OBJECTIVE_MODE = "'+myObjectiveMode+'"');
+myLines.push('BASELINE_INITIALIZED_SIMULATION = '+(myBaselineInitialized?'True':'False'));
+myLines.push('');
 
 myLines.push('import time');
 myLines.push('import maxlab');
@@ -2086,6 +2301,992 @@ document.getElementById('myPythonArea').value = myLines.join('\n');
 
 }
 
+// ==== V19: Phase 1 baseline engine ====
+
+function myPickWeighted(myWeights, myRngFnLocal){
+
+let myR = myRngFnLocal();
+let myAcc = 0;
+
+for(let myI=0; myI<myWeights.length; myI++){
+myAcc += myWeights[myI];
+if(myR<=myAcc) return myI;
+}
+
+return myWeights.length-1;
+
+}
+
+function myAgeSigma(myAge){
+return {young:1.6, developing:2.3, mature:3.1, highlysync:4.6}[myAge] || 3.0;
+}
+
+function myGenerateSyntheticBaseline(){
+
+let myAge = document.getElementById('myBaseAgeSelect').value;
+let myMeanRate = Number(document.getElementById('myBaseRateSlider').value);
+let myBurstFreq = Number(document.getElementById('myBaseBurstFreqSlider').value);
+let myBurstDur = Number(document.getElementById('myBaseBurstDurSlider').value);
+let mySpeed = document.getElementById('myBaseSpeedSelect').value;
+let myHotspotCount = Number(document.getElementById('myBaseHotspotSlider').value);
+let myConnType = document.getElementById('myBaseConnSelect').value;
+
+let myDurationMs = 8000;
+
+// Derived from the main seed (XORed) so it's reproducible without
+// disturbing the main topology/training RNG stream.
+let myBaseRng = myMulberry32((mySeed^0x9e3779b9)>>>0);
+function myBR(){ return myBaseRng(); }
+
+let myAgeRateFactor = {young:0.55, developing:0.8, mature:1.0, highlysync:1.25}[myAge] || 1.0;
+let mySigma = myAgeSigma(myAge);
+let myLongRangeBoost = (myConnType==='small-world') ? 1.4 : (myConnType==='sparse' ? 0.7 : 1.0);
+
+let myHotspots = [];
+
+for(let myI=0; myI<myHotspotCount; myI++){
+myHotspots.push({
+row: myBR()*myRows,
+col: myBR()*myCols,
+strength: 0.5+myBR()*0.5
+});
+}
+
+if(myConnType==='hub' && myHotspots.length>0){
+myHotspots[0].strength = 1.6;
+}
+
+let myWeights = myHotspots.map(myH=>myH.strength);
+let myWSum = myWeights.reduce((myA,myB)=>myA+myB,0) || 1;
+myWeights = myWeights.map(myW=>myW/myWSum);
+
+let myNumBursts = Math.max(1, Math.min(48, Math.round(myBurstFreq*myDurationMs/1000)));
+
+let myBursts = [];
+
+for(let myB=0; myB<myNumBursts; myB++){
+
+let myOriginIdx = myHotspots.length ? myPickWeighted(myWeights, myBR) : -1;
+let mySpread = myDurationMs/myNumBursts;
+let myT0 = Math.max(0, Math.min(myDurationMs-10, myB*mySpread + myBR()*mySpread*0.7));
+let myWidth = Math.max(20, myBurstDur*(0.7+myBR()*0.6));
+
+myBursts.push({t0:myT0, width:myWidth, originIdx:myOriginIdx});
+
+}
+
+let myFiringRate = new Float32Array(myElectrodeCount);
+let myBurstParticipation = new Float32Array(myElectrodeCount);
+let myBurstOnset = new Float32Array(myElectrodeCount);
+let myElectrodeBurstSets = [];
+
+for(let myE=0; myE<myElectrodeCount; myE++){
+
+let myRow = Math.floor(myE/myCols);
+let myCol = myE%myCols;
+
+let myMaxWeight = 0;
+
+for(let myH of myHotspots){
+let myD = Math.hypot((myRow-myH.row),(myCol-myH.col)/2)*myLongRangeBoost;
+let myW = Math.exp(-(myD*myD)/(2*mySigma*mySigma)) * myH.strength;
+if(myW>myMaxWeight) myMaxWeight = myW;
+}
+
+let mySpontaneous = myMeanRate*myAgeRateFactor*(0.15+0.85*myMaxWeight);
+
+let myParticipateCount = 0;
+let myOnsetCount = 0;
+let mySet = [];
+
+for(let myBi=0; myBi<myBursts.length; myBi++){
+
+let myBurst = myBursts[myBi];
+
+if(myBurst.originIdx<0){ continue; }
+
+let myH = myHotspots[myBurst.originIdx];
+
+let myD = Math.hypot((myRow-myH.row),(myCol-myH.col)/2)*myLongRangeBoost;
+let myW = Math.exp(-(myD*myD)/(2*mySigma*mySigma));
+
+let myDelay = (1-myW)*myBurst.width*1.3;
+let myReach = myBurst.width*1.1;
+let myGate = myBR() < (0.55+0.45*myW);
+
+if(myDelay<=myReach && myGate){
+
+myParticipateCount++;
+mySet.push(myBi);
+
+if(myDelay<=45) myOnsetCount++;
+
+}
+
+}
+
+let myBurstSpikeContribution = (myParticipateCount*1.8)/(myDurationMs/1000);
+
+myFiringRate[myE] = Math.max(0, Math.min(8, mySpontaneous+myBurstSpikeContribution));
+myBurstParticipation[myE] = myBursts.length ? myParticipateCount/myBursts.length : 0;
+myBurstOnset[myE] = myBursts.length ? myOnsetCount/myBursts.length : 0;
+
+myElectrodeBurstSets.push(mySet);
+
+}
+
+myBaseline = {
+source:'synthetic',
+seed: mySeed,
+durationMs: myDurationMs,
+rows: myRows,
+cols: myCols,
+params:{age:myAge, meanRate:myMeanRate, burstFreq:myBurstFreq, burstDur:myBurstDur, speed:mySpeed, hotspotCount:myHotspotCount, connType:myConnType},
+hotspots: myHotspots,
+bursts: myBursts,
+firingRate: myFiringRate,
+burstParticipation: myBurstParticipation,
+burstOnset: myBurstOnset,
+electrodeBurstSets: myElectrodeBurstSets,
+spikes: null,
+truncated:false
+};
+
+myFinishBaselineLoad();
+
+}
+
+function myUploadBaselineFile(){
+document.getElementById('myBaselineFileInput').click();
+}
+
+function myOnBaselineFileChosen(myEvent){
+
+let myFile = myEvent.target.files[0];
+
+if(!myFile) return;
+
+let myReader = new FileReader();
+
+myReader.onload = function(myE){
+myParseBaselineCSV(myE.target.result);
+};
+
+myReader.readAsText(myFile);
+
+myEvent.target.value = '';
+
+}
+
+function myParseBaselineCSV(myText){
+
+let myLines = myText.split(/\r?\n/).filter(myL=>myL.trim().length>0);
+
+let myStart = 0;
+if(myLines[0] && /electrode/i.test(myLines[0])) myStart = 1;
+
+let myMaxRows = 60000;
+let myTruncated = false;
+
+let myByElectrode = {};
+let myMaxT = 0;
+
+for(let myI=myStart; myI<myLines.length; myI++){
+
+if((myI-myStart)>=myMaxRows){ myTruncated = true; break; }
+
+let myParts = myLines[myI].split(',');
+
+if(myParts.length<2) continue;
+
+let myElec = parseInt(myParts[0],10);
+let myT = parseFloat(myParts[1]);
+
+if(isNaN(myElec) || isNaN(myT)) continue;
+if(myElec<0 || myElec>=myElectrodeCount) continue;
+
+if(!myByElectrode[myElec]) myByElectrode[myElec] = [];
+myByElectrode[myElec].push(myT);
+
+if(myT>myMaxT) myMaxT = myT;
+
+}
+
+for(let myK of Object.keys(myByElectrode)){
+myByElectrode[myK].sort((myA,myB)=>myA-myB);
+}
+
+myBuildBaselineFromSpikes(myByElectrode, Math.max(1000,Math.ceil(myMaxT)), myTruncated);
+
+}
+
+function myBuildBaselineFromSpikes(myByElectrode, myDurationMs, myTruncated){
+
+let myBinMs = 10;
+let myNumBins = Math.ceil(myDurationMs/myBinMs);
+let myPop = new Float32Array(myNumBins);
+
+for(let myK of Object.keys(myByElectrode)){
+for(let myT of myByElectrode[myK]){
+let myBin = Math.min(myNumBins-1, Math.floor(myT/myBinMs));
+myPop[myBin]++;
+}
+}
+
+let mySmooth = new Float32Array(myNumBins);
+
+for(let myI=0; myI<myNumBins; myI++){
+let myLo = Math.max(0,myI-1);
+let myHi = Math.min(myNumBins-1,myI+1);
+let mySum=0, myCnt=0;
+for(let myJ=myLo; myJ<=myHi; myJ++){ mySum+=myPop[myJ]; myCnt++; }
+mySmooth[myI] = mySum/myCnt;
+}
+
+let myMean = mySmooth.reduce((myA,myB)=>myA+myB,0)/Math.max(1,myNumBins);
+let myVar = mySmooth.reduce((myA,myB)=>myA+(myB-myMean)*(myB-myMean),0)/Math.max(1,myNumBins);
+let myStd = Math.sqrt(myVar);
+let myThreshold = myMean + Math.max(1.2*myStd,1);
+
+let myBursts = [];
+let myInBurst = false;
+let myBurstStartBin = 0;
+
+for(let myI=0; myI<myNumBins; myI++){
+
+if(!myInBurst && mySmooth[myI]>myThreshold){
+myInBurst = true;
+myBurstStartBin = myI;
+}else if(myInBurst && mySmooth[myI]<=myThreshold){
+myInBurst = false;
+let myT0 = myBurstStartBin*myBinMs;
+let myWidth = Math.max(myBinMs,(myI-myBurstStartBin)*myBinMs);
+if(myBursts.length && (myT0-(myBursts[myBursts.length-1].t0+myBursts[myBursts.length-1].width))<30){
+myBursts[myBursts.length-1].width = myT0+myWidth-myBursts[myBursts.length-1].t0;
+}else{
+myBursts.push({t0:myT0, width:myWidth, originIdx:-1});
+}
+}
+
+}
+
+if(myInBurst){
+let myT0 = myBurstStartBin*myBinMs;
+myBursts.push({t0:myT0, width:Math.max(myBinMs,(myNumBins-myBurstStartBin)*myBinMs), originIdx:-1});
+}
+
+myBursts = myBursts.slice(0,80);
+
+let myFiringRate = new Float32Array(myElectrodeCount);
+let myBurstParticipation = new Float32Array(myElectrodeCount);
+let myBurstOnset = new Float32Array(myElectrodeCount);
+let myElectrodeBurstSets = [];
+
+for(let myE=0; myE<myElectrodeCount; myE++){
+
+let myTimes = myByElectrode[myE] || [];
+
+myFiringRate[myE] = myTimes.length/(myDurationMs/1000);
+
+let myPartCount = 0;
+let myOnsetCount = 0;
+let mySet = [];
+
+for(let myBi=0; myBi<myBursts.length; myBi++){
+
+let myBurst = myBursts[myBi];
+let myFirstInBurst = -1;
+
+for(let myT of myTimes){
+if(myT>=myBurst.t0 && myT<=myBurst.t0+myBurst.width){
+if(myFirstInBurst<0) myFirstInBurst = myT;
+}else if(myT>myBurst.t0+myBurst.width){
+break;
+}
+}
+
+if(myFirstInBurst>=0){
+myPartCount++;
+mySet.push(myBi);
+if((myFirstInBurst-myBurst.t0)<=45) myOnsetCount++;
+}
+
+}
+
+myBurstParticipation[myE] = myBursts.length ? myPartCount/myBursts.length : 0;
+myBurstOnset[myE] = myBursts.length ? myOnsetCount/myBursts.length : 0;
+myElectrodeBurstSets.push(mySet);
+
+}
+
+for(let myBurst of myBursts){
+
+let myBestT = Infinity;
+let myBestE = -1;
+
+for(let myE=0; myE<myElectrodeCount; myE++){
+
+let myTimes = myByElectrode[myE];
+if(!myTimes) continue;
+
+for(let myT of myTimes){
+if(myT>=myBurst.t0 && myT<=myBurst.t0+myBurst.width && myT<myBestT){
+myBestT = myT;
+myBestE = myE;
+}
+}
+
+}
+
+myBurst.originIdx = myBestE;
+
+}
+
+myBaseline = {
+source:'upload',
+seed: mySeed,
+durationMs: myDurationMs,
+rows: myRows,
+cols: myCols,
+params: null,
+hotspots: null,
+bursts: myBursts,
+firingRate: myFiringRate,
+burstParticipation: myBurstParticipation,
+burstOnset: myBurstOnset,
+electrodeBurstSets: myElectrodeBurstSets,
+spikes: myByElectrode,
+truncated: myTruncated
+};
+
+myFinishBaselineLoad();
+
+}
+
+function myFinishBaselineLoad(){
+
+myComputeBaselineOverallStats();
+
+myZoneConnCache = null;
+myBaselineTime = 0;
+myBaselineInitialized = false;
+
+let mySlider = document.getElementById('myBaselineTimeSlider');
+if(mySlider){
+mySlider.max = myBaseline.durationMs;
+mySlider.value = 0;
+}
+
+document.getElementById('myBaselineTimeLabel').textContent = '0.00s';
+
+myRenderBaselineStats();
+myComputeZoneSuggestions();
+myRenderBaselineSuggestions();
+myRenderResearchDashboard();
+
+if(myBaselineViewMode==='baseline'){
+myUpdateVisualization();
+}
+
+}
+
+function myComputeBaselineOverallStats(){
+
+if(!myBaseline) return;
+
+let myN = myElectrodeCount;
+let mySumRate=0, mySumPart=0, myActiveCount=0;
+
+for(let myE=0; myE<myN; myE++){
+mySumRate += myBaseline.firingRate[myE];
+mySumPart += myBaseline.burstParticipation[myE];
+if(myBaseline.firingRate[myE]>0.05) myActiveCount++;
+}
+
+myBaseline.meanFiringRate = mySumRate/myN;
+myBaseline.syncIndex = mySumPart/myN;
+myBaseline.activeFraction = myActiveCount/myN;
+myBaseline.burstRate = myBaseline.bursts.length/(myBaseline.durationMs/1000);
+
+}
+
+function myClearBaseline(){
+
+myBaseline = null;
+myZoneConnCache = null;
+myZoneSuggestions = [];
+myBaselineViewMode = 'zones';
+myBaselinePlaying = false;
+myBaselineInitialized = false;
+
+let myViewBtn = document.getElementById('myBaselineViewBtn');
+if(myViewBtn) myViewBtn.value = 'View: Zones';
+
+let myReplayBtn = document.getElementById('myBaselineReplayBtn');
+if(myReplayBtn) myReplayBtn.value = 'Replay baseline';
+
+document.getElementById('myBaselineStatsDiv').innerHTML = 'No baseline loaded.';
+document.getElementById('myBaselineSuggestDiv').innerHTML = 'Load or generate a baseline first.';
+
+myUpdateVisualization();
+myRenderResearchDashboard();
+
+}
+
+function myRenderBaselineStats(){
+
+let myDiv = document.getElementById('myBaselineStatsDiv');
+if(!myDiv) return;
+
+if(!myBaseline){
+myDiv.innerHTML = 'No baseline loaded.';
+return;
+}
+
+myDiv.innerHTML =
+'Source: '+myBaseline.source+'<br>'+
+'Recording duration: '+(myBaseline.durationMs/1000).toFixed(1)+' s<br>'+
+'Detected bursts: '+myBaseline.bursts.length+'<br>'+
+'Mean firing rate: '+myBaseline.meanFiringRate.toFixed(3)+' Hz<br>'+
+'Active electrode %: '+(myBaseline.activeFraction*100).toFixed(1)+'%<br>'+
+'Burst synchronization index: '+myBaseline.syncIndex.toFixed(3)+
+(myBaseline.truncated ? '<br><span style="color:#e0a040;">Upload truncated to first 60,000 rows.</span>' : '');
+
+}
+
+// ---- zone-level baseline aggregation & connectivity ----
+
+function myZoneMeanOfArray(myArr){
+
+return function(myZone){
+
+if(myZone.electrodes.length===0) return 0;
+
+let mySum=0;
+for(let myE of myZone.electrodes) mySum += myArr[myE.id];
+
+return mySum/myZone.electrodes.length;
+
+};
+
+}
+
+function myPearson(myA,myB){
+
+let myN = myA.length;
+if(myN===0) return 0;
+
+let myMeanA = myA.reduce((myA1,myB1)=>myA1+myB1,0)/myN;
+let myMeanB = myB.reduce((myA1,myB1)=>myA1+myB1,0)/myN;
+
+let myNum=0, myDenA=0, myDenB=0;
+
+for(let myI=0; myI<myN; myI++){
+let myDa = myA[myI]-myMeanA;
+let myDb = myB[myI]-myMeanB;
+myNum += myDa*myDb;
+myDenA += myDa*myDa;
+myDenB += myDb*myDb;
+}
+
+let myDen = Math.sqrt(myDenA*myDenB);
+
+return myDen<1e-9 ? 0 : myNum/myDen;
+
+}
+
+function myComputeZoneConnectivity(){
+
+if(!myBaseline) return null;
+
+let myCacheKey = myTopology+'_'+myBaseline.bursts.length+'_'+myBaseline.source+'_'+(myBaseline.seed||0);
+
+if(myZoneConnCache && myZoneConnCache.key===myCacheKey) return myZoneConnCache.matrix;
+
+let myNumBursts = myBaseline.bursts.length;
+
+let myZoneActive = myZones.map(myZone=>{
+
+let myArr = new Array(myNumBursts).fill(0);
+
+for(let myE of myZone.electrodes){
+for(let myBi of myBaseline.electrodeBurstSets[myE.id]){
+myArr[myBi] = 1;
+}
+}
+
+return myArr;
+
+});
+
+let myMatrix = myZones.map(()=>new Array(myZones.length).fill(0));
+
+for(let myI=0; myI<myZones.length; myI++){
+for(let myJ=0; myJ<myZones.length; myJ++){
+if(myI===myJ){ myMatrix[myI][myJ]=1; continue; }
+myMatrix[myI][myJ] = myPearson(myZoneActive[myI],myZoneActive[myJ]);
+}
+}
+
+myZoneConnCache = {key:myCacheKey, matrix:myMatrix};
+
+return myMatrix;
+
+}
+
+// ---- automatic zone suggestions ----
+
+function myComputeZoneSuggestions(){
+
+myZoneSuggestions = [];
+
+if(!myBaseline || myZones.length===0) return;
+
+let myOnsetMean = myZoneMeanOfArray(myBaseline.burstOnset);
+let myPartMean = myZoneMeanOfArray(myBaseline.burstParticipation);
+let myRateMean = myZoneMeanOfArray(myBaseline.firingRate);
+
+let myConn = myComputeZoneConnectivity();
+
+let myScored = myZones.map(myZone=>({
+zone: myZone.index,
+onset: myOnsetMean(myZone),
+part: myPartMean(myZone),
+rate: myRateMean(myZone),
+connDegree: myConn ? myConn[myZone.index].reduce((myA,myB,myJ)=> myJ===myZone.index ? myA : myA+Math.abs(myB), 0) : 0
+}));
+
+let myN = Math.max(1, Math.round(myZones.length/6));
+
+let myByOnset = myScored.slice().sort((myA,myB)=>myB.onset-myA.onset);
+let myTopOnset = myByOnset.slice(0,myN).map(myS=>myS.zone);
+
+let myByPart = myScored.slice().sort((myA,myB)=>myB.part-myA.part).filter(myS=>!myTopOnset.includes(myS.zone));
+let myTopProp = myByPart.slice(0,myN).map(myS=>myS.zone);
+
+let myByConn = myScored.slice().sort((myA,myB)=>myB.connDegree-myA.connDegree);
+let myTopConn = myByConn.slice(0,myN).map(myS=>myS.zone);
+
+let myByRateAsc = myScored.slice().sort((myA,myB)=>myA.rate-myB.rate);
+let myLowActivity = myByRateAsc.slice(0,myN).map(myS=>myS.zone);
+
+for(let myZi of myTopOnset){
+let myS = myScored.find(myX=>myX.zone===myZi);
+myZoneSuggestions.push({zone:myZi, category:'Burst initiation', metric:'onset '+myS.onset.toFixed(2), suggestedRole:'stim'});
+}
+
+for(let myZi of myTopProp){
+let myS = myScored.find(myX=>myX.zone===myZi);
+myZoneSuggestions.push({zone:myZi, category:'Burst propagation', metric:'participation '+myS.part.toFixed(2), suggestedRole:'encourage'});
+}
+
+for(let myZi of myTopConn){
+let myS = myScored.find(myX=>myX.zone===myZi);
+myZoneSuggestions.push({zone:myZi, category:'High connectivity', metric:'degree '+myS.connDegree.toFixed(2), suggestedRole:'sensor'});
+}
+
+for(let myZi of myLowActivity){
+let myS = myScored.find(myX=>myX.zone===myZi);
+myZoneSuggestions.push({zone:myZi, category:'Low-activity control', metric:'rate '+myS.rate.toFixed(2)+' Hz', suggestedRole:'unused'});
+}
+
+}
+
+function myRenderBaselineSuggestions(){
+
+let myDiv = document.getElementById('myBaselineSuggestDiv');
+if(!myDiv) return;
+
+if(!myBaseline){
+myDiv.innerHTML = 'Load or generate a baseline first.';
+return;
+}
+
+if(myZoneSuggestions.length===0){
+myDiv.innerHTML = 'No suggestions for the current topology.';
+return;
+}
+
+let myHtml = '';
+
+myZoneSuggestions.forEach((myS,myIdx)=>{
+
+myHtml +=
+"<div style='border-bottom:1px solid #223040;padding:4px 0;'>"+
+'<b>Zone '+myS.zone+'</b> — '+myS.category+' ('+myS.metric+')<br>'+
+"<input type='button' value='Accept as "+myS.suggestedRole+"' onclick='myAcceptSuggestion("+myIdx+")' style='font-size:10px;'>"+
+"<input type='button' value='Select' onclick='mySelectZoneFromSuggestion("+myS.zone+")' style='font-size:10px;'>"+
+"<input type='button' value='Ignore' onclick='myIgnoreSuggestion("+myIdx+")' style='font-size:10px;'>"+
+'</div>';
+
+});
+
+myDiv.innerHTML = myHtml;
+
+}
+
+function myAcceptSuggestion(myIdx){
+
+let myS = myZoneSuggestions[myIdx];
+if(!myS) return;
+
+mySelectedZone = myS.zone;
+myint_SetZoneRole(myS.suggestedRole);
+
+myIgnoreSuggestion(myIdx);
+
+}
+
+function mySelectZoneFromSuggestion(myZi){
+
+mySelectedZone = myZi;
+myUpdateSelectedZonePanel();
+myUpdateVisualization();
+
+}
+
+function myIgnoreSuggestion(myIdx){
+
+myZoneSuggestions.splice(myIdx,1);
+myRenderBaselineSuggestions();
+
+}
+
+// ---- baseline initialization of the simulation ----
+
+function myUseBaselineToInitialize(){
+
+if(!myBaseline){
+alert('Generate or upload a baseline first.');
+return;
+}
+
+let myRateMean = myZoneMeanOfArray(myBaseline.firingRate);
+let myPartMean = myZoneMeanOfArray(myBaseline.burstParticipation);
+
+for(let myZone of myZones){
+myZone.baselineBias = Math.min(1, myRateMean(myZone)/3 + myPartMean(myZone)*0.3);
+}
+
+let myConn = myComputeZoneConnectivity();
+
+if(myConn && myStimZones.length>0 && mySensorZones.length>0){
+for(let myI=0; myI<myStimZones.length; myI++){
+for(let myJ=0; myJ<mySensorZones.length; myJ++){
+let myC = myConn[myStimZones[myI]][mySensorZones[myJ]];
+let myW = Math.max(-1,Math.min(1, myC*0.6));
+mySetInfluence(myI,myJ,myW);
+}
+}
+}
+
+myBaselineInitialized = true;
+
+myRenderInfluenceHeatmap();
+myUpdateVisualization();
+myRenderResearchDashboard();
+
+alert('Baseline applied: zone spontaneous-activity bias set from measured firing rate/participation, and the influence matrix (where stim/sensor zones are assigned) was initialized from measured connectivity.');
+
+}
+
+// ---- baseline visualization / replay ----
+
+function myToggleBaselineView(){
+
+myBaselineViewMode = (myBaselineViewMode==='zones') ? 'baseline' : 'zones';
+
+document.getElementById('myBaselineViewBtn').value = 'View: '+(myBaselineViewMode==='zones' ? 'Zones' : 'Baseline');
+
+myUpdateVisualization();
+
+}
+
+function myToggleBaselineReplay(){
+
+if(!myBaseline){
+alert('Generate or upload a baseline first.');
+return;
+}
+
+myBaselinePlaying = !myBaselinePlaying;
+
+document.getElementById('myBaselineReplayBtn').value = myBaselinePlaying ? 'Pause Replay' : 'Replay baseline';
+
+if(myBaselinePlaying && myBaselineViewMode!=='baseline'){
+myToggleBaselineView();
+}
+
+}
+
+function myOnBaselineTimeSlider(myValue){
+
+myBaselinePlaying = false;
+
+let myBtn = document.getElementById('myBaselineReplayBtn');
+if(myBtn) myBtn.value = 'Replay baseline';
+
+myBaselineTime = Number(myValue);
+
+document.getElementById('myBaselineTimeLabel').textContent = (myBaselineTime/1000).toFixed(2)+'s';
+
+if(myBaselineViewMode==='baseline') myUpdateVisualization();
+
+}
+
+function myIsElectrodeActiveAtTime(myElectrodeId, myT){
+
+if(!myBaseline) return false;
+
+if(myBaseline.source==='synthetic'){
+
+let myRow = Math.floor(myElectrodeId/myCols);
+let myCol = myElectrodeId%myCols;
+let mySigma = myAgeSigma(myBaseline.params.age);
+
+for(let myBurst of myBaseline.bursts){
+
+if(myBurst.originIdx<0) continue;
+if(myT<myBurst.t0 || myT>myBurst.t0+myBurst.width+60) continue;
+
+let myH = myBaseline.hotspots[myBurst.originIdx];
+let myD = Math.hypot((myRow-myH.row),(myCol-myH.col)/2);
+let myW = Math.exp(-(myD*myD)/(2*mySigma*mySigma));
+let myDelay = (1-myW)*myBurst.width*1.3;
+let myFireT = myBurst.t0+myDelay;
+
+if(Math.abs(myT-myFireT)<25) return true;
+
+}
+
+return false;
+
+}else{
+
+let myTimes = myBaseline.spikes[myElectrodeId];
+if(!myTimes) return false;
+
+for(let myTs of myTimes){
+if(Math.abs(myTs-myT)<15) return true;
+}
+
+return false;
+
+}
+
+}
+
+function myUpdateBaselineVisualization(){
+
+let myMaxRate = 0.5;
+
+for(let myE=0; myE<myElectrodeCount; myE++){
+if(myBaseline.firingRate[myE]>myMaxRate) myMaxRate = myBaseline.firingRate[myE];
+}
+
+for(let myE of myElectrodes){
+
+let myNorm = Math.min(1, myBaseline.firingRate[myE.id]/myMaxRate);
+
+let myColor;
+
+if(myBaselinePlaying && myIsElectrodeActiveAtTime(myE.id, myBaselineTime)){
+myColor = 0xffffff;
+}else if(myNorm<0.08){
+myColor = 0x3050ff;
+}else if(myNorm<0.3){
+myColor = 0x30ff90;
+}else if(myNorm<0.65){
+myColor = 0xffe030;
+}else{
+myColor = 0xff4060;
+}
+
+myE.mesh.material.color.setHex(myColor);
+
+}
+
+for(let myI=0; myI<myZones.length; myI++){
+
+let myZone = myZones[myI];
+let myDisc = myZoneGroup.children[myI*2];
+let myRing = myZoneGroup.children[myI*2+1];
+
+let myMean = 0;
+for(let myE of myZone.electrodes) myMean += myBaseline.firingRate[myE.id];
+myMean = myZone.electrodes.length ? myMean/myZone.electrodes.length : 0;
+
+let myNorm = Math.min(1, myMean/myMaxRate);
+let myColor = myNorm<0.08 ? 0x3050ff : myNorm<0.3 ? 0x30ff90 : myNorm<0.65 ? 0xffe030 : 0xff4060;
+
+myDisc.material.color.setHex(myColor);
+myRing.material.color.setHex(myI===mySelectedZone ? 0xffffff : myColor);
+
+let myScale = 1+myNorm*0.6;
+myDisc.scale.set(myScale,myScale,myScale);
+myRing.scale.set(myScale,myScale,myScale);
+
+}
+
+}
+
+// ---- experimental objectives (Phase 2) ----
+
+function myOnObjectiveModeChange(){
+
+myObjectiveMode = document.getElementById('myObjectiveSelect').value;
+
+myRenderResearchDashboard();
+
+}
+
+function myComputeDesiredOutput(myKey, myActual){
+
+let myM = mySensorZones.length;
+
+if(myObjectiveMode==='connectivity'){
+return new Array(myM).fill(1);
+}
+
+if(myObjectiveMode==='directionality'){
+let myD = new Array(myM).fill(0);
+if(myInputPattern[0]) myD[0] = 1;
+return myD;
+}
+
+if(myObjectiveMode==='burstlocalization'){
+let myBest = 0;
+for(let myJ=1; myJ<myM; myJ++){
+if(myActual[myJ]>myActual[myBest]) myBest = myJ;
+}
+let myD = new Array(myM).fill(0);
+if(myM>0) myD[myBest] = 1;
+return myD;
+}
+
+if(myObjectiveMode==='stability'){
+return myActual.map(myV=>Math.round(myV));
+}
+
+// 'latency' reuses the truth table as its target (only the learning rate
+// changes, see myRunOnce), and 'truthtable' is the plain default.
+return myTruthTable[myKey] || new Array(myM).fill(0);
+
+}
+
+// ---- research dashboard ----
+
+function myRenderResearchDashboard(){
+
+let myDiv = document.getElementById('myDashboardDiv');
+if(!myDiv) return;
+
+let myLatestErr = myErrorHistory.length ? myErrorHistory[myErrorHistory.length-1] : null;
+
+let myConnChangeText = '—';
+
+if(myBaseline){
+
+let myConn = myComputeZoneConnectivity();
+
+if(myConn && myStimZones.length && mySensorZones.length){
+
+let mySum=0, myCnt=0;
+
+for(let myI=0; myI<myStimZones.length; myI++){
+for(let myJ=0; myJ<mySensorZones.length; myJ++){
+let myBaselineC = myConn[myStimZones[myI]][mySensorZones[myJ]];
+let myCurrent = myGetInfluence(myI,myJ);
+mySum += (myCurrent-myBaselineC*0.6);
+myCnt++;
+}
+}
+
+myConnChangeText = myCnt ? (mySum/myCnt).toFixed(3) : '—';
+
+}
+
+}
+
+let myGroups = Math.max(1, Math.ceil((myStimZones.length ? myZones[myStimZones[0]].electrodes.length : 1)/myBurstElectrodesPerGroup));
+let myEfficiency = (1/(myGroups*Math.max(1,myBurstDwellMs))).toFixed(5);
+
+myDiv.innerHTML =
+'<b>Baseline</b><br>'+
+'Mean firing rate: '+(myBaseline ? myBaseline.meanFiringRate.toFixed(3)+' Hz' : '—')+'<br>'+
+'Burst rate: '+(myBaseline ? myBaseline.burstRate.toFixed(3)+' /s' : '—')+'<br>'+
+'Sync index: '+(myBaseline ? myBaseline.syncIndex.toFixed(3) : '—')+'<br>'+
+'Active electrode fraction: '+(myBaseline ? (myBaseline.activeFraction*100).toFixed(1)+'%' : '—')+
+'<br><br><b>Training</b><br>'+
+'Objective mode: '+myObjectiveMode+'<br>'+
+'Latest error: '+(myLatestErr!==null ? myLatestErr.toFixed(3) : '—')+'<br>'+
+'Connectivity change (avg, vs baseline): '+myConnChangeText+'<br>'+
+'Protocol efficiency (1/(groups·dwell)): '+myEfficiency+'<br>'+
+'Baseline-initialized: '+(myBaselineInitialized ? 'Yes' : 'No');
+
+}
+
+// ---- experimental comparison mode ----
+
+function myAddExperimentToComparison(){
+
+myExperiments.push({
+name: 'Exp '+(myExperiments.length+1),
+topology: myTopology,
+stimCount: myStimZones.length,
+sensorCount: mySensorZones.length,
+burstSchedule: myBurstElectrodesPerGroup+' e/grp, '+myBurstDwellMs+'ms dwell',
+objective: myObjectiveMode,
+baselineUsed: myBaseline ? myBaseline.source : 'none',
+latestError: myErrorHistory.length ? myErrorHistory[myErrorHistory.length-1] : null
+});
+
+if(myExperiments.length>8) myExperiments.shift();
+
+myRenderComparisonTable();
+
+}
+
+function myRemoveExperiment(myIdx){
+
+myExperiments.splice(myIdx,1);
+myRenderComparisonTable();
+
+}
+
+function myRenderComparisonTable(){
+
+let myDiv = document.getElementById('myComparisonDiv');
+if(!myDiv) return;
+
+if(myExperiments.length===0){
+myDiv.innerHTML = 'No experiments stored yet. Click "Store current run" to add one.';
+return;
+}
+
+let myHtml = "<table class='mySmallTable'><tr><th>Name</th><th>Topology</th><th>Stim</th><th>Sensor</th><th>Schedule</th><th>Objective</th><th>Baseline</th><th>Err</th><th></th></tr>";
+
+myExperiments.forEach((myExp,myIdx)=>{
+
+myHtml +=
+'<tr><td>'+myExp.name+'</td>'+
+'<td>'+myExp.topology+'×'+myExp.topology+'</td>'+
+'<td>'+myExp.stimCount+'</td>'+
+'<td>'+myExp.sensorCount+'</td>'+
+'<td>'+myExp.burstSchedule+'</td>'+
+'<td>'+myExp.objective+'</td>'+
+'<td>'+myExp.baselineUsed+'</td>'+
+'<td>'+(myExp.latestError!==null ? myExp.latestError.toFixed(3) : '—')+'</td>'+
+"<td><input type='button' value='×' onclick='myRemoveExperiment("+myIdx+")'></td></tr>";
+
+});
+
+myHtml += '</table>';
+
+myDiv.innerHTML = myHtml;
+
+}
+
 // ---- animation loop ----
 
 function myAnimate(myTime){
@@ -2105,6 +3306,31 @@ myRunOnce();
 
 if(myAutoRotate){
 myArrayGroup.rotation.y += 0.0006;
+}
+
+if(myBaselinePlaying && myBaseline){
+
+let myDelta = myLastBaselineFrameTime ? (myTime-myLastBaselineFrameTime) : 16;
+myLastBaselineFrameTime = myTime;
+
+myBaselineTime += myDelta;
+
+if(myBaselineTime>myBaseline.durationMs){
+myBaselineTime = 0;
+}
+
+let mySlider = document.getElementById('myBaselineTimeSlider');
+if(mySlider) mySlider.value = myBaselineTime;
+
+let myLabel = document.getElementById('myBaselineTimeLabel');
+if(myLabel) myLabel.textContent = (myBaselineTime/1000).toFixed(2)+'s';
+
+if(myBaselineViewMode==='baseline'){
+myUpdateBaselineVisualization();
+}
+
+}else{
+myLastBaselineFrameTime = myTime;
 }
 
 myControls.update();
