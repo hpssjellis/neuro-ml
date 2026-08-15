@@ -1,0 +1,7 @@
+[
+  {
+    "file": "maxone_test_1024x3-v02.h5",
+    "name": "1024-channel schema test (3 samples)",
+    "description": "Minimal structural test file: 1024-channel mapping table + tiny raw trace, no real spiking. Good for verifying the loader, not for a real baseline."
+  }
+]
