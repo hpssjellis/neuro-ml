@@ -502,6 +502,16 @@ That generated the following image:
 
 
 
+## HDF5 File Viewers
+
+
+- **[https://myhdf5.hdfgroup.org/view](https://myhdf5.hdfgroup.org/view)** -Seems to be the best online hdf5 viewer
+- **[https://myhdf5.hdfgroup.org/help#remote](https://myhdf5.hdfgroup.org/help#remote)** —Possible links 
+- **[https://hdfviewer.com/](https://hdfviewer.com/)** — Online hdf5 viewer
+- **[https://perchance.org/hdf5-file-viewer](https://perchance.org/hdf5-file-viewer)** — another hdf5 viewer
+- 
+
+
 *This site is open source. [Improve this page](https://github.com/hpssjellis/neuro-ml/edit/main/README.md).*
 
 
