@@ -1,10 +1,12 @@
-<!DOCTYPE html>
+=<!DOCTYPE html>
 
 <html lang='en'>
 <head>
 <meta charset='UTF-8'>
 <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-<title>MaxOne WetML Simulator V19</title>
+<title>MaxOne WetML Simulator V22</title>
+
+<script src='https://cdn.jsdelivr.net/npm/h5wasm@0.8.8/dist/iife/h5wasm.js'></script>
 
 <script src='https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js'></script>
 
@@ -31,7 +33,7 @@
 
 <div id='myPanelInner' style='background:rgba(5,9,18,0.95);padding:12px;border:1px solid #39445d;border-radius:8px;max-height:96vh;overflow:auto;box-sizing:border-box;'>
 
-<h2 style='margin-top:0'>MaxOne WetML Simulator V19</h2>
+<h2 style='margin-top:0'>MaxOne WetML Simulator V22</h2>
 
 <div style='font-size:12px;margin-bottom:10px;'>
 GitHub: <a href='https://github.com/hpssjellis/neuro-ml' target='_blank' rel='noopener' style='color:#7fd0ff;'>hpssjellis/neuro-ml</a>
@@ -51,14 +53,40 @@ Zones ≠ roles: assign each zone a functional role below.
 </div>
 
 <h3>Phase 1: Baseline</h3>
-<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Observe the culture first. Generate a synthetic culture (no MaxOne needed) or upload a real baseline recording as CSV (columns: <code>electrode,time_ms</code>) before assigning zone roles below.</div>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Observe the culture first. Generate a synthetic culture (no MaxOne needed), pick a sample recording bundled with this page, or upload your own native MaxOne HDF5 recording (<code>.h5</code>/<code>.hdf5</code>) -- either way you'll interactively scrub to a 10-second window before assigning zone roles below. Files are read directly in the browser (h5wasm) -- nothing is uploaded anywhere.</div>
 
 <input type='button' value='Generate synthetic culture' onclick='myGenerateSyntheticBaseline()' style='background:#2a4a6b;color:#fff;'>
-<input type='button' value='Upload MaxOne baseline' onclick='myUploadBaselineFile()'>
-<input type='file' id='myBaselineFileInput' accept='.csv' style='display:none;' onchange='myOnBaselineFileChosen(event)'>
+<input type='button' value='Upload MaxOne baseline (.h5)' onclick='myUploadBaselineFile()'>
+<input type='file' id='myBaselineFileInput' accept='.h5,.hdf5,.brw' style='display:none;' onchange='myOnBaselineH5FileChosen(event)'>
+
+<div id='myDataFolderSection' style='display:none;margin-top:6px;font-size:11px;'>
+Sample recordings (from this site's <code>/data</code> folder):<br>
+<select id='myDataFolderSelect' style='width:70%;'></select>
+<input type='button' value='Load sample' onclick='myLoadSelectedSample()'>
+</div>
+
 <br style='line-height:6px;'>
 <input type='button' id='myBaselineReplayBtn' value='Replay baseline' onclick='myToggleBaselineReplay()' style='margin-top:6px;'>
 <input type='button' value='Clear baseline' onclick='myClearBaseline()' style='margin-top:6px;'>
+
+<div id='myH5PickerPanel' style='display:none;background:#0c1526;border:1px solid #2a4a6b;padding:8px;margin-top:8px;font-size:11px;line-height:1.5;'>
+
+<div id='myH5PickerStatus' style='font-family:monospace;white-space:pre-wrap;'>Reading file...</div>
+
+<div id='myH5PickerControls' style='display:none;margin-top:6px;'>
+
+Window start: <span id='myH5WindowStartLabel'>0.00s</span> &nbsp;→&nbsp; <span id='myH5WindowEndLabel'>10.00s</span> of <span id='myH5TotalDurLabel'>?</span>s<br>
+<input type='range' min='0' max='0' step='0.1' value='0' id='myH5WindowSlider' style='width:100%;' oninput='myOnH5WindowSlider(this.value)'>
+
+<div id='myH5PreviewDiv' style='font-family:monospace;margin-top:4px;color:#9fb0c9;'>Move the slider, then Preview to see population activity for that window.</div>
+
+<input type='button' value='Preview window' onclick='myPreviewBaselineWindow()' style='margin-top:6px;'>
+<input type='button' value='Use this window as baseline' onclick='myConfirmBaselineWindow()' style='margin-top:6px;background:#2a6b3a;color:#fff;'>
+<input type='button' value='Cancel' onclick='myCancelBaselinePicker()' style='margin-top:6px;'>
+
+</div>
+
+</div>
 
 <div style='margin-top:8px;font-size:12px;'>
 Culture age:
@@ -1886,7 +1914,7 @@ burstDwellMs: myBurstDwellMs,
 burstPulseWidthUs: myBurstPulseWidthUs,
 baseline: myBaseline && myBaseline.source==='synthetic' ?
 {source:'synthetic', params:myBaseline.params} :
-(myBaseline ? {source:'upload', note:'raw spike data not saved -- re-upload the CSV to restore'} : null),
+(myBaseline ? {source:'upload', note:'raw spike data not saved -- re-open the original MaxOne HDF5 file and re-select the window to restore'} : null),
 experiments: myExperiments
 };
 
@@ -1988,7 +2016,8 @@ myGenerateSyntheticBaseline();
 
 document.getElementById('myBaselineStatsDiv').innerHTML =
 'A MaxOne upload baseline was saved in this file, but raw spike data is not '+
-'stored in the JSON. Re-upload the original CSV to restore it.';
+'stored in the JSON. Re-open the original MaxOne HDF5 file and re-select the '+
+'10-second window to restore it.';
 
 }
 
@@ -2456,59 +2485,622 @@ myFinishBaselineLoad();
 
 }
 
+// ==== V20: interactive MaxOne HDF5 baseline window picker ====
+// Replaces the old CSV importer. The native .h5 file is opened directly in the
+// browser with h5wasm (no server round trip). The user scrubs a slider across
+// the *entire* recording, previews population activity, then commits a single
+// 10-second window. That window's real per-electrode spike times become the
+// baseline (myByElectrode), feeding the same myBuildBaselineFromSpikes() path
+// the old CSV importer used -- so downstream code (stats, suggestions, replay,
+// initialization) does not need to know or care that the source was HDF5.
+
+let myH5State = null; // set by myLoadH5File(); see shape notes inline below
+let myH5WindowMs = 10000; // fixed 10-second baseline window, per spec
+
 function myUploadBaselineFile(){
 document.getElementById('myBaselineFileInput').click();
 }
 
-function myOnBaselineFileChosen(myEvent){
+async function myOnBaselineH5FileChosen(myEvent){
 
 let myFile = myEvent.target.files[0];
+myEvent.target.value = '';
 
 if(!myFile) return;
 
-let myReader = new FileReader();
-
-myReader.onload = function(myE){
-myParseBaselineCSV(myE.target.result);
-};
-
-myReader.readAsText(myFile);
-
-myEvent.target.value = '';
+await myRunBaselineHDF5Load(
+async function(){ await myLoadH5File(myFile); },
+'Reading '+myFile.name+' ...',
+myFile.name
+);
 
 }
 
-function myParseBaselineCSV(myText){
+async function myLoadSelectedSample(){
 
-let myLines = myText.split(/\r?\n/).filter(myL=>myL.trim().length>0);
+let mySelect = document.getElementById('myDataFolderSelect');
+if(!mySelect || !mySelect.value) return;
 
-let myStart = 0;
-if(myLines[0] && /electrode/i.test(myLines[0])) myStart = 1;
+let myUrl = mySelect.value;
+let myName = mySelect.options[mySelect.selectedIndex].textContent;
 
-let myMaxRows = 60000;
-let myTruncated = false;
+await myRunBaselineHDF5Load(
+async function(){ await myLoadH5FromURL(myUrl, myName); },
+'Fetching '+myName+' from data folder...',
+myName
+);
+
+}
+
+// Shared UI flow for both the file-upload button and the /data folder sample
+// picker: show the picker panel, run whichever loader produced the file
+// bytes, then render the same status + window-selection controls either way.
+async function myRunBaselineHDF5Load(myLoaderFn, myBusyLabel, myDisplayName){
+
+let myPanel = document.getElementById('myH5PickerPanel');
+let myStatus = document.getElementById('myH5PickerStatus');
+let myControls = document.getElementById('myH5PickerControls');
+
+myPanel.style.display = 'block';
+myControls.style.display = 'none';
+myStatus.textContent = myBusyLabel;
+
+try{
+
+if(typeof h5wasm==='undefined'){
+throw new Error('h5wasm did not load (no internet access to cdn.jsdelivr.net?). Check your network connection and reload the page.');
+}
+
+await myLoaderFn();
+
+let myS = myH5State;
+
+let myLines = [];
+myLines.push('Loaded: '+myDisplayName);
+myLines.push('Format: '+(myS.spikeMode ? 'spike-sorted ('+myS.spikeCount+' spikes)' : 'raw traces (on-demand threshold detection)'));
+myLines.push('Sampling rate: '+myS.samplingHz+' Hz');
+myLines.push('Recording length: '+(myS.totalDurationMs/1000).toFixed(1)+' s');
+myLines.push('Channels found: '+myS.channelList.length+(myS.hasMapping ? ' (mapped to electrode x/y)' : ' (no mapping table found -- using raw channel index as electrode id)'));
+if(myS.shortRecordingWarning) myLines.push('Note: '+myS.shortRecordingWarning);
+myLines.push('Pick a 10-second window below, Preview it, then commit.');
+
+myStatus.textContent = myLines.join('\n');
+
+let mySlider = document.getElementById('myH5WindowSlider');
+mySlider.min = 0;
+mySlider.max = Math.max(0, myS.totalDurationMs-myH5WindowMs);
+mySlider.step = 100;
+mySlider.value = 0;
+
+document.getElementById('myH5TotalDurLabel').textContent = (myS.totalDurationMs/1000).toFixed(1);
+myOnH5WindowSlider(0);
+
+document.getElementById('myH5PreviewDiv').textContent = 'Move the slider, then Preview to see population activity for that window.';
+
+myControls.style.display = 'block';
+
+}catch(myErr){
+
+console.error(myErr);
+myStatus.textContent = 'Could not read this as a MaxOne HDF5 recording:\n'+myErr.message+
+'\n\nIf this is a very large raw file, try again -- large files can take a moment to index. '+
+'If the error persists, the file schema may differ from what this tool expects; open the browser console for the full dataset tree that was found.';
+
+}
+
+}
+
+// V21 fix: WORKERFS (used in V20) only reliably works inside a dedicated Web
+// Worker -- running it on the main thread throws the
+// "RuntimeError: Aborted(undefined) ... at Object.mount" seen in V20, on
+// every browser and both local file:// and http(s):// pages, since it's not
+// a network/CORS problem at all. Simpler and equally correct for a
+// picker-and-commit workflow: read the file's bytes once and write them
+// straight into h5wasm's normal (MEMFS) virtual filesystem with
+// FS.writeFile(). Trade-off: the whole file is held in browser memory rather
+// than streamed from disk -- fine for typical recordings, but very large
+// (multi-GB) raw exports may want trimming first.
+async function myLoadH5File(myFile){
+let myBuf = await myFile.arrayBuffer();
+await myLoadH5FromBytes(myFile.name, myBuf);
+}
+
+// V22: sample recordings bundled alongside this page in a /data folder,
+// listed in data/manifest.json. Fetched over plain http(s) -- same MEMFS
+// path as the upload button once the bytes are in hand. Requires the page
+// to be served (not opened as a local file:// page) for the same reason
+// fetch() of any other local resource is blocked under file://.
+async function myLoadH5FromURL(myUrl, myName){
+
+let myResp;
+
+try{
+myResp = await fetch(myUrl);
+}catch(myErr){
+throw new Error('Could not fetch '+myUrl+'. If this page was opened as a local file:// page, sample '+
+'recordings won\'t load -- serve the page over http(s) (e.g. a local dev server or GitHub Pages) instead.');
+}
+
+if(!myResp.ok){
+throw new Error('Could not fetch '+myUrl+' (HTTP '+myResp.status+'). Check that the file is really at that path in the data folder.');
+}
+
+let myBuf = await myResp.arrayBuffer();
+await myLoadH5FromBytes(myName, myBuf);
+
+}
+
+// Shared core: bytes (from either an <input type=file> or a fetch()) go into
+// h5wasm's virtual filesystem, get opened, and get analyzed the same way
+// regardless of where they came from.
+async function myLoadH5FromBytes(myName, myArrayBuffer){
+
+const { FS } = await h5wasm.ready;
+
+if(myH5State && myH5State.mounted){
+try{ myH5State.f.close(); }catch(myE1){}
+try{ FS.unlink('/'+myH5State.fileName); }catch(myE2){}
+}
+
+FS.writeFile('/'+myName, new Uint8Array(myArrayBuffer));
+
+let myF = new h5wasm.File('/'+myName, 'r');
+
+myH5State = {
+f: myF,
+mounted: true,
+fileName: myName,
+samplingHz: 20000,
+totalDurationMs: 0,
+spikeMode: false,
+spikeCount: 0,
+allSpikeMs: null,     // Float64Array, only set in spike-sorted mode
+allSpikeChannel: null,// Int32Array, only set in spike-sorted mode
+rawDataset: null,     // h5wasm Dataset, only set in raw mode
+rawChannelAxis: 0,    // which shape index is "channel" in the raw dataset
+channelList: [],
+hasMapping: false,
+channelToElectrode: null // Map: raw channel index -> logical grid electrode id (0..myElectrodeCount-1)
+};
+
+myAnalyzeMaxOneH5();
+
+}
+
+// V22: populate the "sample recordings" dropdown from data/manifest.json,
+// a small JSON array like:
+// [ {"file":"sample1.h5","name":"Young culture, quiet","description":"..."},
+//   {"file":"sample2.h5","name":"Mature culture, bursting"} ]
+// If no manifest is found (no /data folder deployed alongside this page, or
+// the page is running from file://), the sample section just stays hidden --
+// the upload button still works either way.
+async function myPopulateDataFolderManifest(){
+
+let mySection = document.getElementById('myDataFolderSection');
+let mySelect = document.getElementById('myDataFolderSelect');
+
+try{
+
+let myResp = await fetch('data/manifest.json');
+if(!myResp.ok) throw new Error('no manifest at data/manifest.json');
+
+let myList = await myResp.json();
+if(!Array.isArray(myList) || myList.length===0) throw new Error('manifest.json was empty');
+
+mySelect.innerHTML = '';
+
+for(let myItem of myList){
+let myOpt = document.createElement('option');
+myOpt.value = 'data/'+myItem.file;
+myOpt.textContent = myItem.name || myItem.file;
+if(myItem.description) myOpt.title = myItem.description;
+mySelect.appendChild(myOpt);
+}
+
+mySection.style.display = 'block';
+
+}catch(myErr){
+mySection.style.display = 'none';
+}
+
+}
+
+function myWalkH5Tree(myNode, myPath, myOut, myDepth){
+
+if(myDepth>6) return;
+
+let myKeys;
+try{ myKeys = myNode.keys(); }catch(myE){ return; } // not a group -> nothing to walk
+
+for(let myKey of myKeys){
+
+let myChildPath = myPath+'/'+myKey;
+let myChild;
+try{ myChild = myNode.get(myKey); }catch(myE){ continue; }
+
+let mySubKeys = null;
+try{ mySubKeys = myChild.get_keys? myChild.get_keys() : myChild.keys(); }catch(myE){ mySubKeys = null; }
+
+if(mySubKeys){
+myWalkH5Tree(myChild, myChildPath, myOut, myDepth+1);
+}else{
+let myShape = null;
+try{ myShape = myChild.shape; }catch(myE){}
+myOut.push({path:myChildPath, node:myChild, shape:myShape});
+}
+
+}
+
+}
+
+function myFindByNameHint(myEntries, myHints){
+
+for(let myHint of myHints){
+for(let myEnt of myEntries){
+if(myEnt.path.toLowerCase().indexOf(myHint)>=0) return myEnt;
+}
+}
+
+return null;
+
+}
+
+// Reads one named field out of a compound (structured) dataset, e.g. the
+// 'electrode' column of /mapping. h5wasm hands compound rows back as plain
+// POSITIONAL arrays (e.g. [channel, electrode, x, y]), not named objects --
+// so field lookup has to go through dataset.metadata.compound_type.members
+// to find which array index a given field name lives at. Also normalizes
+// BigInt values (h5wasm returns 64-bit integer fields as BigInt) to Number.
+function myReadCompoundField(myDataset, myFieldHints){
+
+let myMeta = myDataset.metadata;
+
+if(myMeta && myMeta.compound_type && myMeta.compound_type.members){
+
+let myMembers = myMeta.compound_type.members;
+let myIdx = -1;
+
+for(let myHint of myFieldHints){
+for(let myI=0; myI<myMembers.length; myI++){
+let myName = (myMembers[myI].name||'').toLowerCase();
+if(myName===myHint || myName.indexOf(myHint)>=0){ myIdx = myI; break; }
+}
+if(myIdx>=0) break;
+}
+
+if(myIdx>=0){
+let myVal = myDataset.value; // array of row-arrays, one row per compound entry
+return myVal.map(myRow=>{
+let myV = myRow[myIdx];
+return typeof myV==='bigint' ? Number(myV) : myV;
+});
+}
+
+}
+
+// not compound (or no metadata available) -- treat as a single plain field
+let myVal = myDataset.value;
+
+if(ArrayBuffer.isView(myVal) || Array.isArray(myVal)){
+return Array.from(myVal).map(myV=>typeof myV==='bigint' ? Number(myV) : myV);
+}
+
+return null;
+
+}
+
+function myAnalyzeMaxOneH5(){
+
+let myS = myH5State;
+let myEntries = [];
+
+myWalkH5Tree(myS.f, '', myEntries, 0);
+
+console.log('MaxOne HDF5 datasets found:', myEntries.map(myE=>myE.path+' '+JSON.stringify(myE.shape)));
+
+if(myEntries.length===0){
+throw new Error('No datasets found in this HDF5 file.');
+}
+
+// ---- sampling rate (default to MaxOne's native 20 kHz if not found) ----
+let mySampEnt = myFindByNameHint(myEntries, ['sampling','samplerate','fs']);
+if(mySampEnt){
+try{
+let myV = mySampEnt.node.value;
+let myN = Array.isArray(myV)||ArrayBuffer.isView(myV) ? myV[0] : myV;
+if(typeof myN==='bigint') myN = Number(myN); // h5wasm returns int64 fields as BigInt
+if(myN>100 && myN<1000000) myS.samplingHz = Math.round(myN);
+}catch(myE){}
+}
+
+// ---- mapping table: raw channel -> (electrode id, x, y) ----
+let myMapEnt = myFindByNameHint(myEntries, ['mapping']);
+let myChToElec = new Map();
+let myChToXY = new Map();
+
+if(myMapEnt){
+try{
+
+let myChannels = myReadCompoundField(myMapEnt.node, ['channel']);
+let myElectrodes = myReadCompoundField(myMapEnt.node, ['electrode']);
+let myXs = myReadCompoundField(myMapEnt.node, ['x']);
+let myYs = myReadCompoundField(myMapEnt.node, ['y']);
+
+if(myChannels && myXs && myYs){
+
+let myXMin=Infinity, myXMax=-Infinity, myYMin=Infinity, myYMax=-Infinity;
+
+for(let myI=0; myI<myChannels.length; myI++){
+if(myXs[myI]<myXMin) myXMin = myXs[myI];
+if(myXs[myI]>myXMax) myXMax = myXs[myI];
+if(myYs[myI]<myYMin) myYMin = myYs[myI];
+if(myYs[myI]>myYMax) myYMax = myYs[myI];
+}
+
+let myXSpan = Math.max(1e-6, myXMax-myXMin);
+let myYSpan = Math.max(1e-6, myYMax-myYMin);
+
+for(let myI=0; myI<myChannels.length; myI++){
+
+let myCh = myChannels[myI];
+if(myElectrodes && myElectrodes[myI]!==undefined && myElectrodes[myI]<0) continue; // unrouted
+
+let myCol = Math.min(myCols-1, Math.floor((myXs[myI]-myXMin)/myXSpan*myCols));
+let myRow = Math.min(myRows-1, Math.floor((myYs[myI]-myYMin)/myYSpan*myRows));
+let myGridId = myRow*myCols+myCol;
+
+myChToElec.set(myCh, myGridId);
+myChToXY.set(myCh, [myXs[myI], myYs[myI]]);
+
+}
+
+myS.hasMapping = myChToElec.size>0;
+
+}
+
+}catch(myE){ console.warn('Could not parse mapping table:', myE); }
+}
+
+myS.channelToElectrode = myChToElec;
+
+// ---- spike-sorted path (preferred: small, exact, no on-demand detection needed) ----
+let mySpikeEnt = myFindByNameHint(myEntries, ['spiketimes','spikes/times','/spikes','spike']);
+
+if(mySpikeEnt){
+try{
+
+let myFrames = myReadCompoundField(mySpikeEnt.node, ['frameno','frame','time']);
+let myChans = myReadCompoundField(mySpikeEnt.node, ['channel']);
+
+if(myFrames && myChans && myFrames.length===myChans.length && myFrames.length>0){
+
+let myAllMs = new Float64Array(myFrames.length);
+let myAllCh = new Int32Array(myFrames.length);
+let myMaxFrame = 0;
+
+for(let myI=0; myI<myFrames.length; myI++){
+myAllMs[myI] = myFrames[myI]/myS.samplingHz*1000;
+myAllCh[myI] = myChans[myI];
+if(myFrames[myI]>myMaxFrame) myMaxFrame = myFrames[myI];
+}
+
+myS.spikeMode = true;
+myS.spikeCount = myFrames.length;
+myS.allSpikeMs = myAllMs;
+myS.allSpikeChannel = myAllCh;
+myS.totalDurationMs = Math.max(myH5WindowMs, myMaxFrame/myS.samplingHz*1000);
+myS.channelList = Array.from(new Set(Array.from(myAllCh)));
+
+return;
+
+}
+
+}catch(myE){ console.warn('Could not parse spike-sorted dataset, falling back to raw:', myE); }
+}
+
+// ---- raw-trace fallback: 2D int array, spikes detected on demand per window ----
+let myRawCandidates = myEntries.filter(myE=>myE.shape && myE.shape.length===2);
+myRawCandidates.sort((myA,myB)=>(myB.shape[0]*myB.shape[1])-(myA.shape[0]*myA.shape[1]));
+
+if(myRawCandidates.length===0){
+throw new Error('No spike-sorted dataset and no 2D raw trace dataset found. Datasets seen: '+myEntries.map(myE=>myE.path).join(', '));
+}
+
+let myRaw = myRawCandidates[0];
+let myChCount = myChToElec.size>0 ? myChToElec.size : null;
+
+// Prefer matching the known mapping-table channel count against the two raw
+// dataset dimensions to pick which axis is "channel". Falls back to "smaller
+// dimension is channels" only when there's no mapping table to check against
+// -- that fallback guesses wrong on short test files (e.g. a 1024-channel x
+// 3-frame test recording, where the frame count is the smaller number).
+if(myChCount && myRaw.shape[0]===myChCount){
+myS.rawChannelAxis = 0;
+}else if(myChCount && myRaw.shape[1]===myChCount){
+myS.rawChannelAxis = 1;
+}else{
+myS.rawChannelAxis = myRaw.shape[0]<=myRaw.shape[1] ? 0 : 1;
+}
+
+let myNumFrames = myS.rawChannelAxis===0 ? myRaw.shape[1] : myRaw.shape[0];
+let myNumChannels = myS.rawChannelAxis===0 ? myRaw.shape[0] : myRaw.shape[1];
+
+myS.rawDataset = myRaw.node;
+myS.rawFrameCount = myNumFrames; // used to clamp windows near/at end of a short recording
+myS.totalDurationMs = Math.max(myH5WindowMs, myNumFrames/myS.samplingHz*1000);
+myS.channelList = [];
+for(let myC=0; myC<myNumChannels; myC++) myS.channelList.push(myC);
+
+if(myNumFrames<Math.round(myH5WindowMs/1000*myS.samplingHz)){
+myS.shortRecordingWarning = 'This recording only has '+myNumFrames+' samples ('+
+(myNumFrames/myS.samplingHz*1000).toFixed(2)+'ms) -- shorter than the 10s window, '+
+'so the baseline will be built from whatever is actually present.';
+}
+
+}
+
+function myOnH5WindowSlider(myValue){
+
+let myStartMs = Number(myValue);
+document.getElementById('myH5WindowStartLabel').textContent = (myStartMs/1000).toFixed(2)+'s';
+document.getElementById('myH5WindowEndLabel').textContent = ((myStartMs+myH5WindowMs)/1000).toFixed(2)+'s';
+
+}
+
+function myGetSelectedWindowStartMs(){
+return Number(document.getElementById('myH5WindowSlider').value);
+}
+
+// Fast, approximate look at population activity for the current slider
+// position, so the user can find an interesting (or a quiet) stretch before
+// committing to the heavier full extraction in myConfirmBaselineWindow().
+function myPreviewBaselineWindow(){
+
+let myS = myH5State;
+if(!myS) return;
+
+let myStartMs = myGetSelectedWindowStartMs();
+let myEndMs = myStartMs+myH5WindowMs;
+let myDiv = document.getElementById('myH5PreviewDiv');
+
+myDiv.textContent = 'Scanning window...';
+
+setTimeout(function(){
+
+if(myS.spikeMode){
+
+let myCount = 0;
+let myActiveCh = new Set();
+
+for(let myI=0; myI<myS.allSpikeMs.length; myI++){
+if(myS.allSpikeMs[myI]>=myStartMs && myS.allSpikeMs[myI]<myEndMs){
+myCount++;
+myActiveCh.add(myS.allSpikeChannel[myI]);
+}
+}
+
+myDiv.textContent = 'Preview: '+myCount+' spikes across '+myActiveCh.size+' channels in this 10s window ('+
+(myCount/10).toFixed(1)+' spikes/s population rate).';
+
+}else{
+
+// subsample channels for speed; full detection happens on Confirm
+let myStep = Math.max(1, Math.floor(myS.channelList.length/48));
+let mySampleChannels = myS.channelList.filter((myC,myI)=>myI%myStep===0);
+let myResult = myDetectSpikesInWindow(myS, myStartMs, mySampleChannels);
+let myTotalSpikes = 0;
+for(let myK of Object.keys(myResult)) myTotalSpikes += myResult[myK].length;
+
+myDiv.textContent = 'Preview (estimated from '+mySampleChannels.length+'/'+myS.channelList.length+
+' channels): ~'+myTotalSpikes+' threshold crossings in this 10s window. Click "Use this window" to run full detection on all channels.';
+
+}
+
+},10);
+
+}
+
+// Threshold-based spike detection on raw traces for one 10-second window.
+// Uses a median-absolute-deviation threshold on the negative deflection,
+// which is the standard quick-and-dirty extracellular spike detector --
+// good enough for a hypothesis-generation sandbox, not a validated sorter.
+function myDetectSpikesInWindow(myS, myStartMs, myChannels){
+
+let myFrameStart = Math.max(0, Math.round(myStartMs/1000*myS.samplingHz));
+let myFrameCount = Math.round(myH5WindowMs/1000*myS.samplingHz);
+
+// clamp to what the dataset actually has -- matters for short/test recordings
+// where the requested 10s window runs past the last available sample
+if(myS.rawFrameCount!==undefined){
+myFrameCount = Math.min(myFrameCount, Math.max(0, myS.rawFrameCount-myFrameStart));
+}
 
 let myByElectrode = {};
-let myMaxT = 0;
+let myRefractoryFrames = Math.round(0.001*myS.samplingHz); // 1ms refractory
 
-for(let myI=myStart; myI<myLines.length; myI++){
+if(myFrameCount<=0) return myByElectrode;
 
-if((myI-myStart)>=myMaxRows){ myTruncated = true; break; }
+for(let myCh of myChannels){
 
-let myParts = myLines[myI].split(',');
+let mySlice;
 
-if(myParts.length<2) continue;
+try{
+let myRanges = myS.rawChannelAxis===0 ?
+[[myCh,myCh+1],[myFrameStart,myFrameStart+myFrameCount]] :
+[[myFrameStart,myFrameStart+myFrameCount],[myCh,myCh+1]];
+mySlice = myS.rawDataset.slice(myRanges);
+}catch(myE){ continue; }
 
-let myElec = parseInt(myParts[0],10);
-let myT = parseFloat(myParts[1]);
+if(!mySlice || mySlice.length===0) continue;
 
-if(isNaN(myElec) || isNaN(myT)) continue;
-if(myElec<0 || myElec>=myElectrodeCount) continue;
+// median absolute deviation, computed on a subsample for speed
+let mySample = [];
+for(let myI=0; myI<mySlice.length; myI+=7) mySample.push(mySlice[myI]);
+mySample.sort((myA,myB)=>myA-myB);
+let myMedian = mySample[Math.floor(mySample.length/2)] || 0;
 
-if(!myByElectrode[myElec]) myByElectrode[myElec] = [];
-myByElectrode[myElec].push(myT);
+let myDevs = mySample.map(myV=>Math.abs(myV-myMedian));
+myDevs.sort((myA,myB)=>myA-myB);
+let myMad = myDevs[Math.floor(myDevs.length/2)] || 1;
 
-if(myT>myMaxT) myMaxT = myT;
+let myThreshold = myMedian - Math.max(1, 4.5*myMad/0.6745);
+
+let myGridId = (myS.channelToElectrode && myS.channelToElectrode.has(myCh)) ?
+myS.channelToElectrode.get(myCh) : (myCh % myElectrodeCount);
+
+let myLastSpikeFrame = -Infinity;
+
+for(let myI=0; myI<mySlice.length; myI++){
+
+if(mySlice[myI]<myThreshold && (myI-myLastSpikeFrame)>myRefractoryFrames){
+
+myLastSpikeFrame = myI;
+let myMs = myI/myS.samplingHz*1000;
+
+if(!myByElectrode[myGridId]) myByElectrode[myGridId] = [];
+myByElectrode[myGridId].push(myMs);
+
+}
+
+}
+
+}
+
+return myByElectrode;
+
+}
+
+function myConfirmBaselineWindow(){
+
+let myS = myH5State;
+if(!myS) return;
+
+let myStartMs = myGetSelectedWindowStartMs();
+let myByElectrode = {};
+
+if(myS.spikeMode){
+
+let myEndMs = myStartMs+myH5WindowMs;
+
+for(let myI=0; myI<myS.allSpikeMs.length; myI++){
+
+let myT = myS.allSpikeMs[myI];
+if(myT<myStartMs || myT>=myEndMs) continue;
+
+let myCh = myS.allSpikeChannel[myI];
+let myGridId = (myS.channelToElectrode && myS.channelToElectrode.has(myCh)) ?
+myS.channelToElectrode.get(myCh) : (myCh % myElectrodeCount);
+
+if(!myByElectrode[myGridId]) myByElectrode[myGridId] = [];
+myByElectrode[myGridId].push(myT-myStartMs); // shift so window starts at t=0
+
+}
+
+}else{
+
+document.getElementById('myH5PreviewDiv').textContent = 'Running full threshold detection on '+myS.channelList.length+' channels...';
+
+myByElectrode = myDetectSpikesInWindow(myS, myStartMs, myS.channelList);
 
 }
 
@@ -2516,7 +3108,24 @@ for(let myK of Object.keys(myByElectrode)){
 myByElectrode[myK].sort((myA,myB)=>myA-myB);
 }
 
-myBuildBaselineFromSpikes(myByElectrode, Math.max(1000,Math.ceil(myMaxT)), myTruncated);
+myBuildBaselineFromSpikes(myByElectrode, myH5WindowMs, false);
+
+document.getElementById('myH5PickerPanel').style.display = 'none';
+
+}
+
+function myCancelBaselinePicker(){
+
+if(myH5State && myH5State.mounted){
+try{ myH5State.f.close(); }catch(myE1){}
+try{
+let myNameToRemove = myH5State.fileName;
+h5wasm.ready.then(function(myM){ try{ myM.FS.unlink('/'+myNameToRemove); }catch(myE2){} });
+}catch(myE3){}
+}
+
+myH5State = null;
+document.getElementById('myH5PickerPanel').style.display = 'none';
 
 }
 
@@ -2750,7 +3359,7 @@ myDiv.innerHTML =
 'Mean firing rate: '+myBaseline.meanFiringRate.toFixed(3)+' Hz<br>'+
 'Active electrode %: '+(myBaseline.activeFraction*100).toFixed(1)+'%<br>'+
 'Burst synchronization index: '+myBaseline.syncIndex.toFixed(3)+
-(myBaseline.truncated ? '<br><span style="color:#e0a040;">Upload truncated to first 60,000 rows.</span>' : '');
+(myBaseline.truncated ? '<br><span style="color:#e0a040;">Upload truncated.</span>' : '');
 
 }
 
@@ -3357,6 +3966,7 @@ window.innerHeight
 }
 
 myInitialize();
+myPopulateDataFolderManifest();
 
 </script>
 
