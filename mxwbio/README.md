@@ -10,7 +10,11 @@ MaxLab API  https://api-docs.mxwbio.com/section_api/api.html#doc-section-api
 
 Testing at
 
+## Claude   
 https://hpssjellis.github.io/neuro-ml/mxwbio/maxone-sim-v##.html  where # increases as things improve
+
+# chatgpt
+https://hpssjellis.github.io/neuro-ml/mxwbio/maxone-sim-v##-chatgpt.html  where # increases as things improve
 
 Typically mxwbio  is the best stable version.
 
