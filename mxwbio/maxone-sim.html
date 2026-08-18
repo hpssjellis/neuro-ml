@@ -1,10 +1,10 @@
-=<!DOCTYPE html>
+<!DOCTYPE html>
 
 <html lang='en'>
 <head>
 <meta charset='UTF-8'>
 <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-<title>MaxOne WetML Simulator V22</title>
+<title>MaxOne WetML Simulator V29</title>
 
 <script src='https://cdn.jsdelivr.net/npm/h5wasm@0.8.8/dist/iife/h5wasm.js'></script>
 
@@ -33,7 +33,7 @@
 
 <div id='myPanelInner' style='background:rgba(5,9,18,0.95);padding:12px;border:1px solid #39445d;border-radius:8px;max-height:96vh;overflow:auto;box-sizing:border-box;'>
 
-<h2 style='margin-top:0'>MaxOne WetML Simulator V22</h2>
+<h2 style='margin-top:0'>MaxOne WetML Simulator V29</h2>
 
 <div style='font-size:12px;margin-bottom:10px;'>
 GitHub: <a href='https://github.com/hpssjellis/neuro-ml' target='_blank' rel='noopener' style='color:#7fd0ff;'>hpssjellis/neuro-ml</a>
@@ -49,11 +49,11 @@ Zones ≠ roles: assign each zone a functional role below.
 </div>
 
 <div style='font-size:12px;color:#ffd699;background:#1c1408;border:1px solid #4a3410;padding:8px;margin-bottom:10px;line-height:1.5;'>
-<b>What this tool is:</b> a <b>data-driven HD-MEA protocol hypothesis generator and experimental design sandbox</b> — <b>not</b> a validated biological simulator. The idea is baseline-first: every experiment here starts from observing what a culture is already doing (synthetic or MaxOne-recorded) before any stimulation protocol is designed on top of it. Runs entirely in the browser; no MaxOne data required (see Educational Mode note near Save/Load).
+<b>What this tool is:</b> a <b>data-driven HD-MEA protocol hypothesis generator and experimental design sandbox</b> — <b>not</b> a validated biological simulator. The idea is baseline-first: every experiment here starts from observing what a culture is already doing (synthetic or MaxOne-recorded) before any stimulation protocol is designed on top of it. That baseline's own spontaneous burst pattern (spreading from a few hotspot cells) keeps running in the background throughout training, too, rather than switching off once Run is pressed -- training has to work around it, not just start from it. Runs entirely in the browser; no MaxOne data required (see Educational Mode note near Save/Load).
 </div>
 
 <h3>Phase 1: Baseline</h3>
-<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Observe the culture first. Generate a synthetic culture (no MaxOne needed), pick a sample recording bundled with this page, or upload your own native MaxOne HDF5 recording (<code>.h5</code>/<code>.hdf5</code>) -- either way you'll interactively scrub to a 10-second window before assigning zone roles below. Files are read directly in the browser (h5wasm) -- nothing is uploaded anywhere.</div>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Observe the culture first. Generate a synthetic culture (no MaxOne needed), pick a sample recording bundled with this page, or upload your own native MaxOne HDF5 recording (<code>.h5</code>/<code>.hdf5</code>) -- either way the baseline is applied automatically as soon as it loads (first 10-second window), ready for assigning zone roles below. If a recording runs longer than 10s you can still pick a different window afterward. Files are read directly in the browser (h5wasm) -- nothing is uploaded anywhere.</div>
 
 <input type='button' value='Generate synthetic culture' onclick='myGenerateSyntheticBaseline()' style='background:#2a4a6b;color:#fff;'>
 <input type='button' value='Upload MaxOne baseline (.h5)' onclick='myUploadBaselineFile()'>
@@ -66,7 +66,7 @@ Sample recordings (from this site's <code>/data</code> folder):<br>
 </div>
 
 <br style='line-height:6px;'>
-<input type='button' id='myBaselineReplayBtn' value='Replay baseline' onclick='myToggleBaselineReplay()' style='margin-top:6px;'>
+<input type='button' id='myBaselineReplayBtn' value='Replay activity' onclick='myToggleBaselineReplay()' style='margin-top:6px;'>
 <input type='button' value='Clear baseline' onclick='myClearBaseline()' style='margin-top:6px;'>
 
 <div id='myH5PickerPanel' style='display:none;background:#0c1526;border:1px solid #2a4a6b;padding:8px;margin-top:8px;font-size:11px;line-height:1.5;'>
@@ -78,11 +78,10 @@ Sample recordings (from this site's <code>/data</code> folder):<br>
 Window start: <span id='myH5WindowStartLabel'>0.00s</span> &nbsp;→&nbsp; <span id='myH5WindowEndLabel'>10.00s</span> of <span id='myH5TotalDurLabel'>?</span>s<br>
 <input type='range' min='0' max='0' step='0.1' value='0' id='myH5WindowSlider' style='width:100%;' oninput='myOnH5WindowSlider(this.value)'>
 
-<div id='myH5PreviewDiv' style='font-family:monospace;margin-top:4px;color:#9fb0c9;'>Move the slider, then Preview to see population activity for that window.</div>
+<div id='myH5PreviewDiv' style='font-family:monospace;margin-top:4px;color:#9fb0c9;'>Loading...</div>
 
-<input type='button' value='Preview window' onclick='myPreviewBaselineWindow()' style='margin-top:6px;'>
-<input type='button' value='Use this window as baseline' onclick='myConfirmBaselineWindow()' style='margin-top:6px;background:#2a6b3a;color:#fff;'>
-<input type='button' value='Cancel' onclick='myCancelBaselinePicker()' style='margin-top:6px;'>
+<input type='button' id='myH5UseWindowBtn' value='Use this window instead' onclick='myConfirmBaselineWindow()' style='margin-top:6px;background:#2a6b3a;color:#fff;'>
+<input type='button' value='Close' onclick='myCancelBaselinePicker()' style='margin-top:6px;'>
 
 </div>
 
@@ -130,9 +129,7 @@ Connectivity:
 <div id='myBaselineStatsDiv' style='background:#08101b;padding:8px;font-family:monospace;font-size:11px;margin-top:8px;line-height:1.5;'>No baseline loaded.</div>
 
 <div style='margin-top:8px;font-size:12px;'>
-<input type='button' id='myBaselineViewBtn' value='View: Zones' onclick='myToggleBaselineView()'>
-<input type='button' value='Use baseline to initialize simulation' onclick='myUseBaselineToInitialize()' style='background:#2a6b3a;color:#fff;'>
-<br>
+<div id='myBaselineStatusDiv' style='background:#08101b;padding:6px 8px;margin-bottom:6px;font-family:monospace;font-size:11px;'>Baseline: None</div>
 Replay time: <span id='myBaselineTimeLabel'>0.00s</span><br>
 <input type='range' min='0' max='8000' step='10' value='0' id='myBaselineTimeSlider' style='width:100%;' oninput='myOnBaselineTimeSlider(this.value)'>
 </div>
@@ -183,7 +180,7 @@ Replay time: <span id='myBaselineTimeLabel'>0.00s</span><br>
 <input type='button' id='myModeToggleBtn' value='Mode: Training' onclick='myToggleMode()' style='font-weight:bold;'>
 <input type='button' value='Run / Stop' onclick='myToggleRun()'>
 <input type='button' value='Single Trial' onclick='myRunOnce()'>
-<input type='button' id='myRotateBtn' value='Rotation: On' onclick='myToggleAutoRotate()'>
+<input type='button' id='myRotateBtn' value='Rotation: Off' onclick='myToggleAutoRotate()' style='background:#3a2a2a;color:#fff;'>
 <br>
 <label style='font-size:12px;'><input type='checkbox' id='myCycleCheckbox' checked onchange='mySyncCycleCheckbox(this)'> Cycle truth-table patterns each trial</label>
 
@@ -279,7 +276,7 @@ No trials run yet.
 <input type='button' id='myModeToggleBtn2' value='Mode: Training' onclick='myToggleMode()' style='font-weight:bold;'>
 <input type='button' value='Run / Stop' onclick='myToggleRun()'>
 <input type='button' value='Single Trial' onclick='myRunOnce()'>
-<input type='button' id='myRotateBtn2' value='Rotation: On' onclick='myToggleAutoRotate()'>
+<input type='button' id='myRotateBtn2' value='Rotation: Off' onclick='myToggleAutoRotate()' style='background:#3a2a2a;color:#fff;'>
 <br>
 <label style='font-size:12px;'><input type='checkbox' id='myCycleCheckbox2' checked onchange='mySyncCycleCheckbox(this)'> Cycle truth-table patterns each trial</label>
 
@@ -351,7 +348,7 @@ let myBaselineRate = 0.35;
 let myBurstElectrodesPerGroup = 1;
 let myBurstDwellMs = 20;
 let myBurstPulseWidthUs = 100;
-let myAutoRotate = true;
+let myAutoRotate = false;
 let myMode = 'training';
 
 let myEpoch = 0;
@@ -410,10 +407,22 @@ let myErrorHistory = []; // recent mean-abs-error per trial, for the training pr
 
 // ---- V19: baseline-first workflow state ----
 let myBaseline = null;            // baseline object, see myGenerateSyntheticBaseline / myBuildBaselineFromSpikes
-let myBaselineViewMode = 'zones'; // 'zones' | 'baseline'
 let myBaselinePlaying = false;
 let myBaselineTime = 0;           // ms into the baseline recording, for replay
 let myLastBaselineFrameTime = 0;
+
+// ---- V29: persistent background burst clock ----
+// The Phase 1 "Replay activity" clock (myBaselineTime, above) is a manual
+// scrub tool the user pauses/plays to *look at* a recording. This second
+// clock is different: it runs continuously in real time from the moment a
+// baseline exists, whether or not Replay is on, whether or not a training
+// run is active, and loops through the same recorded/generated burst
+// pattern indefinitely. It represents the culture's own ongoing
+// spontaneous rhythm -- the thing that doesn't stop just because you
+// started a training run -- and both electrode visualization and the
+// training math below read from it.
+let myBackgroundBurstTime = 0;
+let myLastBackgroundFrameTime = 0;
 let myZoneConnCache = null;       // cached zone-to-zone connectivity matrix {key,matrix}
 let myZoneSuggestions = [];       // current automatic zone suggestions
 let myObjectiveMode = 'truthtable';
@@ -578,6 +587,13 @@ myArrayGroup.add(myGrid);
 
 }
 
+// V27: shared geometry for the per-electrode firing spike. Translated so the
+// mesh's local origin sits at its base -- scaling scale.y then grows the
+// spike straight up from the electrode instead of from its center.
+let mySpikeMaxHeight = 0.34;
+let mySpikeGeometry = new THREE.CylinderGeometry(0.018,0.018,1,6);
+mySpikeGeometry.translate(0,0.5,0);
+
 function myCreateElectrodes(){
 
 myElectrodeGroup = new THREE.Group();
@@ -598,11 +614,27 @@ myMesh.position.set(myX,0.04,myZ);
 
 myElectrodeGroup.add(myMesh);
 
+// V27: firing spike -- a short vertical tick that pops up and decays
+// every time this electrode actually fires, independent of its base
+// rate color, so low-firing electrodes are still clearly seen firing.
+let mySpikeMesh = new THREE.Mesh(
+mySpikeGeometry,
+new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:1})
+);
+
+mySpikeMesh.position.set(myX,0.04,myZ);
+mySpikeMesh.scale.set(1,0.0001,1);
+mySpikeMesh.visible = false;
+
+myElectrodeGroup.add(mySpikeMesh);
+
 myElectrodes.push({
 id: myR*myCols+myC,
 x:myX,
 z:myZ,
 mesh:myMesh,
+spikeMesh:mySpikeMesh,
+spikeLevel:0,
 firing:false,
 zone:-1
 });
@@ -739,8 +771,10 @@ myUpdateUndoButton();
 myZoneConnCache = null;
 
 if(myBaseline){
+myZoneConnCache = null;
 myComputeZoneSuggestions();
 myRenderBaselineSuggestions();
+myInitializeFromBaseline();
 }
 
 myRenderResearchDashboard();
@@ -1674,7 +1708,15 @@ for(let myI=0; myI<myN; myI++){
 myRaw += myInputPattern[myI]*myGetInfluence(myI,myJ);
 }
 
-myActual[myJ] = Math.max(0,Math.min(1,myRaw));
+// V29: spontaneous background burst activity in this sensor zone rides on
+// top of the stim-evoked signal, same as it would on a real MaxOne
+// read-out -- the culture's own wave doesn't pause for a training trial,
+// so the sensor reading doesn't either. This is the noise the weight
+// update below actually has to learn to work around.
+let mySensorZone = myZones[mySensorZones[myJ]];
+let myBackgroundNoise = myZoneBackgroundBurstFraction(mySensorZone)*0.35;
+
+myActual[myJ] = Math.max(0,Math.min(1,myRaw+myBackgroundNoise));
 
 }
 
@@ -1727,11 +1769,25 @@ myZone.activity = myActual[myZone.sensorIndex]||0;
 }else if(myZone.role==='encourage' || myZone.role==='discourage'){
 myZone.activity = myZone.freq/50;
 }else{
-myZone.activity = myBaselineRate*(0.3+myRandom()*0.7) + (myZone.baselineBias||0)*0.4;
+// V29: unassigned ("other") zones now track the real background burst
+// clock as well as the old flattened baselineBias, so their visible
+// activity actually correlates with where/when the wave is passing
+// through them, instead of being pure independent noise.
+myZone.activity = myBaselineRate*(0.3+myRandom()*0.7) + (myZone.baselineBias||0)*0.4 + myZoneBackgroundBurstFraction(myZone)*0.5;
 }
 
 for(let myE of myZone.electrodes){
-myE.firing = myRandom() < Math.min(0.95, 0.02 + myBaselineRate*0.3 + myZone.activity*0.3 + (myZone.baselineBias||0)*0.15);
+
+// V29: an electrode fires either because the stim/training math drove it
+// (as before), OR because it's currently caught in the population's own
+// ongoing background burst wave -- the same wave you see in Phase 1
+// Replay, now still running underneath every training trial rather than
+// disappearing the moment Run is pressed.
+let myStimDriven = myRandom() < Math.min(0.95, 0.02 + myBaselineRate*0.3 + myZone.activity*0.3 + (myZone.baselineBias||0)*0.15);
+let myBackgroundBurst = myBaseline && myIsElectrodeActiveAtTime(myE.id, myBackgroundBurstTime);
+
+myE.firing = myStimDriven || myBackgroundBurst;
+
 }
 
 }
@@ -1825,9 +1881,11 @@ myErrText;
 
 function myUpdateVisualization(){
 
-if(myBaselineViewMode==='baseline' && myBaseline){
-myUpdateBaselineVisualization();
-return;
+let myMaxRate = 0.5;
+if(myBaseline){
+for(let myE=0; myE<myElectrodeCount; myE++){
+if(myBaseline.firingRate[myE]>myMaxRate) myMaxRate = myBaseline.firingRate[myE];
+}
 }
 
 for(let myE of myElectrodes){
@@ -1835,31 +1893,68 @@ for(let myE of myElectrodes){
 let myZone = myZones[myE.zone];
 let myColors = myZone ? myRoleColors[myZone.role] : myRoleColors.unused;
 
-myE.mesh.material.color.setHex(
-myE.firing ? 0xffffff : myColors.dim
-);
+// V27b: spike color now matches the electrode's own base rate-category
+// color (blue/green/yellow/red), computed once and reused for both the
+// base sphere and its spike. White is reserved for its own top category --
+// electrodes that are almost constantly firing -- rather than being used
+// as a generic "firing now" flash color.
+let myColor;
+
+if(myBaseline){
+let myNorm = Math.min(1, myBaseline.firingRate[myE.id]/myMaxRate);
+if(myNorm<0.08){
+myColor = 0x18305c; // Silent -- blue
+}else if(myNorm<0.3){
+myColor = 0x207050; // Low -- green
+}else if(myNorm<0.65){
+myColor = 0x9a8620; // Moderate -- yellow
+}else if(myNorm<0.92){
+myColor = 0xa52d45; // High -- red
+}else{
+myColor = 0xf0f0f0; // Burst-active now -- almost constantly firing -- white
+}
+}else{
+myColor = myColors.dim;
+}
+
+myE.mesh.material.color.setHex(myColor);
+
+// V29: firing-now includes the persistent background burst clock, not
+// just the manual Replay scrub, so the wave pattern keeps visibly ticking
+// over at all times -- including mid-training -- and not only while the
+// user has Replay activity switched on.
+let myFiringNow = myE.firing ||
+(myBaselinePlaying && myBaseline && myIsElectrodeActiveAtTime(myE.id,myBaselineTime)) ||
+(myBaseline && myIsElectrodeActiveAtTime(myE.id,myBackgroundBurstTime));
+
+if(myFiringNow){
+myE.spikeLevel = 1;
+}else{
+myE.spikeLevel = (myE.spikeLevel||0)*0.75;
+if(myE.spikeLevel<0.03) myE.spikeLevel = 0;
+}
+
+if(myE.spikeMesh){
+myE.spikeMesh.visible = myE.spikeLevel>0;
+myE.spikeMesh.scale.y = Math.max(0.0001, mySpikeMaxHeight*myE.spikeLevel);
+myE.spikeMesh.material.color.setHex(myColor);
+myE.spikeMesh.material.opacity = Math.min(1, 0.35+myE.spikeLevel*0.65);
+}
 
 }
 
 for(let myI=0; myI<myZones.length; myI++){
 
 let myZone = myZones[myI];
-
 let myDisc = myZoneGroup.children[myI*2];
 let myRing = myZoneGroup.children[myI*2+1];
-
 let myColors = myRoleColors[myZone.role];
 
+// Zone colors always remain visible on top of the baseline layer.
 myDisc.material.color.setHex(myColors.bright);
-
-if(myI===mySelectedZone){
-myRing.material.color.setHex(0xffffff);
-}else{
-myRing.material.color.setHex(myColors.bright);
-}
+myRing.material.color.setHex(myI===mySelectedZone ? 0xffffff : myColors.bright);
 
 let myScale = 1 + myZone.activity*0.6;
-
 myDisc.scale.set(myScale,myScale,myScale);
 myRing.scale.set(myScale,myScale,myScale);
 
@@ -2562,7 +2657,6 @@ myLines.push('Sampling rate: '+myS.samplingHz+' Hz');
 myLines.push('Recording length: '+(myS.totalDurationMs/1000).toFixed(1)+' s');
 myLines.push('Channels found: '+myS.channelList.length+(myS.hasMapping ? ' (mapped to electrode x/y)' : ' (no mapping table found -- using raw channel index as electrode id)'));
 if(myS.shortRecordingWarning) myLines.push('Note: '+myS.shortRecordingWarning);
-myLines.push('Pick a 10-second window below, Preview it, then commit.');
 
 myStatus.textContent = myLines.join('\n');
 
@@ -2575,9 +2669,23 @@ mySlider.value = 0;
 document.getElementById('myH5TotalDurLabel').textContent = (myS.totalDurationMs/1000).toFixed(1);
 myOnH5WindowSlider(0);
 
-document.getElementById('myH5PreviewDiv').textContent = 'Move the slider, then Preview to see population activity for that window.';
+// V27: no more manual Preview-then-commit -- the first 10-second window is
+// applied as the baseline automatically, the moment the file finishes
+// loading. Only surface the window slider/button afterward when the
+// recording is actually longer than one window, since that's the only
+// case where picking a different window means anything.
+myConfirmBaselineWindow();
 
+let myHasMoreThanOneWindow = myS.totalDurationMs>myH5WindowMs;
+
+if(myHasMoreThanOneWindow){
+document.getElementById('myH5PreviewDiv').textContent = 'Baseline loaded automatically from the first 10s window. This recording is '+(myS.totalDurationMs/1000).toFixed(1)+'s long -- drag the slider and click below if you\'d like a different 10s window instead.';
 myControls.style.display = 'block';
+myPanel.style.display = 'block';
+}else{
+document.getElementById('myH5PreviewDiv').textContent = 'Baseline loaded automatically.';
+myPanel.style.display = 'none';
+}
 
 }catch(myErr){
 
@@ -3291,11 +3399,10 @@ document.getElementById('myBaselineTimeLabel').textContent = '0.00s';
 myRenderBaselineStats();
 myComputeZoneSuggestions();
 myRenderBaselineSuggestions();
+myInitializeFromBaseline();
+myRenderBaselineStats();
 myRenderResearchDashboard();
-
-if(myBaselineViewMode==='baseline'){
 myUpdateVisualization();
-}
 
 }
 
@@ -3324,15 +3431,14 @@ function myClearBaseline(){
 myBaseline = null;
 myZoneConnCache = null;
 myZoneSuggestions = [];
-myBaselineViewMode = 'zones';
 myBaselinePlaying = false;
 myBaselineInitialized = false;
 
-let myViewBtn = document.getElementById('myBaselineViewBtn');
-if(myViewBtn) myViewBtn.value = 'View: Zones';
-
 let myReplayBtn = document.getElementById('myBaselineReplayBtn');
-if(myReplayBtn) myReplayBtn.value = 'Replay baseline';
+if(myReplayBtn) myReplayBtn.value = 'Replay activity';
+
+let myStatus = document.getElementById('myBaselineStatusDiv');
+if(myStatus) myStatus.textContent = 'Baseline: None';
 
 document.getElementById('myBaselineStatsDiv').innerHTML = 'No baseline loaded.';
 document.getElementById('myBaselineSuggestDiv').innerHTML = 'Load or generate a baseline first.';
@@ -3563,12 +3669,9 @@ myRenderBaselineSuggestions();
 
 // ---- baseline initialization of the simulation ----
 
-function myUseBaselineToInitialize(){
+function myInitializeFromBaseline(){
 
-if(!myBaseline){
-alert('Generate or upload a baseline first.');
-return;
-}
+if(!myBaseline) return;
 
 let myRateMean = myZoneMeanOfArray(myBaseline.firingRate);
 let myPartMean = myZoneMeanOfArray(myBaseline.burstParticipation);
@@ -3591,26 +3694,24 @@ mySetInfluence(myI,myJ,myW);
 
 myBaselineInitialized = true;
 
+let myStatus = document.getElementById('myBaselineStatusDiv');
+if(myStatus) myStatus.innerHTML = 'Baseline: '+myBaseline.source+' ✓<br>Baseline incorporated ✓';
+
 myRenderInfluenceHeatmap();
 myUpdateVisualization();
 myRenderResearchDashboard();
 
-alert('Baseline applied: zone spontaneous-activity bias set from measured firing rate/participation, and the influence matrix (where stim/sensor zones are assigned) was initialized from measured connectivity.');
-
 }
 
-// ---- baseline visualization / replay ----
-
-function myToggleBaselineView(){
-
-myBaselineViewMode = (myBaselineViewMode==='zones') ? 'baseline' : 'zones';
-
-document.getElementById('myBaselineViewBtn').value = 'View: '+(myBaselineViewMode==='zones' ? 'Zones' : 'Baseline');
-
-myUpdateVisualization();
-
+// Compatibility wrapper. V24 calls myInitializeFromBaseline automatically;
+// this function remains so saved/older code cannot break if it references it.
+function myUseBaselineToInitialize(){
+myInitializeFromBaseline();
 }
 
+// V24 uses one visualization: baseline activity is an electrode layer and
+// experimental zones remain visible on top. There is intentionally no
+// baseline/zones view toggle anymore.
 function myToggleBaselineReplay(){
 
 if(!myBaseline){
@@ -3620,11 +3721,12 @@ return;
 
 myBaselinePlaying = !myBaselinePlaying;
 
-document.getElementById('myBaselineReplayBtn').value = myBaselinePlaying ? 'Pause Replay' : 'Replay baseline';
+let myBtn = document.getElementById('myBaselineReplayBtn');
+if(myBtn) myBtn.value = myBaselinePlaying ? 'Pause activity' : 'Replay activity';
 
-if(myBaselinePlaying && myBaselineViewMode!=='baseline'){
-myToggleBaselineView();
-}
+if(myBaselinePlaying) myLastBaselineFrameTime = 0;
+
+myUpdateVisualization();
 
 }
 
@@ -3633,13 +3735,14 @@ function myOnBaselineTimeSlider(myValue){
 myBaselinePlaying = false;
 
 let myBtn = document.getElementById('myBaselineReplayBtn');
-if(myBtn) myBtn.value = 'Replay baseline';
+if(myBtn) myBtn.value = 'Replay activity';
 
 myBaselineTime = Number(myValue);
 
-document.getElementById('myBaselineTimeLabel').textContent = (myBaselineTime/1000).toFixed(2)+'s';
+let myLabel = document.getElementById('myBaselineTimeLabel');
+if(myLabel) myLabel.textContent = (myBaselineTime/1000).toFixed(2)+'s';
 
-if(myBaselineViewMode==='baseline') myUpdateVisualization();
+myUpdateVisualization();
 
 }
 
@@ -3682,6 +3785,25 @@ if(Math.abs(myTs-myT)<15) return true;
 return false;
 
 }
+
+}
+
+// V29: what fraction of a zone's electrodes are inside a background burst
+// wave right now, per the persistent myBackgroundBurstTime clock. Used both
+// to keep the wave visible on the array at all times and to feed real
+// spontaneous-activity noise into the training math below, instead of the
+// wave vanishing the moment a training run starts.
+function myZoneBackgroundBurstFraction(myZone){
+
+if(!myBaseline || !myZone || !myZone.electrodes || myZone.electrodes.length===0) return 0;
+
+let myCount = 0;
+
+for(let myE of myZone.electrodes){
+if(myIsElectrodeActiveAtTime(myE.id, myBackgroundBurstTime)) myCount++;
+}
+
+return myCount/myZone.electrodes.length;
 
 }
 
@@ -3934,13 +4056,32 @@ if(mySlider) mySlider.value = myBaselineTime;
 let myLabel = document.getElementById('myBaselineTimeLabel');
 if(myLabel) myLabel.textContent = (myBaselineTime/1000).toFixed(2)+'s';
 
-if(myBaselineViewMode==='baseline'){
-myUpdateBaselineVisualization();
-}
-
 }else{
 myLastBaselineFrameTime = myTime;
 }
+
+// V29: the background burst clock advances continuously any time a
+// baseline exists, independent of Replay/Run state -- this is what keeps
+// the culture's spontaneous wave pattern alive during training instead of
+// it only existing while the user is actively scrubbing Phase 1 replay.
+if(myBaseline){
+
+let myBgDelta = myLastBackgroundFrameTime ? (myTime-myLastBackgroundFrameTime) : 16;
+myLastBackgroundFrameTime = myTime;
+
+myBackgroundBurstTime += myBgDelta;
+
+if(myBackgroundBurstTime>myBaseline.durationMs){
+myBackgroundBurstTime -= myBaseline.durationMs;
+}
+
+}else{
+myLastBackgroundFrameTime = myTime;
+}
+
+// V27: run every frame (not just while baseline is replaying) so a firing
+// spike smoothly decays instead of jump-cutting, e.g. right after a trial.
+myUpdateVisualization();
 
 myControls.update();
 
