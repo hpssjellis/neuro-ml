@@ -1,0 +1,4534 @@
+<!DOCTYPE html>
+
+<html lang='en'>
+<head>
+<meta charset='UTF-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0'>
+<title>MaxOne WetML Simulator V24</title>
+
+<script src='https://cdn.jsdelivr.net/npm/h5wasm@0.8.8/dist/iife/h5wasm.js'></script>
+
+<script src='https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js'></script>
+
+<script src='https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js'></script>
+
+<style>
+.myRoleBtn{opacity:0.55;}
+.myRoleBtnActive{opacity:1;outline:2px solid #fff;}
+.myTruthRowActive{background:#1c2c1c !important;}
+.mySmallTable{border-collapse:collapse;font-size:11px;font-family:monospace;}
+.mySmallTable td,.mySmallTable th{border:1px solid #2a3550;padding:3px 6px;text-align:center;}
+.myHeatCell{cursor:pointer;user-select:none;}
+</style>
+
+</head>
+
+<body style='margin:0;overflow:hidden;background:#050810;color:white;font-family:Arial,sans-serif;'>
+
+<div id='myHoverTooltip' style='position:fixed;pointer-events:none;background:rgba(10,14,24,0.95);border:1px solid #39445d;padding:6px 8px;font-size:11px;font-family:monospace;border-radius:4px;display:none;z-index:20;white-space:nowrap;line-height:1.5;'></div>
+
+<div id='myPanel' style='position:absolute;left:10px;top:10px;width:400px;z-index:10;box-sizing:border-box;'>
+
+<div id='myResizeHandle' title='Drag to resize' style='position:absolute;top:0;bottom:0;right:-5px;width:10px;cursor:ew-resize;background:rgba(127,208,255,0.18);border-radius:4px;z-index:12;'></div>
+
+<div id='myPanelInner' style='background:rgba(5,9,18,0.95);padding:12px;border:1px solid #39445d;border-radius:8px;max-height:96vh;overflow:auto;box-sizing:border-box;'>
+
+<h2 style='margin-top:0'>MaxOne WetML Simulator V24</h2>
+
+<div style='font-size:12px;margin-bottom:10px;'>
+GitHub: <a href='https://github.com/hpssjellis/neuro-ml' target='_blank' rel='noopener' style='color:#7fd0ff;'>hpssjellis/neuro-ml</a>
+&nbsp;|&nbsp;
+LinkedIn: <a href='https://www.linkedin.com/in/jeremy-ellis-4237a9bb/' target='_blank' rel='noopener' style='color:#7fd0ff;'>Jeremy Ellis</a>
+</div>
+
+<div style='font-size:12px;color:#9fb0c9;margin-bottom:10px;'>
+Physical chip: <b>120×220 = 26,400 electrodes</b><br>
+Selected recording grid: <b>22×46 = 1,012 electrodes</b><br>
+The real MaxOne has <b>32 movable stimulating electrodes</b>, which could also be used to briefly encourage or discourage zones.<br>
+Zones ≠ roles: assign each zone a functional role below.
+</div>
+
+<div style='font-size:12px;color:#ffd699;background:#1c1408;border:1px solid #4a3410;padding:8px;margin-bottom:10px;line-height:1.5;'>
+<b>What this tool is:</b> a <b>data-driven HD-MEA protocol hypothesis generator and experimental design sandbox</b> — <b>not</b> a validated biological simulator. The idea is baseline-first: every experiment here starts from observing what a culture is already doing (synthetic or MaxOne-recorded) before any stimulation protocol is designed on top of it. Runs entirely in the browser; no MaxOne data required (see Educational Mode note near Save/Load).
+</div>
+
+<h3>Phase 1: Baseline</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Observe the culture first. Generate a synthetic culture (no MaxOne needed), pick a sample recording bundled with this page, or upload your own native MaxOne HDF5 recording (<code>.h5</code>/<code>.hdf5</code>) -- either way you'll interactively scrub to a 10-second window before assigning zone roles below. Files are read directly in the browser (h5wasm) -- nothing is uploaded anywhere.</div>
+
+<input type='button' value='Generate synthetic culture' onclick='myGenerateSyntheticBaseline()' style='background:#2a4a6b;color:#fff;'>
+<input type='button' value='Upload MaxOne baseline (.h5)' onclick='myUploadBaselineFile()'>
+<input type='file' id='myBaselineFileInput' accept='.h5,.hdf5,.brw' style='display:none;' onchange='myOnBaselineH5FileChosen(event)'>
+
+<div id='myDataFolderSection' style='display:none;margin-top:6px;font-size:11px;'>
+Sample recordings (from this site's <code>/data</code> folder):<br>
+<select id='myDataFolderSelect' style='width:70%;'></select>
+<input type='button' value='Load sample' onclick='myLoadSelectedSample()'>
+</div>
+
+<br style='line-height:6px;'>
+<input type='button' id='myBaselineReplayBtn' value='Replay activity' onclick='myToggleBaselineReplay()' style='margin-top:6px;'>
+<input type='button' value='Clear baseline' onclick='myClearBaseline()' style='margin-top:6px;'>
+
+<div id='myH5PickerPanel' style='display:none;background:#0c1526;border:1px solid #2a4a6b;padding:8px;margin-top:8px;font-size:11px;line-height:1.5;'>
+
+<div id='myH5PickerStatus' style='font-family:monospace;white-space:pre-wrap;'>Reading file...</div>
+
+<div id='myH5PickerControls' style='display:none;margin-top:6px;'>
+
+Window start: <span id='myH5WindowStartLabel'>0.00s</span> &nbsp;→&nbsp; <span id='myH5WindowEndLabel'>10.00s</span> of <span id='myH5TotalDurLabel'>?</span>s<br>
+<input type='range' min='0' max='0' step='0.1' value='0' id='myH5WindowSlider' style='width:100%;' oninput='myOnH5WindowSlider(this.value)'>
+
+<div id='myH5PreviewDiv' style='font-family:monospace;margin-top:4px;color:#9fb0c9;'>Move the slider, then Preview to see population activity for that window.</div>
+
+<input type='button' value='Preview window' onclick='myPreviewBaselineWindow()' style='margin-top:6px;'>
+<input type='button' value='Use this window as baseline' onclick='myConfirmBaselineWindow()' style='margin-top:6px;background:#2a6b3a;color:#fff;'>
+<input type='button' value='Cancel' onclick='myCancelBaselinePicker()' style='margin-top:6px;'>
+
+</div>
+
+</div>
+
+<div style='margin-top:8px;font-size:12px;'>
+Culture age:
+<select id='myBaseAgeSelect'>
+<option value='young'>Young</option>
+<option value='developing' selected>Developing</option>
+<option value='mature'>Mature</option>
+<option value='highlysync'>Highly synchronized</option>
+</select>
+<br>
+
+Mean firing rate (Hz): <span id='myBaseRateLabel'>1.0</span><br>
+<input type='range' min='0.1' max='5' step='0.1' value='1.0' id='myBaseRateSlider' style='width:100%;' oninput="document.getElementById('myBaseRateLabel').textContent=this.value">
+
+Burst frequency (bursts/sec): <span id='myBaseBurstFreqLabel'>0.5</span><br>
+<input type='range' min='0.1' max='2' step='0.1' value='0.5' id='myBaseBurstFreqSlider' style='width:100%;' oninput="document.getElementById('myBaseBurstFreqLabel').textContent=this.value">
+
+Burst duration (ms): <span id='myBaseBurstDurLabel'>200</span><br>
+<input type='range' min='50' max='500' step='10' value='200' id='myBaseBurstDurSlider' style='width:100%;' oninput="document.getElementById('myBaseBurstDurLabel').textContent=this.value">
+
+Burst propagation speed:
+<select id='myBaseSpeedSelect'>
+<option value='slow'>Slow</option>
+<option value='medium' selected>Medium</option>
+<option value='fast'>Fast</option>
+</select>
+<br>
+
+Activity hotspots: <span id='myBaseHotspotLabel'>4</span><br>
+<input type='range' min='1' max='10' step='1' value='4' id='myBaseHotspotSlider' style='width:100%;' oninput="document.getElementById('myBaseHotspotLabel').textContent=this.value">
+
+Connectivity:
+<select id='myBaseConnSelect'>
+<option value='sparse'>Sparse</option>
+<option value='local' selected>Local</option>
+<option value='small-world'>Small-world</option>
+<option value='hub'>Hub dominated</option>
+</select>
+</div>
+
+<div id='myBaselineStatsDiv' style='background:#08101b;padding:8px;font-family:monospace;font-size:11px;margin-top:8px;line-height:1.5;'>No baseline loaded.</div>
+
+<div style='margin-top:8px;font-size:12px;'>
+<div id='myBaselineStatusDiv' style='background:#08101b;padding:6px 8px;margin-bottom:6px;font-family:monospace;font-size:11px;'>Baseline: None</div>
+Replay time: <span id='myBaselineTimeLabel'>0.00s</span><br>
+<input type='range' min='0' max='8000' step='10' value='0' id='myBaselineTimeSlider' style='width:100%;' oninput='myOnBaselineTimeSlider(this.value)'>
+</div>
+
+<div style='font-size:11px;margin-top:6px;'>
+<span style='display:inline-block;width:10px;height:10px;background:#3050ff;margin-right:3px;'></span>Silent&nbsp;
+<span style='display:inline-block;width:10px;height:10px;background:#30ff90;margin-right:3px;'></span>Low&nbsp;
+<span style='display:inline-block;width:10px;height:10px;background:#ffe030;margin-right:3px;'></span>Moderate&nbsp;
+<span style='display:inline-block;width:10px;height:10px;background:#ff4060;margin-right:3px;'></span>High&nbsp;
+<span style='display:inline-block;width:10px;height:10px;background:#ffffff;margin-right:3px;'></span>Burst-active now
+</div>
+
+<h3>Automatic Zone Suggestions</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Computed from the baseline once loaded. Suggestions retarget when the topology changes.</div>
+<div id='myBaselineSuggestDiv' style='background:#08101b;padding:8px;font-family:monospace;font-size:11px;line-height:1.5;'>Load or generate a baseline first.</div>
+
+<h3>Phase 2: Protocol Design</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:10px;'>Everything below designs and tests a stimulation protocol on top of the baseline (or from scratch if no baseline is loaded).</div>
+
+<h3>Random Seed</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Same seed + same actions = identical randomized topology, truth table and weights. Useful for comparing runs or reproducing a classroom demo.</div>
+<input type='number' id='mySeedInput' style='width:110px;' value='0'>
+<input type='button' value='Apply Seed' onclick='myApplySeedFromInput()'>
+<input type='button' value='🎲 New Seed' onclick='myNewRandomSeed()'>
+
+<h3>Topology</h3>
+<input type='button' value='2×2' onclick='mySetTopology(2)'>
+<input type='button' value='3×3' onclick='mySetTopology(3)'>
+<input type='button' value='4×4' onclick='mySetTopology(4)'>
+<input type='button' value='5×5' onclick='mySetTopology(5)'>
+<input type='button' value='6×6' onclick='mySetTopology(6)'>
+<input type='button' value='7×7' onclick='mySetTopology(7)'>
+<br style='line-height:6px;'>
+<input type='button' value='🎲 Randomize' onclick='myRandomizeTopology()' style='background:#4a2f66;color:#fff;margin-top:6px;'>
+<input type='button' value='Clear Roles' onclick='myClearRoles()' style='margin-top:6px;'>
+<input type='button' id='myUndoBtn' value='Undo' onclick='myUndoLastChange()' style='margin-top:6px;' disabled>
+<div style='font-size:11px;color:#8fa0bf;margin-top:4px;'>Randomly assigns roles: N zones stim, N sensor, N encourage/discourage (N = floor(total zones / 3)), then randomizes the truth table and influence weights. On the 2×2 grid (too small for a third role group) it splits evenly into 2 stim / 2 sensor with no encourage/discourage zones. Clear Roles resets everything to Unused. Undo restores the state from just before the last Randomize / Clear.</div>
+
+<div style='font-size:11px;margin-top:6px;'>
+<span style='display:inline-block;width:10px;height:10px;background:#ff4060;margin-right:3px;'></span>Stim&nbsp;
+<span style='display:inline-block;width:10px;height:10px;background:#30ff90;margin-right:3px;'></span>Sensor&nbsp;
+<span style='display:inline-block;width:10px;height:10px;background:#4090ff;margin-right:3px;'></span>Encourage&nbsp;
+<span style='display:inline-block;width:10px;height:10px;background:#b050ff;margin-right:3px;'></span>Discourage&nbsp;
+<span style='display:inline-block;width:10px;height:10px;background:#8888aa;margin-right:3px;'></span>Unused
+</div>
+
+<h3>Run</h3>
+<input type='button' id='myModeToggleBtn' value='Mode: Training' onclick='myToggleMode()' style='font-weight:bold;'>
+<input type='button' value='Run / Stop' onclick='myToggleRun()'>
+<input type='button' value='Single Trial' onclick='myRunOnce()'>
+<input type='button' id='myRotateBtn' value='Rotation: On' onclick='myToggleAutoRotate()'>
+<br>
+<label style='font-size:12px;'><input type='checkbox' id='myCycleCheckbox' checked onchange='mySyncCycleCheckbox(this)'> Cycle truth-table patterns each trial</label>
+
+<h3>Baseline Activity</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Ongoing spontaneous firing across the whole well, independent of stimulation. Real cultured neurons on an HD-MEA typically show baseline spontaneous rates around 0.1–5 Hz per electrode, well before any deliberate stimulation — raise this to make more electrodes light up each trial.</div>
+Baseline firing rate: <span id='myBaselineLabel'>35%</span><br>
+<input type='range' min='0' max='100' step='1' value='35' id='myBaselineSlider' style='width:100%;' oninput='myOnBaselineChange(this.value)'>
+
+<h3>Selected Zone</h3>
+<div id='mySelectedZone' style='background:#08101b;padding:8px;font-family:monospace;font-size:12px;'>
+Click a zone in the 3D view
+</div>
+
+<div style='margin-top:8px;'>
+Role:
+<input class='myRoleBtn' id='myRoleBtn_unused' type='button' value='Unused' onclick="myint_SetZoneRole('unused')">
+<input class='myRoleBtn' id='myRoleBtn_stim' type='button' value='Inference Stim' onclick="myint_SetZoneRole('stim')">
+<input class='myRoleBtn' id='myRoleBtn_sensor' type='button' value='Sensor' onclick="myint_SetZoneRole('sensor')">
+<input class='myRoleBtn' id='myRoleBtn_encourage' type='button' value='Encourage' onclick="myint_SetZoneRole('encourage')">
+<input class='myRoleBtn' id='myRoleBtn_discourage' type='button' value='Discourage' onclick="myint_SetZoneRole('discourage')">
+</div>
+
+<div style='margin-top:8px;font-size:12px;'>
+Stim Zone Training frequency (Hz): <span id='myFreqLabel'>0</span><br>
+<input type='range' min='0' max='50' step='1' value='0' id='myFreqSlider' style='width:100%;' oninput="myOnFrequencyChange(this.value)">
+</div>
+
+<h3>Multi-Electrode Burst Timing</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>
+MaxOne has only <b>32 physical stimulation units</b> on the whole chip, so firing every electrode in a zone at once usually isn't possible once a zone's electrode count exceeds that. Bigger zones have to be electrode-swapped ("time-multiplexed") through that fixed 32-electrode budget, one group at a time. Since real neurons respond on a millisecond timescale, this scheduling matters even before any training starts — pick a preset to start, or dial in fine control below.
+</div>
+
+Preset:
+<select id='myBurstPresetSelect' style='width:100%;margin-top:2px;'>
+<option value='representative'>Representative electrode only (1/zone, fastest, no sweep)</option>
+<option value='fast'>Fast sweep (10 electrodes/group, 5 ms dwell)</option>
+<option value='slow'>Slow sweep (4 electrodes/group, 40 ms dwell)</option>
+<option value='custom'>Custom (use sliders below)</option>
+</select>
+<input type='button' value='Apply Preset' onclick='myApplyBurstPreset()' style='margin-top:4px;'>
+
+<div style='font-size:12px;margin-top:8px;'>
+Electrodes active per swap group: <span id='myBurstGroupLabel'>1</span> <span style='color:#8fa0bf;'>(hardware max 32)</span><br>
+<input type='range' min='1' max='32' step='1' value='1' id='myBurstGroupSlider' style='width:100%;' oninput='myOnBurstSliderChange()'>
+
+Swap dwell time (ms): <span id='myBurstDwellLabel'>20</span><br>
+<input type='range' min='1' max='200' step='1' value='20' id='myBurstDwellSlider' style='width:100%;' oninput='myOnBurstSliderChange()'>
+
+Pulse phase width (µs): <span id='myBurstWidthLabel'>100</span><br>
+<input type='range' min='20' max='500' step='10' value='100' id='myBurstWidthSlider' style='width:100%;' oninput='myOnBurstSliderChange()'>
+</div>
+
+<div id='myBurstScheduleDiv' style='background:#08101b;padding:8px;font-family:monospace;font-size:11px;margin-top:8px;line-height:1.5;'>
+Select a zone to see its electrode-swap schedule.
+</div>
+
+<h3>Input Pattern (Inference Stim Zones)</h3>
+<div id='myInputPatternDiv' style='background:#08101b;padding:8px;font-family:monospace;font-size:12px;'>
+No inference stim zones assigned yet.
+</div>
+
+<h3>Experimental Objective</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>What this protocol is optimizing for. All modes reuse the same weight-update mechanism below, just aimed at a different target — "Truth-table learning" is the only mode where the Truth Table itself is the target.</div>
+<select id='myObjectiveSelect' onchange='myOnObjectiveModeChange()' style='width:100%;'>
+<option value='truthtable'>Truth-table learning</option>
+<option value='connectivity'>Connectivity strengthening</option>
+<option value='directionality'>Directionality (A→B propagation)</option>
+<option value='burstlocalization'>Burst localization</option>
+<option value='latency'>Response latency</option>
+<option value='stability'>Stability</option>
+</select>
+
+<h3>Truth Table</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Click an output bit to toggle desired sensor state. Pattern bit order follows stim-zone assignment order.</div>
+<div id='myTruthTableDiv' style='background:#08101b;padding:8px;overflow:auto;max-height:220px;'>
+Assign roles to see the truth table.
+</div>
+
+<h3>Influence Heatmap</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Rows = stim zones, columns = sensor zones. Click a cell to raise weight (+0.1), shift-click to lower (-0.1).</div>
+<div id='myInfluenceDiv' style='background:#08101b;padding:8px;overflow:auto;max-height:220px;'>
+Assign roles to see influence weights.
+</div>
+
+<h3>Training Progress</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Mean absolute error (desired vs actual sensor output) over recent trials. Lower is better.</div>
+<div id='myErrorChartDiv' style='background:#08101b;padding:8px;'>
+No trials run yet.
+</div>
+
+<h3>Duplicate Run</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Same controls as the Run section above, repeated here so you don't have to scroll back up while watching Statistics.</div>
+<input type='button' id='myModeToggleBtn2' value='Mode: Training' onclick='myToggleMode()' style='font-weight:bold;'>
+<input type='button' value='Run / Stop' onclick='myToggleRun()'>
+<input type='button' value='Single Trial' onclick='myRunOnce()'>
+<input type='button' id='myRotateBtn2' value='Rotation: On' onclick='myToggleAutoRotate()'>
+<br>
+<label style='font-size:12px;'><input type='checkbox' id='myCycleCheckbox2' checked onchange='mySyncCycleCheckbox(this)'> Cycle truth-table patterns each trial</label>
+
+<h3>Statistics</h3>
+<div id='myStats' style='background:#08101b;padding:8px;font-family:monospace;font-size:12px;line-height:1.5;'></div>
+
+<h3>Research Dashboard</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Baseline metrics (Phase 1) alongside training metrics (Phase 2), for a single at-a-glance view.</div>
+<div id='myDashboardDiv' style='background:#08101b;padding:8px;font-family:monospace;font-size:11px;line-height:1.5;'></div>
+
+<h3>Experimental Comparison</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Store snapshots of the current topology/zones/schedule/objective/baseline to compare protocols side by side.</div>
+<input type='button' value='Store current run' onclick='myAddExperimentToComparison()'>
+<div id='myComparisonDiv' style='background:#08101b;padding:8px;overflow:auto;max-height:200px;margin-top:6px;'>No experiments stored yet. Click "Store current run" to add one.</div>
+
+<h3>Trial Log</h3>
+<div id='myTrial' style='background:#08101b;padding:8px;font-family:monospace;font-size:11px;white-space:pre-wrap;'></div>
+
+<h3>Educational Mode</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:10px;line-height:1.5;'>No MaxOne hardware or data required: generate a synthetic culture, observe its bursts and hotspots, place zones from the automatic suggestions (or by hand), and store/compare protocols — the whole Phase 1 → Phase 2 workflow works standalone for classroom use.</div>
+
+<h3>Save / Load</h3>
+<input type='button' value='Save JSON' onclick='mySaveJSON()'>
+<input type='button' value='Load JSON' onclick="document.getElementById('myLoadFile').click()">
+<input type='file' id='myLoadFile' accept='.json' style='display:none;' onchange='myLoadJSON(event)'>
+
+<h3>Python Export</h3>
+<input type='button' value='Generate Python Protocol' onclick='myGeneratePython()'>
+<textarea id='myPythonArea' style='width:100%;height:160px;background:#08101b;color:#bcd;font-family:monospace;font-size:11px;margin-top:6px;'></textarea>
+
+<h3>How this training actually works</h3>
+<div style='font-size:11px;color:#9fb0c9;background:#08101b;padding:8px;line-height:1.5;'>
+Each trial, the current stim pattern is multiplied through a simple weight matrix (one weight per stim→sensor pair) to get an "actual" sensor output. In <b>Training</b> mode, any gap between that output and the truth table's desired output nudges the relevant weights up or down (a basic error-correction / Hebbian-style rule) — the size of the nudge scales with the average frequency set on the Encourage zones, while Discourage zones bias weight changes downward. In <b>Inference</b> mode, weights are just read out, not changed. This is a rough software analogy for how repeated, targeted electrical stimulation might reinforce or weaken pathways in a living neural culture on a real HD-MEA chip — it does <b>not</b> model real neuron biophysics, plasticity mechanisms, or noise.
+</div>
+
+<div style='font-size:11px;color:#ffb066;background:#1c1408;border:1px solid #4a3410;padding:8px;margin-top:8px;line-height:1.5;'>
+⚠️ <b>This is a simulation only.</b> It is a teaching sandbox for exploring the idea of closed-loop stimulation and training on an HD-MEA array. Whether anything like this training rule actually works on real biological neurons is an open research question that would require significant wet-lab validation. Use at your own risk — do not treat this tool's output as a validated protocol for real hardware or living tissue.
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+let myScene;
+let myCamera;
+let myRenderer;
+let myControls;
+
+let myArrayGroup;
+let myZoneGroup;
+let myElectrodeGroup;
+let myStimGroup;
+
+let myRaycaster = new THREE.Raycaster();
+let myMouse = new THREE.Vector2();
+
+let myTopology = 2;
+let myZones = [];
+let myElectrodes = [];
+
+let mySelectedZone = -1;
+
+let myRunning = false;
+let myBaselineRate = 0.35;
+
+// ---- V18: multi-electrode burst / swap-group timing ----
+let myBurstElectrodesPerGroup = 1;
+let myBurstDwellMs = 20;
+let myBurstPulseWidthUs = 100;
+let myAutoRotate = true;
+let myMode = 'training';
+
+let myEpoch = 0;
+let myTrial = 0;
+
+let myLastTime = 0;
+
+const myRows = 22;
+const myCols = 46;
+const myElectrodeCount = myRows * myCols;
+
+// ---- V12 role / training engine state ----
+
+let myStimZones = [];       // array of zone indices, in assignment order
+let mySensorZones = [];     // array of zone indices, in assignment order
+let myEncourageZones = [];  // array of zone indices
+let myDiscourageZones = []; // array of zone indices
+
+let myInfluence = {};       // key "stimIdx_sensorIdx" -> weight (-1..1)
+let myTruthTable = {};      // key "0,1,0" (pattern) -> [desired bits]
+let myInputPattern = [];    // current input bit vector, length = myStimZones.length
+let myCurrentPatternIndex = 0;
+
+let myLastStimCount = -1;
+let myLastSensorCount = -1;
+
+// ---- V14 additions: seeded RNG, undo snapshot, error history ----
+
+let mySeed = Math.floor(Date.now()%1e9);
+let myRngState = mySeed;
+
+function myMulberry32(mySeedVal){
+return function(){
+mySeedVal |= 0;
+mySeedVal = (mySeedVal + 0x6D2B79F5) | 0;
+let myT = Math.imul(mySeedVal ^ (mySeedVal>>>15), 1 | mySeedVal);
+myT = (myT + Math.imul(myT ^ (myT>>>7), 61 | myT)) ^ myT;
+return ((myT ^ (myT>>>14)) >>> 0) / 4294967296;
+};
+}
+
+let myRngFn = myMulberry32(mySeed);
+
+function myRandom(){
+return myRngFn();
+}
+
+function myReseed(myNewSeed){
+mySeed = myNewSeed >>> 0;
+myRngFn = myMulberry32(mySeed);
+}
+
+let myUndoSnapshot = null;
+
+let myErrorHistory = []; // recent mean-abs-error per trial, for the training progress chart
+
+// ---- V19: baseline-first workflow state ----
+let myBaseline = null;            // baseline object, see myGenerateSyntheticBaseline / myBuildBaselineFromSpikes
+let myBaselinePlaying = false;
+let myBaselineTime = 0;           // ms into the baseline recording, for replay
+let myLastBaselineFrameTime = 0;
+let myZoneConnCache = null;       // cached zone-to-zone connectivity matrix {key,matrix}
+let myZoneSuggestions = [];       // current automatic zone suggestions
+let myObjectiveMode = 'truthtable';
+let myExperiments = [];           // stored protocol snapshots for comparison mode
+let myBaselineInitialized = false;
+
+const myRoleColors = {
+unused:     {dim:0x333344, bright:0x8888aa},
+stim:       {dim:0x661020, bright:0xff4060},
+sensor:     {dim:0x105030, bright:0x30ff90},
+encourage:  {dim:0x102040, bright:0x4090ff},
+discourage: {dim:0x301040, bright:0xb050ff}
+};
+
+async function myInitialize(){
+
+myScene = new THREE.Scene();
+myScene.background = new THREE.Color(0x050810);
+
+myCamera = new THREE.PerspectiveCamera(
+50,
+window.innerWidth / window.innerHeight,
+0.1,
+1000
+);
+
+myCamera.position.set(0,8,12);
+
+myRenderer = new THREE.WebGLRenderer({antialias:true});
+myRenderer.setSize(window.innerWidth,window.innerHeight);
+myRenderer.setPixelRatio(window.devicePixelRatio);
+
+document.body.appendChild(myRenderer.domElement);
+
+myControls = new THREE.OrbitControls(
+myCamera,
+myRenderer.domElement
+);
+
+myControls.enableDamping = true;
+
+myScene.add(new THREE.AmbientLight(0xffffff,0.8));
+
+let myLight = new THREE.PointLight(0xffffff,1.2);
+myLight.position.set(0,10,8);
+myScene.add(myLight);
+
+myArrayGroup = new THREE.Group();
+myScene.add(myArrayGroup);
+
+myCreateChip();
+myCreateElectrodes();
+myCreateStimSites();
+mySetTopology(2);
+
+myRenderer.domElement.onclick = myPickZone;
+
+myRenderer.domElement.addEventListener('mousemove', myOnHoverMove);
+
+myRenderer.domElement.addEventListener('mouseleave', function(){
+document.getElementById('myHoverTooltip').style.display = 'none';
+});
+
+window.onresize = myResize;
+
+myUpdateModeButton();
+
+document.getElementById('mySeedInput').value = String(mySeed);
+
+myUpdateUndoButton();
+
+myInitPanelResize();
+
+myRenderBaselineStats();
+myRenderBaselineSuggestions();
+myRenderComparisonTable();
+myRenderResearchDashboard();
+
+myAnimate();
+
+}
+
+function myInitPanelResize(){
+
+let myPanel = document.getElementById('myPanel');
+let myHandle = document.getElementById('myResizeHandle');
+
+let myResizing = false;
+let myStartX = 0;
+let myStartWidth = 0;
+
+function myStart(myClientX){
+myResizing = true;
+myStartX = myClientX;
+myStartWidth = myPanel.offsetWidth;
+document.body.style.userSelect = 'none';
+myHandle.style.background = 'rgba(127,208,255,0.35)';
+}
+
+function myMove(myClientX){
+if(!myResizing) return;
+let myDelta = myClientX - myStartX;
+let myMax = Math.max(320, window.innerWidth - 40);
+let myNewWidth = Math.max(320, Math.min(myMax, myStartWidth + myDelta));
+myPanel.style.width = myNewWidth + 'px';
+}
+
+function myEnd(){
+myResizing = false;
+document.body.style.userSelect = '';
+myHandle.style.background = 'rgba(127,208,255,0.08)';
+}
+
+myHandle.addEventListener('mousedown', function(myEvent){
+myStart(myEvent.clientX);
+myEvent.preventDefault();
+});
+
+document.addEventListener('mousemove', function(myEvent){
+myMove(myEvent.clientX);
+});
+
+document.addEventListener('mouseup', myEnd);
+
+myHandle.addEventListener('touchstart', function(myEvent){
+myStart(myEvent.touches[0].clientX);
+}, {passive:true});
+
+document.addEventListener('touchmove', function(myEvent){
+if(myResizing) myMove(myEvent.touches[0].clientX);
+}, {passive:true});
+
+document.addEventListener('touchend', myEnd);
+
+myHandle.addEventListener('mouseenter', function(){
+if(!myResizing) myHandle.style.background = 'rgba(127,208,255,0.2)';
+});
+
+myHandle.addEventListener('mouseleave', function(){
+if(!myResizing) myHandle.style.background = 'rgba(127,208,255,0.08)';
+});
+
+}
+
+function myCreateChip(){
+
+let myChip = new THREE.Mesh(
+new THREE.BoxGeometry(16,0.08,8),
+new THREE.MeshPhongMaterial({
+color:0x101927,
+transparent:true,
+opacity:0.65
+})
+);
+
+myChip.position.y = -0.05;
+myArrayGroup.add(myChip);
+
+let myGrid = new THREE.GridHelper(16,46,0x44556d,0x223040);
+myGrid.scale.z = 0.5;
+myArrayGroup.add(myGrid);
+
+}
+
+function myCreateElectrodes(){
+
+myElectrodeGroup = new THREE.Group();
+
+for(let myR=0; myR<myRows; myR++){
+
+for(let myC=0; myC<myCols; myC++){
+
+let myX = (myC/(myCols-1)-0.5)*15;
+let myZ = (myR/(myRows-1)-0.5)*7.5;
+
+let myMesh = new THREE.Mesh(
+new THREE.SphereGeometry(0.03,6,6),
+new THREE.MeshBasicMaterial({color:0x36dc72})
+);
+
+myMesh.position.set(myX,0.04,myZ);
+
+myElectrodeGroup.add(myMesh);
+
+myElectrodes.push({
+id: myR*myCols+myC,
+x:myX,
+z:myZ,
+mesh:myMesh,
+firing:false,
+zone:-1
+});
+
+}
+}
+
+myArrayGroup.add(myElectrodeGroup);
+
+}
+
+function myCreateStimSites(){
+
+myStimGroup = new THREE.Group();
+
+for(let myI=0; myI<32; myI++){
+
+let myMesh = new THREE.Mesh(
+new THREE.SphereGeometry(0.10,10,10),
+new THREE.MeshBasicMaterial({color:0xff4060})
+);
+
+myStimGroup.add(myMesh);
+
+}
+
+myArrayGroup.add(myStimGroup);
+
+}
+
+function mySetTopology(mySize){
+
+myRunning = false;
+myErrorHistory = [];
+myUndoSnapshot = null;
+
+myTopology = mySize;
+
+if(myZoneGroup){
+myArrayGroup.remove(myZoneGroup);
+}
+
+myZoneGroup = new THREE.Group();
+
+myZones = [];
+
+let myIndex = 0;
+
+// Zones sit in a fixed 12x6 rectangle. As the grid gets denser the
+// row spacing (short axis) becomes the limiting factor, so shrink the
+// disc/ring radius once it would otherwise overlap its neighbors.
+let myRowSpacing = 6/(mySize-1);
+let myZoneRadius = Math.min(0.9, Math.max(0.28, myRowSpacing/2 - 0.12));
+let myRingInner = myZoneRadius*0.955;
+let myRingOuter = myZoneRadius*1.02;
+
+for(let myR=0; myR<mySize; myR++){
+
+for(let myC=0; myC<mySize; myC++){
+
+let myX = -6 + myC*(12/(mySize-1));
+let myZ = -3 + myR*(6/(mySize-1));
+
+let myDisc = new THREE.Mesh(
+new THREE.CylinderGeometry(myZoneRadius,myZoneRadius,0.05,24),
+new THREE.MeshBasicMaterial({
+color:myRoleColors.unused.bright,
+transparent:true,
+opacity:0.16
+})
+);
+
+myDisc.position.set(myX,0.12,myZ);
+myDisc.userData.zone = myIndex;
+
+let myRing = new THREE.Mesh(
+new THREE.RingGeometry(myRingInner,myRingOuter,24),
+new THREE.MeshBasicMaterial({
+color:myRoleColors.unused.bright,
+side:THREE.DoubleSide
+})
+);
+
+myRing.rotation.x = -Math.PI/2;
+myRing.position.set(myX,0.16,myZ);
+myRing.userData.zone = myIndex;
+
+myZoneGroup.add(myDisc);
+myZoneGroup.add(myRing);
+
+myZones.push({
+index:myIndex,
+x:myX,
+z:myZ,
+role:'unused',
+freq:0,
+activity:0,
+electrodes:[],
+stimIndex:-1,
+sensorIndex:-1,
+baselineBias:0
+});
+
+myIndex++;
+
+}
+}
+
+myArrayGroup.add(myZoneGroup);
+
+myAssignElectrodes();
+
+myLastStimCount = -1;
+myLastSensorCount = -1;
+myInfluence = {};
+myInputPattern = [];
+myCurrentPatternIndex = 0;
+
+myRecomputeRoleArrays();
+myRebuildTruthTable(true);
+myPositionStimSites();
+
+mySelectedZone = -1;
+
+myRenderInputPattern();
+myRenderTruthTable();
+myRenderInfluenceHeatmap();
+myUpdateVisualization();
+myUpdateStats();
+myUpdateSelectedZonePanel();
+myRenderErrorChart();
+myUpdateUndoButton();
+
+myZoneConnCache = null;
+
+if(myBaseline){
+myZoneConnCache = null;
+myComputeZoneSuggestions();
+myRenderBaselineSuggestions();
+myInitializeFromBaseline();
+}
+
+myRenderResearchDashboard();
+
+}
+
+function myAssignElectrodes(){
+
+for(let myZone of myZones){
+myZone.electrodes = [];
+}
+
+for(let myE of myElectrodes){
+
+let myBest = 0;
+let myDistance = 1e9;
+
+for(let myZone of myZones){
+
+let myD = Math.hypot(
+myE.x-myZone.x,
+myE.z-myZone.z
+);
+
+if(myD<myDistance){
+myDistance = myD;
+myBest = myZone.index;
+}
+
+}
+
+myE.zone = myBest;
+myZones[myBest].electrodes.push(myE);
+
+}
+
+}
+
+function myPositionStimSites(){
+
+if(myStimZones.length===0){
+myStimGroup.visible = false;
+return;
+}
+
+myStimGroup.visible = true;
+
+for(let myI=0; myI<32; myI++){
+
+let myZoneIdx = myStimZones[myI % myStimZones.length];
+let myZone = myZones[myZoneIdx];
+
+let myAngle = myI/32*Math.PI*2;
+
+myStimGroup.children[myI].position.set(
+myZone.x + Math.cos(myAngle)*0.5,
+0.28,
+myZone.z + Math.sin(myAngle)*0.5
+);
+
+}
+
+}
+
+// ---- role bookkeeping ----
+
+function myRecomputeRoleArrays(){
+
+myStimZones = [];
+mySensorZones = [];
+myEncourageZones = [];
+myDiscourageZones = [];
+
+for(let myZone of myZones){
+
+if(myZone.role==='stim'){
+myZone.stimIndex = myStimZones.length;
+myStimZones.push(myZone.index);
+}else{
+myZone.stimIndex = -1;
+}
+
+if(myZone.role==='sensor'){
+myZone.sensorIndex = mySensorZones.length;
+mySensorZones.push(myZone.index);
+}else{
+myZone.sensorIndex = -1;
+}
+
+if(myZone.role==='encourage'){
+myEncourageZones.push(myZone.index);
+}
+
+if(myZone.role==='discourage'){
+myDiscourageZones.push(myZone.index);
+}
+
+}
+
+for(let myI=0; myI<myStimZones.length; myI++){
+for(let myJ=0; myJ<mySensorZones.length; myJ++){
+let myKey = myI+'_'+myJ;
+if(!(myKey in myInfluence)){
+myInfluence[myKey] = +(0.05+myRandom()*0.2).toFixed(3);
+}
+}
+}
+
+if(myInputPattern.length !== myStimZones.length){
+let myOld = myInputPattern;
+myInputPattern = new Array(myStimZones.length).fill(0);
+for(let myI=0; myI<Math.min(myOld.length,myInputPattern.length); myI++){
+myInputPattern[myI] = myOld[myI];
+}
+}
+
+myPositionStimSites();
+
+}
+
+function myShuffleArray(myArr){
+
+for(let myI=myArr.length-1; myI>0; myI--){
+
+let myJ = Math.floor(myRandom()*(myI+1));
+
+let myTemp = myArr[myI];
+myArr[myI] = myArr[myJ];
+myArr[myJ] = myTemp;
+
+}
+
+return myArr;
+
+}
+
+function myTakeSnapshot(){
+
+myUndoSnapshot = {
+topology: myTopology,
+zoneRoles: myZones.map(myZ=>myZ.role),
+zoneFreqs: myZones.map(myZ=>myZ.freq),
+influence: JSON.parse(JSON.stringify(myInfluence)),
+truthTable: JSON.parse(JSON.stringify(myTruthTable)),
+inputPattern: myInputPattern.slice(),
+currentPatternIndex: myCurrentPatternIndex,
+errorHistory: myErrorHistory.slice()
+};
+
+myUpdateUndoButton();
+
+}
+
+function myUndoLastChange(){
+
+if(!myUndoSnapshot) return;
+if(myUndoSnapshot.topology !== myTopology) return;
+
+for(let myI=0; myI<myZones.length; myI++){
+myZones[myI].role = myUndoSnapshot.zoneRoles[myI] || 'unused';
+myZones[myI].freq = myUndoSnapshot.zoneFreqs[myI] || 0;
+}
+
+myInfluence = myUndoSnapshot.influence;
+myTruthTable = myUndoSnapshot.truthTable;
+myInputPattern = myUndoSnapshot.inputPattern;
+myCurrentPatternIndex = myUndoSnapshot.currentPatternIndex;
+myErrorHistory = myUndoSnapshot.errorHistory;
+
+myUndoSnapshot = null;
+myRunning = false;
+
+myRecomputeRoleArrays();
+
+myLastStimCount = myStimZones.length;
+myLastSensorCount = mySensorZones.length;
+
+mySelectedZone = -1;
+
+myRenderInputPattern();
+myRenderTruthTable();
+myRenderInfluenceHeatmap();
+myUpdateVisualization();
+myUpdateStats();
+myUpdateSelectedZonePanel();
+myRenderErrorChart();
+myUpdateUndoButton();
+
+}
+
+function myUpdateUndoButton(){
+
+let myBtn = document.getElementById('myUndoBtn');
+
+if(!myBtn) return;
+
+myBtn.disabled = !myUndoSnapshot;
+
+}
+
+function myClearRoles(){
+
+myTakeSnapshot();
+
+myRunning = false;
+myErrorHistory = [];
+
+for(let myZone of myZones){
+myZone.role = 'unused';
+myZone.freq = 0;
+}
+
+myInfluence = {};
+myInputPattern = [];
+myCurrentPatternIndex = 0;
+
+myRecomputeRoleArrays();
+myRebuildTruthTable(true);
+
+mySelectedZone = -1;
+
+myRenderInputPattern();
+myRenderTruthTable();
+myRenderInfluenceHeatmap();
+myUpdateVisualization();
+myUpdateStats();
+myUpdateSelectedZonePanel();
+myRenderErrorChart();
+
+}
+
+function myRandomizeTopology(){
+
+myTakeSnapshot();
+
+myRunning = false;
+myErrorHistory = [];
+
+for(let myZone of myZones){
+myZone.role = 'unused';
+myZone.freq = 0;
+}
+
+let myOrder = myShuffleArray(myZones.map(myZ=>myZ.index));
+
+let myPtr = 0;
+
+if(myZones.length < 6){
+
+// Too small to fit a third role group (e.g. 2x2 = 4 zones): split evenly
+// between stim and sensor only, no encourage/discourage zones.
+
+let myPerRole = Math.floor(myZones.length/2);
+
+for(let myI=0; myI<myPerRole; myI++){
+myZones[myOrder[myPtr++]].role = 'stim';
+}
+
+for(let myI=0; myI<myPerRole; myI++){
+myZones[myOrder[myPtr++]].role = 'sensor';
+}
+
+}else if(myTopology<=3){
+
+// 3x3: symmetric 3-way split (3 stim / 3 sensor / 3 encourage-discourage).
+
+let myPerRole = Math.floor(myZones.length/3);
+
+for(let myI=0; myI<myPerRole; myI++){
+myZones[myOrder[myPtr++]].role = 'stim';
+}
+
+for(let myI=0; myI<myPerRole; myI++){
+myZones[myOrder[myPtr++]].role = 'sensor';
+}
+
+for(let myI=0; myI<myPerRole; myI++){
+
+let myZone = myZones[myOrder[myPtr++]];
+
+myZone.role = (myRandom()<0.5) ? 'encourage' : 'discourage';
+myZone.freq = 10 + Math.round(myRandom()*30);
+
+}
+
+}else{
+
+// Above 3x3: keep it simple. Always exactly 3 stim / 3 sensor zones
+// (so the input/output pattern size stays small and easy to reason
+// about), but still scale the encourage/discourage pool with grid size.
+
+let myStimSensorCount = 3;
+let myEncDiscCount = Math.floor(myZones.length/3);
+
+for(let myI=0; myI<myStimSensorCount; myI++){
+myZones[myOrder[myPtr++]].role = 'stim';
+}
+
+for(let myI=0; myI<myStimSensorCount; myI++){
+myZones[myOrder[myPtr++]].role = 'sensor';
+}
+
+for(let myI=0; myI<myEncDiscCount; myI++){
+
+let myZone = myZones[myOrder[myPtr++]];
+
+myZone.role = (myRandom()<0.5) ? 'encourage' : 'discourage';
+myZone.freq = 10 + Math.round(myRandom()*30);
+
+}
+
+}
+
+myInfluence = {};
+
+myRecomputeRoleArrays();
+myRebuildTruthTable(true);
+
+// Truth table is not randomized: each stim zone is matched 1:1 to the
+// sensor zone assigned in the same order, so the desired output pattern
+// always equals the input pattern (stim i "on" -> sensor i desired "on").
+
+for(let myKey of Object.keys(myTruthTable)){
+
+let myBits = myKey.length ? myKey.split(',').map(Number) : [];
+let myM = myTruthTable[myKey].length;
+
+myTruthTable[myKey] = new Array(myM).fill(0).map((myV,myJ)=> myBits[myJ]!==undefined ? myBits[myJ] : 0);
+
+}
+
+myInputPattern = myInputPattern.map(()=>(myRandom()<0.5 ? 1 : 0));
+
+mySelectedZone = -1;
+
+myRenderInputPattern();
+myRenderTruthTable();
+myRenderInfluenceHeatmap();
+myUpdateVisualization();
+myUpdateStats();
+myUpdateSelectedZonePanel();
+myRenderErrorChart();
+
+}
+
+function myGetInfluence(myStimIdx,mySensorIdx){
+let myKey = myStimIdx+'_'+mySensorIdx;
+if(!(myKey in myInfluence)){
+myInfluence[myKey] = 0.15;
+}
+return myInfluence[myKey];
+}
+
+function mySetInfluence(myStimIdx,mySensorIdx,myValue){
+myInfluence[myStimIdx+'_'+mySensorIdx] = +myValue.toFixed(3);
+}
+
+function myIntToBits(myInt,myLength){
+let myBits = new Array(myLength).fill(0);
+for(let myB=0; myB<Math.min(myLength,6); myB++){
+myBits[myB] = (myInt>>myB)&1;
+}
+return myBits;
+}
+
+function myRebuildTruthTable(myForce){
+
+let myN = myStimZones.length;
+let myM = mySensorZones.length;
+
+if(myForce || myN!==myLastStimCount || myM!==myLastSensorCount){
+
+myTruthTable = {};
+
+let myPatternCount = Math.min(Math.pow(2,Math.max(myN,0)),64);
+
+for(let myI=0; myI<myPatternCount; myI++){
+let myBits = myIntToBits(myI,myN);
+myTruthTable[myBits.join(',')] = new Array(myM).fill(0);
+}
+
+myLastStimCount = myN;
+myLastSensorCount = myM;
+
+}
+
+}
+
+// ---- picking / zone editing ----
+
+function myPickZone(myEvent){
+
+let myRect = myRenderer.domElement.getBoundingClientRect();
+
+myMouse.x = ((myEvent.clientX-myRect.left)/myRect.width)*2-1;
+myMouse.y = -((myEvent.clientY-myRect.top)/myRect.height)*2+1;
+
+myRaycaster.setFromCamera(myMouse,myCamera);
+
+let myHits = myRaycaster.intersectObjects(
+myZoneGroup.children
+);
+
+if(myHits.length===0) return;
+
+mySelectedZone = myHits[0].object.userData.zone;
+
+myUpdateSelectedZonePanel();
+myUpdateVisualization();
+
+}
+
+function myOnHoverMove(myEvent){
+
+let myRect = myRenderer.domElement.getBoundingClientRect();
+
+myMouse.x = ((myEvent.clientX-myRect.left)/myRect.width)*2-1;
+myMouse.y = -((myEvent.clientY-myRect.top)/myRect.height)*2+1;
+
+myRaycaster.setFromCamera(myMouse,myCamera);
+
+let myHits = myRaycaster.intersectObjects(myZoneGroup.children);
+
+let myTooltip = document.getElementById('myHoverTooltip');
+
+if(myHits.length===0){
+myTooltip.style.display = 'none';
+return;
+}
+
+let myIndex = myHits[0].object.userData.zone;
+let myZone = myZones[myIndex];
+
+let myLines = [
+'<b>Zone '+myZone.index+'</b> ('+myZone.role+')',
+'Activity: '+myZone.activity.toFixed(3),
+'Electrodes: '+myZone.electrodes.length
+];
+
+if(myZone.role==='stim'){
+myLines.push('Stim index: '+myZone.stimIndex);
+myLines.push('Input bit: '+(myInputPattern[myZone.stimIndex]!==undefined ? myInputPattern[myZone.stimIndex] : '-'));
+}
+
+if(myZone.role==='sensor'){
+myLines.push('Sensor index: '+myZone.sensorIndex);
+}
+
+if(myZone.role==='encourage' || myZone.role==='discourage'){
+myLines.push('Training freq: '+myZone.freq+' Hz');
+}
+
+myTooltip.innerHTML = myLines.join('<br>');
+myTooltip.style.left = (myEvent.clientX+14)+'px';
+myTooltip.style.top = (myEvent.clientY+14)+'px';
+myTooltip.style.display = 'block';
+
+}
+
+function myUpdateSelectedZonePanel(){
+
+let myButtons = ['unused','stim','sensor','encourage','discourage'];
+
+if(mySelectedZone<0){
+
+document.getElementById('mySelectedZone').innerHTML = 'Click a zone in the 3D view';
+
+for(let myR of myButtons){
+document.getElementById('myRoleBtn_'+myR).classList.remove('myRoleBtnActive');
+}
+
+document.getElementById('myFreqSlider').value = 0;
+document.getElementById('myFreqLabel').textContent = '0';
+
+myUpdateBurstSchedule();
+
+return;
+
+}
+
+let myZone = myZones[mySelectedZone];
+
+document.getElementById('mySelectedZone').innerHTML =
+'Zone: '+myZone.index+'<br>'+
+'Role: '+myZone.role+'<br>'+
+'Assigned electrodes: '+myZone.electrodes.length+'<br>'+
+'Activity: '+myZone.activity.toFixed(3)+'<br>'+
+'Training frequency: '+myZone.freq+' Hz'+
+(myZone.role==='stim' ? '<br>Stim index: '+myZone.stimIndex : '')+
+(myZone.role==='sensor' ? '<br>Sensor index: '+myZone.sensorIndex : '');
+
+for(let myR of myButtons){
+if(myR===myZone.role){
+document.getElementById('myRoleBtn_'+myR).classList.add('myRoleBtnActive');
+}else{
+document.getElementById('myRoleBtn_'+myR).classList.remove('myRoleBtnActive');
+}
+}
+
+document.getElementById('myFreqSlider').value = myZone.freq;
+document.getElementById('myFreqLabel').textContent = String(myZone.freq);
+
+myUpdateBurstSchedule();
+
+}
+
+function myint_SetZoneRole(myRole){
+
+if(mySelectedZone<0) return;
+
+let myZone = myZones[mySelectedZone];
+
+myZone.role = myRole;
+
+if((myRole==='encourage' || myRole==='discourage') && myZone.freq===0){
+myZone.freq = 20;
+}
+
+myRecomputeRoleArrays();
+myRebuildTruthTable(false);
+
+myRenderInputPattern();
+myRenderTruthTable();
+myRenderInfluenceHeatmap();
+myUpdateVisualization();
+myUpdateSelectedZonePanel();
+myUpdateStats();
+
+}
+
+function myOnFrequencyChange(myValue){
+
+if(mySelectedZone<0) return;
+
+myZones[mySelectedZone].freq = Number(myValue);
+
+document.getElementById('myFreqLabel').textContent = String(myValue);
+
+myUpdateSelectedZonePanel();
+myUpdateVisualization();
+
+}
+
+// ---- V18: multi-electrode burst / swap-group timing ----
+
+function myApplyBurstPreset(){
+
+let myPreset = document.getElementById('myBurstPresetSelect').value;
+
+if(myPreset==='representative'){
+myBurstElectrodesPerGroup = 1;
+myBurstDwellMs = 20;
+myBurstPulseWidthUs = 100;
+}else if(myPreset==='fast'){
+myBurstElectrodesPerGroup = 10;
+myBurstDwellMs = 5;
+myBurstPulseWidthUs = 100;
+}else if(myPreset==='slow'){
+myBurstElectrodesPerGroup = 4;
+myBurstDwellMs = 40;
+myBurstPulseWidthUs = 150;
+}
+// 'custom' leaves the current slider values as-is
+
+document.getElementById('myBurstGroupSlider').value = myBurstElectrodesPerGroup;
+document.getElementById('myBurstDwellSlider').value = myBurstDwellMs;
+document.getElementById('myBurstWidthSlider').value = myBurstPulseWidthUs;
+
+myUpdateBurstLabels();
+myUpdateBurstSchedule();
+
+}
+
+function myOnBurstSliderChange(){
+
+myBurstElectrodesPerGroup = Number(document.getElementById('myBurstGroupSlider').value);
+myBurstDwellMs = Number(document.getElementById('myBurstDwellSlider').value);
+myBurstPulseWidthUs = Number(document.getElementById('myBurstWidthSlider').value);
+
+document.getElementById('myBurstPresetSelect').value = 'custom';
+
+myUpdateBurstLabels();
+myUpdateBurstSchedule();
+
+}
+
+function myUpdateBurstLabels(){
+
+document.getElementById('myBurstGroupLabel').textContent = String(myBurstElectrodesPerGroup);
+document.getElementById('myBurstDwellLabel').textContent = String(myBurstDwellMs);
+document.getElementById('myBurstWidthLabel').textContent = String(myBurstPulseWidthUs);
+
+}
+
+function myUpdateBurstSchedule(){
+
+let myDiv = document.getElementById('myBurstScheduleDiv');
+
+if(!myDiv) return;
+
+if(mySelectedZone<0){
+myDiv.innerHTML = 'Select a zone to see its electrode-swap schedule.';
+return;
+}
+
+let myZone = myZones[mySelectedZone];
+let myCount = myZone.electrodes.length;
+
+if(myCount===0){
+myDiv.innerHTML = 'Zone '+myZone.index+' has no assigned electrodes.';
+return;
+}
+
+let myGroups = Math.ceil(myCount/myBurstElectrodesPerGroup);
+let mySweepMs = myGroups*myBurstDwellMs;
+
+let myLines = [];
+
+myLines.push('Zone '+myZone.index+' ('+myZone.role+'): '+myCount+' electrodes');
+myLines.push('Swap groups needed: '+myGroups+' (at '+myBurstElectrodesPerGroup+' electrode(s) live at once)');
+myLines.push('Full-zone sweep time: '+mySweepMs+' ms');
+myLines.push('Pulse phase width: '+myBurstPulseWidthUs+' &micro;s');
+
+if(myGroups>1){
+myLines.push('Only one group is ever live at a time -- the chip has 32 stim units total -- so covering every electrode in this zone takes '+mySweepMs+' ms even though '+myCount+' electrodes belong to it.');
+}else{
+myLines.push('Fits in a single swap group -- every electrode in this zone can be live simultaneously.');
+}
+
+myDiv.innerHTML = myLines.join('<br>');
+
+}
+
+function myOnBaselineChange(myValue){
+
+myBaselineRate = Number(myValue)/100;
+
+document.getElementById('myBaselineLabel').textContent = myValue+'%';
+
+}
+
+// ---- input pattern UI ----
+
+function myRenderInputPattern(){
+
+let myDiv = document.getElementById('myInputPatternDiv');
+
+if(myStimZones.length===0){
+myDiv.innerHTML = 'No inference stim zones assigned yet.';
+return;
+}
+
+let myHtml = '';
+
+for(let myI=0; myI<myStimZones.length; myI++){
+
+let myZoneIdx = myStimZones[myI];
+let myBit = myInputPattern[myI] || 0;
+
+myHtml += 'Stim['+myI+'] (zone '+myZoneIdx+'): '+
+'<input type="button" value="'+(myBit?'1':'0')+'" onclick="myToggleInputBit('+myI+')" style="width:32px;">'+' ';
+
+}
+
+myDiv.innerHTML = myHtml;
+
+}
+
+function myToggleInputBit(myI){
+
+myInputPattern[myI] = myInputPattern[myI] ? 0 : 1;
+
+myRenderInputPattern();
+myRenderTruthTable();
+
+}
+
+// ---- truth table UI ----
+
+function myRenderTruthTable(){
+
+let myDiv = document.getElementById('myTruthTableDiv');
+
+let myKeys = Object.keys(myTruthTable);
+
+if(myKeys.length===0){
+myDiv.innerHTML = 'Assign at least one Inference Stim zone and one Sensor zone.';
+return;
+}
+
+let myM = mySensorZones.length;
+
+let myHtml = "<table class='mySmallTable'><tr><th>Input</th><th colspan='"+Math.max(myM,1)+"'>Desired Output</th></tr>";
+
+let myCurrentKey = myInputPattern.join(',');
+
+for(let myKey of myKeys){
+
+let myDesired = myTruthTable[myKey];
+
+let myRowClass = (myKey===myCurrentKey) ? ' class="myTruthRowActive"' : '';
+
+myHtml += '<tr'+myRowClass+'><td>['+myKey+']</td>';
+
+for(let myJ=0; myJ<myM; myJ++){
+
+myHtml += '<td class="myHeatCell" onclick="myToggleTruthOutput(\''+myKey+'\','+myJ+')">'+(myDesired[myJ]||0)+'</td>';
+
+}
+
+if(myM===0){
+myHtml += '<td>(no sensors)</td>';
+}
+
+myHtml += '</tr>';
+
+}
+
+myHtml += '</table>';
+
+if(myLastStimCount>6){
+myHtml += "<div style='font-size:10px;color:#e0a040;margin-top:4px;'>Note: more than 6 stim zones — truth table capped at 64 patterns.</div>";
+}
+
+myDiv.innerHTML = myHtml;
+
+}
+
+function myToggleTruthOutput(myKey,myJ){
+
+myTruthTable[myKey][myJ] = myTruthTable[myKey][myJ] ? 0 : 1;
+
+myRenderTruthTable();
+
+}
+
+// ---- influence heatmap UI ----
+
+function myRenderInfluenceHeatmap(myEvent){
+
+let myDiv = document.getElementById('myInfluenceDiv');
+
+if(myStimZones.length===0 || mySensorZones.length===0){
+myDiv.innerHTML = 'Assign at least one Inference Stim zone and one Sensor zone.';
+return;
+}
+
+let myHtml = "<table class='mySmallTable'><tr><th></th>";
+
+for(let myJ=0; myJ<mySensorZones.length; myJ++){
+myHtml += '<th>Sensor['+myJ+']</th>';
+}
+
+myHtml += '</tr>';
+
+for(let myI=0; myI<myStimZones.length; myI++){
+
+myHtml += '<tr><th>Stim['+myI+']</th>';
+
+for(let myJ=0; myJ<mySensorZones.length; myJ++){
+
+let myW = myGetInfluence(myI,myJ);
+
+let myColor = myWeightToColor(myW);
+
+myHtml += '<td class="myHeatCell" style="background:'+myColor+'" '+
+'onclick="myOnHeatmapClick(event,'+myI+','+myJ+')">'+myW.toFixed(2)+'</td>';
+
+}
+
+myHtml += '</tr>';
+
+}
+
+myHtml += '</table>';
+
+myDiv.innerHTML = myHtml;
+
+}
+
+function myWeightToColor(myW){
+
+if(myW>=0){
+let myG = Math.round(60+myW*180);
+return 'rgba(30,'+myG+',80,0.85)';
+}else{
+let myR = Math.round(60+(-myW)*180);
+return 'rgba('+myR+',40,50,0.85)';
+}
+
+}
+
+function myOnHeatmapClick(myEvent,myI,myJ){
+
+let myCur = myGetInfluence(myI,myJ);
+
+let myDelta = myEvent && myEvent.shiftKey ? -0.1 : 0.1;
+
+let myNext = Math.max(-1,Math.min(1,myCur+myDelta));
+
+mySetInfluence(myI,myJ,myNext);
+
+myRenderInfluenceHeatmap();
+
+}
+
+// ---- simulation ----
+
+function mySetMode(myNewMode){
+
+myMode = myNewMode;
+
+myUpdateModeButton();
+myUpdateStats();
+
+}
+
+function myToggleMode(){
+
+mySetMode(myMode==='training' ? 'inference' : 'training');
+
+}
+
+function myUpdateModeButton(){
+
+for(let myId of ['myModeToggleBtn','myModeToggleBtn2']){
+
+let myBtn = document.getElementById(myId);
+
+if(!myBtn) continue;
+
+if(myMode==='training'){
+myBtn.value = 'Mode: Training';
+myBtn.style.background = '#2a6b3a';
+myBtn.style.color = '#fff';
+}else{
+myBtn.value = 'Mode: Inference';
+myBtn.style.background = '#1c3f66';
+myBtn.style.color = '#fff';
+}
+
+}
+
+}
+
+function myToggleAutoRotate(){
+
+myAutoRotate = !myAutoRotate;
+
+for(let myId of ['myRotateBtn','myRotateBtn2']){
+
+let myBtn = document.getElementById(myId);
+
+if(!myBtn) continue;
+
+myBtn.value = 'Rotation: ' + (myAutoRotate ? 'On' : 'Off');
+myBtn.style.background = myAutoRotate ? '' : '#3a2a2a';
+myBtn.style.color = myAutoRotate ? '' : '#fff';
+
+}
+
+}
+
+function mySyncCycleCheckbox(mySource){
+
+let myOtherId = (mySource.id==='myCycleCheckbox') ? 'myCycleCheckbox2' : 'myCycleCheckbox';
+let myOther = document.getElementById(myOtherId);
+
+if(myOther) myOther.checked = mySource.checked;
+
+}
+
+// ---- V14: seed control ----
+
+function myApplySeedFromInput(){
+
+let myInput = document.getElementById('mySeedInput');
+
+let myVal = parseInt(myInput.value,10);
+
+if(isNaN(myVal)) myVal = 0;
+
+myReseed(myVal);
+
+myInput.value = String(myVal>>>0);
+
+}
+
+function myNewRandomSeed(){
+
+let myVal = Math.floor(Math.random()*1e9);
+
+myReseed(myVal);
+
+document.getElementById('mySeedInput').value = String(myVal);
+
+}
+
+function myToggleRun(){
+
+myRunning = !myRunning;
+
+}
+
+function myRunOnce(){
+
+myTrial++;
+
+let myN = myStimZones.length;
+let myM = mySensorZones.length;
+
+let myCycle = document.getElementById('myCycleCheckbox').checked;
+
+if(myCycle && myN>0){
+
+let myPatternCount = Math.min(Math.pow(2,myN),64);
+
+myInputPattern = myIntToBits(myCurrentPatternIndex % myPatternCount, myN);
+
+}
+
+let myKey = myInputPattern.join(',');
+
+let myActual = new Array(myM).fill(0);
+
+for(let myJ=0; myJ<myM; myJ++){
+
+let myRaw = 0;
+
+for(let myI=0; myI<myN; myI++){
+myRaw += myInputPattern[myI]*myGetInfluence(myI,myJ);
+}
+
+myActual[myJ] = Math.max(0,Math.min(1,myRaw));
+
+}
+
+let myDesired = myComputeDesiredOutput(myKey, myActual);
+
+if(myMode==='training' && myN>0 && myM>0){
+
+let myEncFreqs = myEncourageZones.map(myZi=>myZones[myZi].freq);
+let myDiscFreqs = myDiscourageZones.map(myZi=>myZones[myZi].freq);
+
+let myEncGain = myEncFreqs.length ? (myEncFreqs.reduce((a,b)=>a+b,0)/myEncFreqs.length)/50 : 0;
+let myDiscGain = myDiscFreqs.length ? (myDiscFreqs.reduce((a,b)=>a+b,0)/myDiscFreqs.length)/50 : 0;
+
+let myEta = 0.02 + 0.25*myEncGain;
+
+if(myObjectiveMode==='latency'){
+myEta *= (50/Math.max(5,myBurstDwellMs));
+}
+
+for(let myI=0; myI<myN; myI++){
+
+if(myInputPattern[myI]===0) continue;
+
+for(let myJ=0; myJ<myM; myJ++){
+
+let myError = myDesired[myJ]-myActual[myJ];
+
+let myDelta = myEta*myError;
+
+if(myError<0){
+myDelta -= myDiscGain*0.15;
+}
+
+let myCur = myGetInfluence(myI,myJ);
+let myNext = Math.max(-1,Math.min(1,myCur+myDelta));
+
+mySetInfluence(myI,myJ,myNext);
+
+}
+}
+
+}
+
+for(let myZone of myZones){
+
+if(myZone.role==='stim'){
+myZone.activity = (myInputPattern[myZone.stimIndex]||0)*(0.85+myRandom()*0.15);
+}else if(myZone.role==='sensor'){
+myZone.activity = myActual[myZone.sensorIndex]||0;
+}else if(myZone.role==='encourage' || myZone.role==='discourage'){
+myZone.activity = myZone.freq/50;
+}else{
+myZone.activity = myBaselineRate*(0.3+myRandom()*0.7) + (myZone.baselineBias||0)*0.4;
+}
+
+for(let myE of myZone.electrodes){
+myE.firing = myRandom() < Math.min(0.95, 0.02 + myBaselineRate*0.3 + myZone.activity*0.3 + (myZone.baselineBias||0)*0.15);
+}
+
+}
+
+if(myCycle && myN>0){
+myCurrentPatternIndex++;
+}
+
+if(myTrial % 4===0){
+myEpoch++;
+}
+
+if(myM>0){
+
+let myErrSum = 0;
+
+for(let myJ=0; myJ<myM; myJ++){
+myErrSum += Math.abs(myDesired[myJ]-myActual[myJ]);
+}
+
+myErrorHistory.push(myErrSum/myM);
+
+if(myErrorHistory.length>150){
+myErrorHistory.shift();
+}
+
+}
+
+myRenderInputPattern();
+myRenderTruthTable();
+myRenderInfluenceHeatmap();
+myUpdateVisualization();
+myUpdateSelectedZonePanel();
+myUpdateStats();
+myUpdateTrialLog(myKey,myDesired,myActual);
+myRenderErrorChart();
+
+}
+
+function myRenderErrorChart(){
+
+let myDiv = document.getElementById('myErrorChartDiv');
+
+if(!myDiv) return;
+
+if(myErrorHistory.length===0){
+myDiv.innerHTML = 'No trials run yet.';
+return;
+}
+
+let myW = 300;
+let myH = 60;
+
+let myPoints = myErrorHistory.map((myErr,myI)=>{
+let myX = (myErrorHistory.length===1) ? 0 : (myI/(myErrorHistory.length-1))*myW;
+let myY = myH - Math.max(0,Math.min(1,myErr))*myH;
+return myX.toFixed(1)+','+myY.toFixed(1);
+}).join(' ');
+
+let myLatest = myErrorHistory[myErrorHistory.length-1];
+
+let myHtml =
+"<svg width='100%' height='"+myH+"' viewBox='0 0 "+myW+" "+myH+"' preserveAspectRatio='none' style='display:block;'>"+
+"<line x1='0' y1='"+(myH/2)+"' x2='"+myW+"' y2='"+(myH/2)+"' stroke='#223040' stroke-width='1'/>"+
+"<polyline points='"+myPoints+"' fill='none' stroke='#4090ff' stroke-width='1.5'/>"+
+"</svg>"+
+"<div style='font-size:11px;color:#8fa0bf;margin-top:2px;'>Latest error: "+myLatest.toFixed(3)+
+" &nbsp;|&nbsp; Trials shown: "+myErrorHistory.length+"</div>";
+
+myDiv.innerHTML = myHtml;
+
+}
+
+function myUpdateTrialLog(myKey,myDesired,myActual){
+
+let myErrText = myDesired.map((myD,myJ)=>{
+let myA = myActual[myJ]!==undefined ? myActual[myJ].toFixed(2) : '-';
+return 'S'+myJ+': desired='+myD+' actual='+myA;
+}).join('\n');
+
+document.getElementById('myTrial').textContent =
+'Epoch: '+myEpoch+'\n'+
+'Trial: '+myTrial+'\n'+
+'Mode: '+myMode+'\n'+
+'Input pattern: ['+myKey+']\n\n'+
+myErrText;
+
+}
+
+// ---- visualization ----
+
+
+
+function myUpdateBaselineSpike(myE,myColor,myHeight,myVisible){
+
+    if(!myE.mySpikeMesh){
+
+        let mySpikeGeometry = new THREE.CylinderGeometry(
+            0.008,
+            0.008,
+            0.10,
+            5
+        );
+
+        let mySpikeMaterial = new THREE.MeshBasicMaterial({
+            color:myColor,
+            transparent:true,
+            opacity:0.95
+        });
+
+        myE.mySpikeMesh = new THREE.Mesh(
+            mySpikeGeometry,
+            mySpikeMaterial
+        );
+
+        myE.mySpikeMesh.visible = false;
+
+        myElectrodeGroup.add(myE.mySpikeMesh);
+    }
+
+    myE.mySpikeMesh.material.color.setHex(myColor);
+
+    myE.mySpikeMesh.scale.set(
+        1,
+        myHeight/0.10,
+        1
+    );
+
+    myE.mySpikeMesh.position.set(
+        myE.x,
+        0.04 + myHeight/2,
+        myE.z
+    );
+
+    myE.mySpikeMesh.visible = myVisible;
+}
+
+
+
+
+
+function myUpdateVisualization(){
+
+    let myMaxRate = 0.5;
+
+    if(myBaseline){
+
+        for(let myE=0; myE<myElectrodeCount; myE++){
+
+            let myRate = myBaseline.firingRate[myE] || 0;
+
+            if(myRate>myMaxRate){
+                myMaxRate = myRate;
+            }
+        }
+    }
+
+    for(let myE of myElectrodes){
+
+        let myZone = myZones[myE.zone];
+
+        let myColors =
+            myZone ?
+            myRoleColors[myZone.role] :
+            myRoleColors.unused;
+
+        /*
+         * Defaults for electrodes without a baseline.
+         */
+
+        let myColor = myColors.dim;
+
+        let mySpikeColor = myColors.dim;
+
+        let mySpikeHeight = 0.035;
+
+        let mySpikeVisible = false;
+
+
+        /*
+         * =====================================================
+         * REAL-TIME SIMULATION FIRING
+         * =====================================================
+         *
+         * Keep the existing Run/Stop behavior.
+         */
+
+        if(myE.firing){
+
+            myColor = 0xffffff;
+
+            mySpikeColor = 0xffffff;
+
+            mySpikeHeight = 0.25;
+
+            mySpikeVisible = true;
+
+        }else if(myBaseline){
+
+            /*
+             * =================================================
+             * BASELINE FREQUENCY COLOR
+             * =================================================
+             *
+             * The sphere color represents average frequency.
+             *
+             * Blue   = Silent
+             * Green  = Low
+             * Yellow = Moderate
+             * Red    = High
+             */
+
+            let myRate =
+                myBaseline.firingRate[myE.id] || 0;
+
+            let myNorm =
+                Math.min(1,myRate/myMaxRate);
+
+
+            if(myNorm<0.08){
+
+                myColor = 0x3050ff;
+
+                mySpikeColor = 0x3050ff;
+
+                mySpikeHeight = 0.035;
+
+            }else if(myNorm<0.30){
+
+                myColor = 0x30ff90;
+
+                mySpikeColor = 0x30ff90;
+
+                mySpikeHeight = 0.055;
+
+            }else if(myNorm<0.65){
+
+                myColor = 0xffe030;
+
+                mySpikeColor = 0xffe030;
+
+                mySpikeHeight = 0.080;
+
+            }else{
+
+                myColor = 0xff4060;
+
+                mySpikeColor = 0xff4060;
+
+                mySpikeHeight = 0.110;
+            }
+
+
+            /*
+             * =================================================
+             * BASELINE REPLAY EVENT
+             * =================================================
+             *
+             * This is deliberately separate from the sphere.
+             *
+             * The sphere continues showing its frequency color.
+             *
+             * The vertical spike shows WHEN the neuron fires.
+             */
+
+            if(
+                myBaselinePlaying &&
+                myIsElectrodeActiveAtTime(
+                    myE.id,
+                    myBaselineTime
+                )
+            ){
+
+                mySpikeVisible = true;
+
+
+                /*
+                 * Slow activity:
+                 *
+                 * short colored tick
+                 */
+
+                if(myRate<2){
+
+                    mySpikeHeight = 0.055;
+
+                    mySpikeColor =
+                        myColor;
+
+                /*
+                 * Around 2 Hz:
+                 *
+                 * slightly larger colored tick
+                 */
+
+                }else if(myRate<5){
+
+                    mySpikeHeight = 0.10;
+
+                    mySpikeColor =
+                        myColor;
+
+                /*
+                 * Fast activity:
+                 *
+                 * longer marker
+                 */
+
+                }else if(myRate<10){
+
+                    mySpikeHeight = 0.18;
+
+                    mySpikeColor =
+                        0xffffff;
+
+                /*
+                 * Extremely fast activity:
+                 *
+                 * long white marker.
+                 *
+                 * This intentionally communicates:
+                 *
+                 * "Individual events are too fast
+                 *  for the eye to resolve."
+                 */
+
+                }else{
+
+                    mySpikeHeight = 0.25;
+
+                    mySpikeColor =
+                        0xffffff;
+                }
+            }
+        }
+
+
+        /*
+         * The sphere always gets the frequency color.
+         *
+         * Unlike the old implementation, replaying an event
+         * does NOT turn the sphere white.
+         */
+
+        myE.mesh.material.color.setHex(
+            myColor
+        );
+
+
+        /*
+         * Draw the temporal spike separately.
+         */
+
+        myUpdateBaselineSpike(
+            myE,
+            mySpikeColor,
+            mySpikeHeight,
+            mySpikeVisible
+        );
+    }
+
+
+    /*
+     * =========================================================
+     * EXPERIMENTAL ZONES
+     * =========================================================
+     *
+     * Zones remain permanently visible on top of the
+     * baseline activity.
+     */
+
+    for(let myI=0; myI<myZones.length; myI++){
+
+        let myZone = myZones[myI];
+
+        let myDisc =
+            myZoneGroup.children[myI*2];
+
+        let myRing =
+            myZoneGroup.children[myI*2+1];
+
+        let myColors =
+            myRoleColors[myZone.role];
+
+
+        myDisc.material.color.setHex(
+            myColors.bright
+        );
+
+        myRing.material.color.setHex(
+            myI===mySelectedZone ?
+            0xffffff :
+            myColors.bright
+        );
+
+
+        let myScale =
+            1 + myZone.activity*0.6;
+
+
+        myDisc.scale.set(
+            myScale,
+            myScale,
+            myScale
+        );
+
+        myRing.scale.set(
+            myScale,
+            myScale,
+            myScale
+        );
+    }
+}
+
+
+
+
+
+
+
+
+
+
+function myUpdateStats(){
+
+let myMean = myZones.reduce(
+(mySum,myZone)=>mySum+myZone.activity,
+0
+)/Math.max(1,myZones.length);
+
+document.getElementById('myStats').innerHTML =
+'Mode: '+myMode+'<br>'+
+'Topology: '+myTopology+' × '+myTopology+'<br>'+
+'Total zones: '+myZones.length+'<br>'+
+'Inference stim zones: '+myStimZones.length+'<br>'+
+'Sensor zones: '+mySensorZones.length+'<br>'+
+'Encourage zones: '+myEncourageZones.length+'<br>'+
+'Discourage zones: '+myDiscourageZones.length+'<br>'+
+'Epoch: '+myEpoch+'<br>'+
+'Trial: '+myTrial+'<br>'+
+'Mean activity: '+myMean.toFixed(3);
+
+myRenderResearchDashboard();
+
+}
+
+// ---- save / load ----
+
+function mySaveJSON(){
+
+let myData = {
+topology: myTopology,
+seed: mySeed,
+zones: myZones.map(myZ=>({
+index: myZ.index,
+x: myZ.x,
+z: myZ.z,
+role: myZ.role,
+freq: myZ.freq
+})),
+truthTable: myTruthTable,
+influence: myInfluence,
+inputPattern: myInputPattern,
+currentPatternIndex: myCurrentPatternIndex,
+objectiveMode: myObjectiveMode,
+burstElectrodesPerGroup: myBurstElectrodesPerGroup,
+burstDwellMs: myBurstDwellMs,
+burstPulseWidthUs: myBurstPulseWidthUs,
+baseline: myBaseline && myBaseline.source==='synthetic' ?
+{source:'synthetic', params:myBaseline.params} :
+(myBaseline ? {source:'upload', note:'raw spike data not saved -- re-open the original MaxOne HDF5 file and re-select the window to restore'} : null),
+experiments: myExperiments
+};
+
+let myBlob = new Blob([JSON.stringify(myData,null,2)],{type:'application/json'});
+let myUrl = URL.createObjectURL(myBlob);
+
+let myA = document.createElement('a');
+myA.href = myUrl;
+myA.download = 'maxone-wetml-v19.json';
+myA.click();
+
+URL.revokeObjectURL(myUrl);
+
+}
+
+function myLoadJSON(myEvent){
+
+let myFile = myEvent.target.files[0];
+
+if(!myFile) return;
+
+let myReader = new FileReader();
+
+myReader.onload = function(myE){
+
+let myData;
+
+try{
+myData = JSON.parse(myE.target.result);
+}catch(myErr){
+alert('Could not parse JSON file.');
+return;
+}
+
+mySetTopology(myData.topology || 2);
+
+if(myData.seed!==undefined){
+myReseed(myData.seed);
+document.getElementById('mySeedInput').value = String(mySeed);
+}
+
+if(myData.zones){
+for(let myZ of myData.zones){
+if(myZones[myZ.index]){
+myZones[myZ.index].role = myZ.role || 'unused';
+myZones[myZ.index].freq = myZ.freq || 0;
+}
+}
+}
+
+myRecomputeRoleArrays();
+myRebuildTruthTable(true);
+
+if(myData.truthTable) myTruthTable = myData.truthTable;
+if(myData.influence) myInfluence = myData.influence;
+if(myData.inputPattern) myInputPattern = myData.inputPattern;
+if(myData.currentPatternIndex!==undefined) myCurrentPatternIndex = myData.currentPatternIndex;
+
+if(myData.objectiveMode){
+myObjectiveMode = myData.objectiveMode;
+let mySel = document.getElementById('myObjectiveSelect');
+if(mySel) mySel.value = myObjectiveMode;
+}
+
+if(myData.burstElectrodesPerGroup!==undefined){
+myBurstElectrodesPerGroup = myData.burstElectrodesPerGroup;
+myBurstDwellMs = myData.burstDwellMs;
+myBurstPulseWidthUs = myData.burstPulseWidthUs;
+document.getElementById('myBurstGroupSlider').value = myBurstElectrodesPerGroup;
+document.getElementById('myBurstDwellSlider').value = myBurstDwellMs;
+document.getElementById('myBurstWidthSlider').value = myBurstPulseWidthUs;
+myUpdateBurstLabels();
+}
+
+if(myData.experiments){
+myExperiments = myData.experiments;
+myRenderComparisonTable();
+}
+
+if(myData.baseline && myData.baseline.source==='synthetic'){
+
+let myP = myData.baseline.params;
+
+document.getElementById('myBaseAgeSelect').value = myP.age;
+document.getElementById('myBaseRateSlider').value = myP.meanRate;
+document.getElementById('myBaseRateLabel').textContent = myP.meanRate;
+document.getElementById('myBaseBurstFreqSlider').value = myP.burstFreq;
+document.getElementById('myBaseBurstFreqLabel').textContent = myP.burstFreq;
+document.getElementById('myBaseBurstDurSlider').value = myP.burstDur;
+document.getElementById('myBaseBurstDurLabel').textContent = myP.burstDur;
+document.getElementById('myBaseSpeedSelect').value = myP.speed;
+document.getElementById('myBaseHotspotSlider').value = myP.hotspotCount;
+document.getElementById('myBaseHotspotLabel').textContent = myP.hotspotCount;
+document.getElementById('myBaseConnSelect').value = myP.connType;
+
+myGenerateSyntheticBaseline();
+
+}else if(myData.baseline && myData.baseline.source==='upload'){
+
+document.getElementById('myBaselineStatsDiv').innerHTML =
+'A MaxOne upload baseline was saved in this file, but raw spike data is not '+
+'stored in the JSON. Re-open the original MaxOne HDF5 file and re-select the '+
+'10-second window to restore it.';
+
+}
+
+myRenderInputPattern();
+myRenderTruthTable();
+myRenderInfluenceHeatmap();
+myUpdateVisualization();
+myUpdateStats();
+myUpdateSelectedZonePanel();
+myRenderErrorChart();
+myUpdateUndoButton();
+
+};
+
+myReader.readAsText(myFile);
+
+myEvent.target.value = '';
+
+}
+
+// ---- python export ----
+
+function myGeneratePython(){
+
+let myLines = [];
+
+let myTotalStimCapable = myStimZones.length + myEncourageZones.length + myDiscourageZones.length;
+
+let mySensorElectrodeIds = [];
+for(let myZi of mySensorZones){
+for(let myE of myZones[myZi].electrodes){
+mySensorElectrodeIds.push(myE.id);
+}
+}
+
+function myRepElectrodeId(myZi){
+let myZ = myZones[myZi];
+return (myZ.electrodes.length>0) ? myZ.electrodes[0].id : null;
+}
+
+myLines.push('# MaxOne WetML V19 stimulation protocol');
+myLines.push('# Auto-generated from maxone-sim-v19.html');
+myLines.push('# Positioning: a data-driven HD-MEA protocol hypothesis generator / experimental');
+myLines.push('# design sandbox -- NOT a validated biological simulator.');
+myLines.push('# Concept: plasticity through stimulation FREQUENCY changes, not on/off stimulation.');
+myLines.push('#');
+myLines.push('# This targets the real MaxLab Python API (mxwserver must be running, "maxlab"');
+myLines.push('# package importable -- normally on the MaxLab Live acquisition PC):');
+myLines.push('#   https://api-docs.mxwbio.com/section_api/subsections/api_python.html');
+myLines.push('#');
+myLines.push('# CAVEATS -- please read before running on real hardware:');
+myLines.push('# 1) "Zones" and per-zone "training frequency" are this simulator\'s teaching');
+myLines.push('#    abstraction. The real API has no such concept -- there is no function to');
+myLines.push('#    set a frequency on a group of electrodes, and no synchronous function to');
+myLines.push('#    "read" a sensor zone\'s output. This script builds a frequency out of');
+myLines.push('#    individual maxlab.Sequence() pulses spaced by maxlab.system.DelaySamples(),');
+myLines.push('#    and reads results back offline from the recorded data file instead.');
+myLines.push('# 2) MaxOne has exactly 32 physical on-chip StimulationUnits. Inference stim');
+myLines.push('#    zones always use ONE representative electrode (needed every trial, so it');
+myLines.push('#    has to stay fast). Encourage/discourage zones use BURST_ELECTRODES_PER_GROUP');
+myLines.push('#    below -- 1 means representative-only, >1 means the full zone is swept in');
+myLines.push('#    time-multiplexed groups via sweep_zone_electrodes(). Either way, only');
+myLines.push('#    BURST_ELECTRODES_PER_GROUP electrodes are ever live on the chip at once.');
+myLines.push('# 3) This is a teaching sandbox, not a validated protocol. Whether frequency-');
+myLines.push('#    based "encourage/discourage" stimulation actually shapes plasticity in a');
+myLines.push('#    real culture is an open research question. Use at your own risk.');
+myLines.push('');
+
+if(myTotalStimCapable>32){
+myLines.push('# WARNING: '+myTotalStimCapable+' stim-capable zones selected, but MaxOne only has');
+myLines.push('# 32 physical stimulation units. Reduce the topology/randomize pool before running.');
+myLines.push('');
+}
+
+myLines.push('# ---- Phase 1: baseline-derived context ----');
+if(myBaseline){
+myLines.push('# Baseline source: '+myBaseline.source);
+myLines.push('# Duration: '+(myBaseline.durationMs/1000).toFixed(1)+' s, detected bursts: '+myBaseline.bursts.length);
+myLines.push('# Mean firing rate: '+myBaseline.meanFiringRate.toFixed(3)+' Hz, burst rate: '+myBaseline.burstRate.toFixed(3)+'/s');
+myLines.push('# Sync index: '+myBaseline.syncIndex.toFixed(3)+', active electrode fraction: '+(myBaseline.activeFraction*100).toFixed(1)+'%');
+}else{
+myLines.push('# No baseline was loaded when this protocol was exported.');
+}
+myLines.push('BASELINE_SOURCE = "'+(myBaseline?myBaseline.source:'none')+'"');
+myLines.push('BASELINE_MEAN_FIRING_RATE_HZ = '+(myBaseline?myBaseline.meanFiringRate.toFixed(4):'None'));
+myLines.push('BASELINE_BURST_RATE_HZ = '+(myBaseline?myBaseline.burstRate.toFixed(4):'None'));
+myLines.push('BASELINE_SYNC_INDEX = '+(myBaseline?myBaseline.syncIndex.toFixed(4):'None'));
+myLines.push('');
+myLines.push('# ---- Phase 2: protocol metadata ----');
+myLines.push('OBJECTIVE_MODE = "'+myObjectiveMode+'"');
+myLines.push('BASELINE_INITIALIZED_SIMULATION = '+(myBaselineInitialized?'True':'False'));
+myLines.push('');
+
+myLines.push('import time');
+myLines.push('import maxlab');
+myLines.push('');
+myLines.push('TOPOLOGY = ' + myTopology);
+myLines.push('SAMPLE_PERIOD_S = 50e-6   # fixed HW property: 50 microseconds between recording samples');
+myLines.push('');
+myLines.push('# Multi-electrode swap-group timing (from the "Multi-Electrode Burst Timing" panel).');
+myLines.push('# The chip has only 32 stim units total, so a zone with more electrodes than');
+myLines.push('# BURST_ELECTRODES_PER_GROUP must be swept through in multiple time-multiplexed');
+myLines.push('# groups -- see sweep_zone_electrodes() below.');
+myLines.push('BURST_ELECTRODES_PER_GROUP = ' + myBurstElectrodesPerGroup + '   # electrodes live at once, per group (max 32)');
+myLines.push('BURST_DWELL_MS = ' + myBurstDwellMs + '            # how long each swap group stays connected');
+myLines.push('BURST_PULSE_WIDTH_US = ' + myBurstPulseWidthUs + '      # biphasic half-pulse width');
+myLines.push('');
+
+myLines.push('# Inference stim zones -- one representative electrode each (physical stim unit budget is 32)');
+myLines.push('INFERENCE_STIM_ZONES = [');
+for(let myI=0; myI<myStimZones.length; myI++){
+let myZ = myZones[myStimZones[myI]];
+myLines.push('    {"stim_index": '+myI+', "zone": '+myZ.index+', "sample_electrode_id": '+myRepElectrodeId(myZ.index)+', "electrode_count": '+myZ.electrodes.length+'},');
+}
+myLines.push(']');
+myLines.push('');
+
+myLines.push('# Sensor (recording) zones');
+myLines.push('SENSOR_ZONES = [');
+for(let myJ=0; myJ<mySensorZones.length; myJ++){
+let myZ = myZones[mySensorZones[myJ]];
+myLines.push('    {"sensor_index": '+myJ+', "zone": '+myZ.index+', "electrode_count": '+myZ.electrodes.length+'},');
+}
+myLines.push(']');
+myLines.push('');
+
+myLines.push('# All electrode ids belonging to sensor zones -- this is what actually gets recorded');
+myLines.push('SENSOR_RECORD_ELECTRODE_IDS = '+JSON.stringify(mySensorElectrodeIds));
+myLines.push('');
+
+myLines.push('# Training-only modulation zones (never part of the inference input vector).');
+myLines.push('# "sample_electrode_id" is used in representative-only mode; "electrode_ids" is');
+myLines.push('# the full zone electrode list, used when sweeping (see BURST_* constants below).');
+myLines.push('ENCOURAGE_ZONES = [');
+for(let myZi of myEncourageZones){
+let myZ = myZones[myZi];
+myLines.push('    {"zone": '+myZ.index+', "sample_electrode_id": '+myRepElectrodeId(myZi)+', "frequency_hz": '+myZ.freq+', "electrode_ids": '+JSON.stringify(myZ.electrodes.map(myE=>myE.id))+'},');
+}
+myLines.push(']');
+myLines.push('');
+myLines.push('DISCOURAGE_ZONES = [');
+for(let myZi of myDiscourageZones){
+let myZ = myZones[myZi];
+myLines.push('    {"zone": '+myZ.index+', "sample_electrode_id": '+myRepElectrodeId(myZi)+', "frequency_hz": '+myZ.freq+', "electrode_ids": '+JSON.stringify(myZ.electrodes.map(myE=>myE.id))+'},');
+}
+myLines.push(']');
+myLines.push('');
+
+myLines.push('# Truth table: input stim pattern -> desired sensor pattern (identity mapping:');
+myLines.push('# stim i "on" always maps to sensor i desired "on")');
+myLines.push('TRUTH_TABLE = {');
+for(let myKey of Object.keys(myTruthTable)){
+myLines.push('    "'+myKey+'": '+JSON.stringify(myTruthTable[myKey])+',');
+}
+myLines.push('}');
+myLines.push('');
+
+myLines.push('# Influence matrix weight[stim_index][sensor_index] -- simulator bookkeeping only,');
+myLines.push('# never sent to the hardware. Kept here for reference / offline comparison.');
+myLines.push('INFLUENCE_MATRIX = {');
+for(let myKey of Object.keys(myInfluence)){
+myLines.push('    "'+myKey+'": '+myInfluence[myKey]+',');
+}
+myLines.push('}');
+myLines.push('');
+
+myLines.push('def hz_to_delay_samples(frequency_hz):');
+myLines.push('    """Convert a target pulse rate (Hz) into the DelaySamples() value to use');
+myLines.push('    between successive pulses inside a maxlab.Sequence()."""');
+myLines.push('    if frequency_hz <= 0:');
+myLines.push('        return None');
+myLines.push('    period_s = 1.0 / frequency_hz');
+myLines.push('    return max(1, round(period_s / SAMPLE_PERIOD_S))');
+myLines.push('');
+
+myLines.push('def setup_array():');
+myLines.push('    """Select + route recording electrodes and connect one representative');
+myLines.push('    electrode per stim-capable zone to a physical stimulation unit."""');
+myLines.push('    array = maxlab.chip.Array(\'online\')');
+myLines.push('    array.reset()');
+myLines.push('');
+myLines.push('    stim_capable_ids = (');
+myLines.push('        [z["sample_electrode_id"] for z in INFERENCE_STIM_ZONES if z["sample_electrode_id"] is not None] +');
+myLines.push('        [z["sample_electrode_id"] for z in ENCOURAGE_ZONES if z["sample_electrode_id"] is not None] +');
+myLines.push('        [z["sample_electrode_id"] for z in DISCOURAGE_ZONES if z["sample_electrode_id"] is not None]');
+myLines.push('    )');
+myLines.push('');
+myLines.push('    array.select_electrodes(SENSOR_RECORD_ELECTRODE_IDS)');
+myLines.push('    array.select_stimulation_electrodes(stim_capable_ids)');
+myLines.push('    array.route()');
+myLines.push('');
+myLines.push('    stim_units = {}');
+myLines.push('    for electrode_id in stim_capable_ids:');
+myLines.push('        array.connect_electrode_to_stimulation(electrode_id)');
+myLines.push('        stim_units[electrode_id] = int(array.query_stimulation_at_electrode(electrode_id))');
+myLines.push('');
+myLines.push('    array.download()');
+myLines.push('    time.sleep(maxlab.util.Timing.waitAfterDownload)');
+myLines.push('');
+myLines.push('    return array, stim_units');
+myLines.push('');
+
+myLines.push('def configure_stimulation_units(stim_units):');
+myLines.push('    """Power up each stim unit in voltage mode. DAC channels are shared/round-');
+myLines.push('    robin across units since MaxOne only has 3 analog DAC channels -- this is');
+myLines.push('    fine here because zones are stimulated one at a time, never simultaneously."""');
+myLines.push('    for i, (electrode_id, unit_no) in enumerate(stim_units.items()):');
+myLines.push('        unit = maxlab.chip.StimulationUnit(unit_no)');
+myLines.push('        unit.power_up(True).connect(True).dac_source(i % 3).set_voltage_mode()');
+myLines.push('        maxlab.send(unit)');
+myLines.push('    maxlab.send(maxlab.chip.Core().enable_stimulation_power(True))');
+myLines.push('');
+
+myLines.push('def biphasic_pulse(dac_no=0, amplitude_bits=100, half_pulse_delay_samples=4):');
+myLines.push('    """Positive-first, biphasic voltage pulse (see MaxLab API docs, Stimulation');
+myLines.push('    section). The stim buffer is an inverting amplifier, hence subtract-then-add."""');
+myLines.push('    seq = maxlab.Sequence()');
+myLines.push('    seq.append(maxlab.chip.DAC(dac_no, 512 - amplitude_bits))');
+myLines.push('    seq.append(maxlab.system.DelaySamples(half_pulse_delay_samples))');
+myLines.push('    seq.append(maxlab.chip.DAC(dac_no, 512 + amplitude_bits))');
+myLines.push('    seq.append(maxlab.system.DelaySamples(half_pulse_delay_samples))');
+myLines.push('    seq.append(maxlab.chip.DAC(dac_no, 512))');
+myLines.push('    return seq');
+myLines.push('');
+
+myLines.push('def chunk(items, n):');
+myLines.push('    for i in range(0, len(items), n):');
+myLines.push('        yield items[i:i + n]');
+myLines.push('');
+
+myLines.push('def sweep_zone_electrodes(array, electrode_ids, dac_no, pulses_per_group=3):');
+myLines.push('    """Time-multiplex through a zone\'s full electrode list in groups of');
+myLines.push('    BURST_ELECTRODES_PER_GROUP, since the chip only has 32 stim units total.');
+myLines.push('    Connects each group, fires a few pulses, disconnects, moves to the next');
+myLines.push('    group. This is the "electrode swapping" the burst-timing UI schedules.');
+myLines.push('    Only used when BURST_ELECTRODES_PER_GROUP > 1 (see run_training_protocol)."""');
+myLines.push('    half_delay = max(1, round((BURST_PULSE_WIDTH_US * 1e-6) / SAMPLE_PERIOD_S))');
+myLines.push('    for group in chunk(electrode_ids, BURST_ELECTRODES_PER_GROUP):');
+myLines.push('        for electrode_id in group:');
+myLines.push('            array.connect_electrode_to_stimulation(electrode_id)');
+myLines.push('        array.download()');
+myLines.push('        for _ in range(pulses_per_group):');
+myLines.push('            biphasic_pulse(dac_no=dac_no, half_pulse_delay_samples=half_delay).send()');
+myLines.push('        time.sleep(BURST_DWELL_MS / 1000.0)');
+myLines.push('        for electrode_id in group:');
+myLines.push('            array.disconnect_electrode_from_stimulation(electrode_id)');
+myLines.push('        array.download()');
+myLines.push('');
+
+myLines.push('def run_zone_frequency_burst(dac_no, frequency_hz, duration_s=2.0):');
+myLines.push('    """Fire biphasic pulses at ~frequency_hz for duration_s seconds. This is the');
+myLines.push('    simulator\'s Encourage/Discourage concept translated into real pulses -- it');
+myLines.push('    is a sketch, not a validated biological training protocol."""');
+myLines.push('    delay_samples = hz_to_delay_samples(frequency_hz)');
+myLines.push('    if delay_samples is None:');
+myLines.push('        return');
+myLines.push('    n_pulses = max(1, round(duration_s * frequency_hz))');
+myLines.push('    for _ in range(n_pulses):');
+myLines.push('        biphasic_pulse(dac_no=dac_no).send()');
+myLines.push('        time.sleep(delay_samples * SAMPLE_PERIOD_S)');
+myLines.push('');
+
+myLines.push('def run_training_protocol():');
+myLines.push('    maxlab.util.initialize()');
+myLines.push('    time.sleep(maxlab.util.Timing.waitInit)');
+myLines.push('    maxlab.util.offset()');
+myLines.push('    time.sleep(maxlab.util.Timing.waitInMX1Offset)  # MaxOne offset wait');
+myLines.push('');
+myLines.push('    array, stim_units = setup_array()');
+myLines.push('    configure_stimulation_units(stim_units)');
+myLines.push('');
+myLines.push('    config = array.get_config()');
+myLines.push('    sensor_channels = config.get_channels_for_electrodes(SENSOR_RECORD_ELECTRODE_IDS)');
+myLines.push('');
+myLines.push('    saving = maxlab.saving.Saving()');
+myLines.push('    saving.open_directory(\'.\')');
+myLines.push('    saving.start_file(\'maxone_wetml_session\')');
+myLines.push('    saving.group_delete_all()');
+myLines.push('    saving.group_define(0, \'sensor_zones\', sensor_channels)');
+myLines.push('    saving.start_recording()');
+myLines.push('');
+myLines.push('    stim_dac = {z["sample_electrode_id"]: i % 3 for i, z in enumerate(INFERENCE_STIM_ZONES)}');
+myLines.push('');
+myLines.push('    for zone in ENCOURAGE_ZONES + DISCOURAGE_ZONES:');
+myLines.push('        if BURST_ELECTRODES_PER_GROUP <= 1:');
+myLines.push('            dac_no = stim_units[zone["sample_electrode_id"]] % 3 if zone["sample_electrode_id"] in stim_units else 0');
+myLines.push('            run_zone_frequency_burst(dac_no, zone["frequency_hz"])');
+myLines.push('        else:');
+myLines.push('            sweep_zone_electrodes(array, zone["electrode_ids"], dac_no=0)');
+myLines.push('');
+myLines.push('    for pattern, desired in TRUTH_TABLE.items():');
+myLines.push('        stim_bits = [int(b) for b in pattern.split(",")] if pattern else []');
+myLines.push('        for bit, zone in zip(stim_bits, INFERENCE_STIM_ZONES):');
+myLines.push('            if bit and zone["sample_electrode_id"] is not None:');
+myLines.push('                biphasic_pulse(dac_no=stim_dac[zone["sample_electrode_id"]]).send()');
+myLines.push('        time.sleep(0.2)');
+myLines.push('        # NOTE: there is no synchronous "read sensor" call in the MaxLab API --');
+myLines.push('        # compare `desired` against the recorded file offline (e.g. spike counts');
+myLines.push('        # per sensor_channels group) once the recording is complete.');
+myLines.push('');
+myLines.push('    saving.stop_recording()');
+myLines.push('    time.sleep(maxlab.util.Timing.waitAfterRecording)');
+myLines.push('    saving.stop_file()');
+myLines.push('');
+
+myLines.push("if __name__ == '__main__':");
+myLines.push('    run_training_protocol()');
+
+document.getElementById('myPythonArea').value = myLines.join('\n');
+
+}
+
+// ==== V19: Phase 1 baseline engine ====
+
+function myPickWeighted(myWeights, myRngFnLocal){
+
+let myR = myRngFnLocal();
+let myAcc = 0;
+
+for(let myI=0; myI<myWeights.length; myI++){
+myAcc += myWeights[myI];
+if(myR<=myAcc) return myI;
+}
+
+return myWeights.length-1;
+
+}
+
+function myAgeSigma(myAge){
+return {young:1.6, developing:2.3, mature:3.1, highlysync:4.6}[myAge] || 3.0;
+}
+
+function myGenerateSyntheticBaseline(){
+
+let myAge = document.getElementById('myBaseAgeSelect').value;
+let myMeanRate = Number(document.getElementById('myBaseRateSlider').value);
+let myBurstFreq = Number(document.getElementById('myBaseBurstFreqSlider').value);
+let myBurstDur = Number(document.getElementById('myBaseBurstDurSlider').value);
+let mySpeed = document.getElementById('myBaseSpeedSelect').value;
+let myHotspotCount = Number(document.getElementById('myBaseHotspotSlider').value);
+let myConnType = document.getElementById('myBaseConnSelect').value;
+
+let myDurationMs = 8000;
+
+// Derived from the main seed (XORed) so it's reproducible without
+// disturbing the main topology/training RNG stream.
+let myBaseRng = myMulberry32((mySeed^0x9e3779b9)>>>0);
+function myBR(){ return myBaseRng(); }
+
+let myAgeRateFactor = {young:0.55, developing:0.8, mature:1.0, highlysync:1.25}[myAge] || 1.0;
+let mySigma = myAgeSigma(myAge);
+let myLongRangeBoost = (myConnType==='small-world') ? 1.4 : (myConnType==='sparse' ? 0.7 : 1.0);
+
+let myHotspots = [];
+
+for(let myI=0; myI<myHotspotCount; myI++){
+myHotspots.push({
+row: myBR()*myRows,
+col: myBR()*myCols,
+strength: 0.5+myBR()*0.5
+});
+}
+
+if(myConnType==='hub' && myHotspots.length>0){
+myHotspots[0].strength = 1.6;
+}
+
+let myWeights = myHotspots.map(myH=>myH.strength);
+let myWSum = myWeights.reduce((myA,myB)=>myA+myB,0) || 1;
+myWeights = myWeights.map(myW=>myW/myWSum);
+
+let myNumBursts = Math.max(1, Math.min(48, Math.round(myBurstFreq*myDurationMs/1000)));
+
+let myBursts = [];
+
+for(let myB=0; myB<myNumBursts; myB++){
+
+let myOriginIdx = myHotspots.length ? myPickWeighted(myWeights, myBR) : -1;
+let mySpread = myDurationMs/myNumBursts;
+let myT0 = Math.max(0, Math.min(myDurationMs-10, myB*mySpread + myBR()*mySpread*0.7));
+let myWidth = Math.max(20, myBurstDur*(0.7+myBR()*0.6));
+
+myBursts.push({t0:myT0, width:myWidth, originIdx:myOriginIdx});
+
+}
+
+let myFiringRate = new Float32Array(myElectrodeCount);
+let myBurstParticipation = new Float32Array(myElectrodeCount);
+let myBurstOnset = new Float32Array(myElectrodeCount);
+let myElectrodeBurstSets = [];
+
+for(let myE=0; myE<myElectrodeCount; myE++){
+
+let myRow = Math.floor(myE/myCols);
+let myCol = myE%myCols;
+
+let myMaxWeight = 0;
+
+for(let myH of myHotspots){
+let myD = Math.hypot((myRow-myH.row),(myCol-myH.col)/2)*myLongRangeBoost;
+let myW = Math.exp(-(myD*myD)/(2*mySigma*mySigma)) * myH.strength;
+if(myW>myMaxWeight) myMaxWeight = myW;
+}
+
+let mySpontaneous = myMeanRate*myAgeRateFactor*(0.15+0.85*myMaxWeight);
+
+let myParticipateCount = 0;
+let myOnsetCount = 0;
+let mySet = [];
+
+for(let myBi=0; myBi<myBursts.length; myBi++){
+
+let myBurst = myBursts[myBi];
+
+if(myBurst.originIdx<0){ continue; }
+
+let myH = myHotspots[myBurst.originIdx];
+
+let myD = Math.hypot((myRow-myH.row),(myCol-myH.col)/2)*myLongRangeBoost;
+let myW = Math.exp(-(myD*myD)/(2*mySigma*mySigma));
+
+let myDelay = (1-myW)*myBurst.width*1.3;
+let myReach = myBurst.width*1.1;
+let myGate = myBR() < (0.55+0.45*myW);
+
+if(myDelay<=myReach && myGate){
+
+myParticipateCount++;
+mySet.push(myBi);
+
+if(myDelay<=45) myOnsetCount++;
+
+}
+
+}
+
+let myBurstSpikeContribution = (myParticipateCount*1.8)/(myDurationMs/1000);
+
+myFiringRate[myE] = Math.max(0, Math.min(8, mySpontaneous+myBurstSpikeContribution));
+myBurstParticipation[myE] = myBursts.length ? myParticipateCount/myBursts.length : 0;
+myBurstOnset[myE] = myBursts.length ? myOnsetCount/myBursts.length : 0;
+
+myElectrodeBurstSets.push(mySet);
+
+}
+
+myBaseline = {
+source:'synthetic',
+seed: mySeed,
+durationMs: myDurationMs,
+rows: myRows,
+cols: myCols,
+params:{age:myAge, meanRate:myMeanRate, burstFreq:myBurstFreq, burstDur:myBurstDur, speed:mySpeed, hotspotCount:myHotspotCount, connType:myConnType},
+hotspots: myHotspots,
+bursts: myBursts,
+firingRate: myFiringRate,
+burstParticipation: myBurstParticipation,
+burstOnset: myBurstOnset,
+electrodeBurstSets: myElectrodeBurstSets,
+spikes: null,
+truncated:false
+};
+
+myFinishBaselineLoad();
+
+}
+
+// ==== V20: interactive MaxOne HDF5 baseline window picker ====
+// Replaces the old CSV importer. The native .h5 file is opened directly in the
+// browser with h5wasm (no server round trip). The user scrubs a slider across
+// the *entire* recording, previews population activity, then commits a single
+// 10-second window. That window's real per-electrode spike times become the
+// baseline (myByElectrode), feeding the same myBuildBaselineFromSpikes() path
+// the old CSV importer used -- so downstream code (stats, suggestions, replay,
+// initialization) does not need to know or care that the source was HDF5.
+
+let myH5State = null; // set by myLoadH5File(); see shape notes inline below
+let myH5WindowMs = 10000; // fixed 10-second baseline window, per spec
+
+function myUploadBaselineFile(){
+document.getElementById('myBaselineFileInput').click();
+}
+
+async function myOnBaselineH5FileChosen(myEvent){
+
+let myFile = myEvent.target.files[0];
+myEvent.target.value = '';
+
+if(!myFile) return;
+
+await myRunBaselineHDF5Load(
+async function(){ await myLoadH5File(myFile); },
+'Reading '+myFile.name+' ...',
+myFile.name
+);
+
+}
+
+async function myLoadSelectedSample(){
+
+let mySelect = document.getElementById('myDataFolderSelect');
+if(!mySelect || !mySelect.value) return;
+
+let myUrl = mySelect.value;
+let myName = mySelect.options[mySelect.selectedIndex].textContent;
+
+await myRunBaselineHDF5Load(
+async function(){ await myLoadH5FromURL(myUrl, myName); },
+'Fetching '+myName+' from data folder...',
+myName
+);
+
+}
+
+// Shared UI flow for both the file-upload button and the /data folder sample
+// picker: show the picker panel, run whichever loader produced the file
+// bytes, then render the same status + window-selection controls either way.
+async function myRunBaselineHDF5Load(myLoaderFn, myBusyLabel, myDisplayName){
+
+let myPanel = document.getElementById('myH5PickerPanel');
+let myStatus = document.getElementById('myH5PickerStatus');
+let myControls = document.getElementById('myH5PickerControls');
+
+myPanel.style.display = 'block';
+myControls.style.display = 'none';
+myStatus.textContent = myBusyLabel;
+
+try{
+
+if(typeof h5wasm==='undefined'){
+throw new Error('h5wasm did not load (no internet access to cdn.jsdelivr.net?). Check your network connection and reload the page.');
+}
+
+await myLoaderFn();
+
+let myS = myH5State;
+
+let myLines = [];
+myLines.push('Loaded: '+myDisplayName);
+myLines.push('Format: '+(myS.spikeMode ? 'spike-sorted ('+myS.spikeCount+' spikes)' : 'raw traces (on-demand threshold detection)'));
+myLines.push('Sampling rate: '+myS.samplingHz+' Hz');
+myLines.push('Recording length: '+(myS.totalDurationMs/1000).toFixed(1)+' s');
+myLines.push('Channels found: '+myS.channelList.length+(myS.hasMapping ? ' (mapped to electrode x/y)' : ' (no mapping table found -- using raw channel index as electrode id)'));
+if(myS.shortRecordingWarning) myLines.push('Note: '+myS.shortRecordingWarning);
+myLines.push('Pick a 10-second window below, Preview it, then commit.');
+
+myStatus.textContent = myLines.join('\n');
+
+let mySlider = document.getElementById('myH5WindowSlider');
+mySlider.min = 0;
+mySlider.max = Math.max(0, myS.totalDurationMs-myH5WindowMs);
+mySlider.step = 100;
+mySlider.value = 0;
+
+document.getElementById('myH5TotalDurLabel').textContent = (myS.totalDurationMs/1000).toFixed(1);
+myOnH5WindowSlider(0);
+
+document.getElementById('myH5PreviewDiv').textContent = 'Move the slider, then Preview to see population activity for that window.';
+
+myControls.style.display = 'block';
+
+}catch(myErr){
+
+console.error(myErr);
+myStatus.textContent = 'Could not read this as a MaxOne HDF5 recording:\n'+myErr.message+
+'\n\nIf this is a very large raw file, try again -- large files can take a moment to index. '+
+'If the error persists, the file schema may differ from what this tool expects; open the browser console for the full dataset tree that was found.';
+
+}
+
+}
+
+// V21 fix: WORKERFS (used in V20) only reliably works inside a dedicated Web
+// Worker -- running it on the main thread throws the
+// "RuntimeError: Aborted(undefined) ... at Object.mount" seen in V20, on
+// every browser and both local file:// and http(s):// pages, since it's not
+// a network/CORS problem at all. Simpler and equally correct for a
+// picker-and-commit workflow: read the file's bytes once and write them
+// straight into h5wasm's normal (MEMFS) virtual filesystem with
+// FS.writeFile(). Trade-off: the whole file is held in browser memory rather
+// than streamed from disk -- fine for typical recordings, but very large
+// (multi-GB) raw exports may want trimming first.
+async function myLoadH5File(myFile){
+let myBuf = await myFile.arrayBuffer();
+await myLoadH5FromBytes(myFile.name, myBuf);
+}
+
+// V22: sample recordings bundled alongside this page in a /data folder,
+// listed in data/manifest.json. Fetched over plain http(s) -- same MEMFS
+// path as the upload button once the bytes are in hand. Requires the page
+// to be served (not opened as a local file:// page) for the same reason
+// fetch() of any other local resource is blocked under file://.
+async function myLoadH5FromURL(myUrl, myName){
+
+let myResp;
+
+try{
+myResp = await fetch(myUrl);
+}catch(myErr){
+throw new Error('Could not fetch '+myUrl+'. If this page was opened as a local file:// page, sample '+
+'recordings won\'t load -- serve the page over http(s) (e.g. a local dev server or GitHub Pages) instead.');
+}
+
+if(!myResp.ok){
+throw new Error('Could not fetch '+myUrl+' (HTTP '+myResp.status+'). Check that the file is really at that path in the data folder.');
+}
+
+let myBuf = await myResp.arrayBuffer();
+await myLoadH5FromBytes(myName, myBuf);
+
+}
+
+// Shared core: bytes (from either an <input type=file> or a fetch()) go into
+// h5wasm's virtual filesystem, get opened, and get analyzed the same way
+// regardless of where they came from.
+async function myLoadH5FromBytes(myName, myArrayBuffer){
+
+const { FS } = await h5wasm.ready;
+
+if(myH5State && myH5State.mounted){
+try{ myH5State.f.close(); }catch(myE1){}
+try{ FS.unlink('/'+myH5State.fileName); }catch(myE2){}
+}
+
+FS.writeFile('/'+myName, new Uint8Array(myArrayBuffer));
+
+let myF = new h5wasm.File('/'+myName, 'r');
+
+myH5State = {
+f: myF,
+mounted: true,
+fileName: myName,
+samplingHz: 20000,
+totalDurationMs: 0,
+spikeMode: false,
+spikeCount: 0,
+allSpikeMs: null,     // Float64Array, only set in spike-sorted mode
+allSpikeChannel: null,// Int32Array, only set in spike-sorted mode
+rawDataset: null,     // h5wasm Dataset, only set in raw mode
+rawChannelAxis: 0,    // which shape index is "channel" in the raw dataset
+channelList: [],
+hasMapping: false,
+channelToElectrode: null // Map: raw channel index -> logical grid electrode id (0..myElectrodeCount-1)
+};
+
+myAnalyzeMaxOneH5();
+
+}
+
+// V22: populate the "sample recordings" dropdown from data/manifest.json,
+// a small JSON array like:
+// [ {"file":"sample1.h5","name":"Young culture, quiet","description":"..."},
+//   {"file":"sample2.h5","name":"Mature culture, bursting"} ]
+// If no manifest is found (no /data folder deployed alongside this page, or
+// the page is running from file://), the sample section just stays hidden --
+// the upload button still works either way.
+async function myPopulateDataFolderManifest(){
+
+let mySection = document.getElementById('myDataFolderSection');
+let mySelect = document.getElementById('myDataFolderSelect');
+
+try{
+
+let myResp = await fetch('data/manifest.json');
+if(!myResp.ok) throw new Error('no manifest at data/manifest.json');
+
+let myList = await myResp.json();
+if(!Array.isArray(myList) || myList.length===0) throw new Error('manifest.json was empty');
+
+mySelect.innerHTML = '';
+
+for(let myItem of myList){
+let myOpt = document.createElement('option');
+myOpt.value = 'data/'+myItem.file;
+myOpt.textContent = myItem.name || myItem.file;
+if(myItem.description) myOpt.title = myItem.description;
+mySelect.appendChild(myOpt);
+}
+
+mySection.style.display = 'block';
+
+}catch(myErr){
+mySection.style.display = 'none';
+}
+
+}
+
+function myWalkH5Tree(myNode, myPath, myOut, myDepth){
+
+if(myDepth>6) return;
+
+let myKeys;
+try{ myKeys = myNode.keys(); }catch(myE){ return; } // not a group -> nothing to walk
+
+for(let myKey of myKeys){
+
+let myChildPath = myPath+'/'+myKey;
+let myChild;
+try{ myChild = myNode.get(myKey); }catch(myE){ continue; }
+
+let mySubKeys = null;
+try{ mySubKeys = myChild.get_keys? myChild.get_keys() : myChild.keys(); }catch(myE){ mySubKeys = null; }
+
+if(mySubKeys){
+myWalkH5Tree(myChild, myChildPath, myOut, myDepth+1);
+}else{
+let myShape = null;
+try{ myShape = myChild.shape; }catch(myE){}
+myOut.push({path:myChildPath, node:myChild, shape:myShape});
+}
+
+}
+
+}
+
+function myFindByNameHint(myEntries, myHints){
+
+for(let myHint of myHints){
+for(let myEnt of myEntries){
+if(myEnt.path.toLowerCase().indexOf(myHint)>=0) return myEnt;
+}
+}
+
+return null;
+
+}
+
+// Reads one named field out of a compound (structured) dataset, e.g. the
+// 'electrode' column of /mapping. h5wasm hands compound rows back as plain
+// POSITIONAL arrays (e.g. [channel, electrode, x, y]), not named objects --
+// so field lookup has to go through dataset.metadata.compound_type.members
+// to find which array index a given field name lives at. Also normalizes
+// BigInt values (h5wasm returns 64-bit integer fields as BigInt) to Number.
+function myReadCompoundField(myDataset, myFieldHints){
+
+let myMeta = myDataset.metadata;
+
+if(myMeta && myMeta.compound_type && myMeta.compound_type.members){
+
+let myMembers = myMeta.compound_type.members;
+let myIdx = -1;
+
+for(let myHint of myFieldHints){
+for(let myI=0; myI<myMembers.length; myI++){
+let myName = (myMembers[myI].name||'').toLowerCase();
+if(myName===myHint || myName.indexOf(myHint)>=0){ myIdx = myI; break; }
+}
+if(myIdx>=0) break;
+}
+
+if(myIdx>=0){
+let myVal = myDataset.value; // array of row-arrays, one row per compound entry
+return myVal.map(myRow=>{
+let myV = myRow[myIdx];
+return typeof myV==='bigint' ? Number(myV) : myV;
+});
+}
+
+}
+
+// not compound (or no metadata available) -- treat as a single plain field
+let myVal = myDataset.value;
+
+if(ArrayBuffer.isView(myVal) || Array.isArray(myVal)){
+return Array.from(myVal).map(myV=>typeof myV==='bigint' ? Number(myV) : myV);
+}
+
+return null;
+
+}
+
+function myAnalyzeMaxOneH5(){
+
+let myS = myH5State;
+let myEntries = [];
+
+myWalkH5Tree(myS.f, '', myEntries, 0);
+
+console.log('MaxOne HDF5 datasets found:', myEntries.map(myE=>myE.path+' '+JSON.stringify(myE.shape)));
+
+if(myEntries.length===0){
+throw new Error('No datasets found in this HDF5 file.');
+}
+
+// ---- sampling rate (default to MaxOne's native 20 kHz if not found) ----
+let mySampEnt = myFindByNameHint(myEntries, ['sampling','samplerate','fs']);
+if(mySampEnt){
+try{
+let myV = mySampEnt.node.value;
+let myN = Array.isArray(myV)||ArrayBuffer.isView(myV) ? myV[0] : myV;
+if(typeof myN==='bigint') myN = Number(myN); // h5wasm returns int64 fields as BigInt
+if(myN>100 && myN<1000000) myS.samplingHz = Math.round(myN);
+}catch(myE){}
+}
+
+// ---- mapping table: raw channel -> (electrode id, x, y) ----
+let myMapEnt = myFindByNameHint(myEntries, ['mapping']);
+let myChToElec = new Map();
+let myChToXY = new Map();
+
+if(myMapEnt){
+try{
+
+let myChannels = myReadCompoundField(myMapEnt.node, ['channel']);
+let myElectrodes = myReadCompoundField(myMapEnt.node, ['electrode']);
+let myXs = myReadCompoundField(myMapEnt.node, ['x']);
+let myYs = myReadCompoundField(myMapEnt.node, ['y']);
+
+if(myChannels && myXs && myYs){
+
+let myXMin=Infinity, myXMax=-Infinity, myYMin=Infinity, myYMax=-Infinity;
+
+for(let myI=0; myI<myChannels.length; myI++){
+if(myXs[myI]<myXMin) myXMin = myXs[myI];
+if(myXs[myI]>myXMax) myXMax = myXs[myI];
+if(myYs[myI]<myYMin) myYMin = myYs[myI];
+if(myYs[myI]>myYMax) myYMax = myYs[myI];
+}
+
+let myXSpan = Math.max(1e-6, myXMax-myXMin);
+let myYSpan = Math.max(1e-6, myYMax-myYMin);
+
+for(let myI=0; myI<myChannels.length; myI++){
+
+let myCh = myChannels[myI];
+if(myElectrodes && myElectrodes[myI]!==undefined && myElectrodes[myI]<0) continue; // unrouted
+
+let myCol = Math.min(myCols-1, Math.floor((myXs[myI]-myXMin)/myXSpan*myCols));
+let myRow = Math.min(myRows-1, Math.floor((myYs[myI]-myYMin)/myYSpan*myRows));
+let myGridId = myRow*myCols+myCol;
+
+myChToElec.set(myCh, myGridId);
+myChToXY.set(myCh, [myXs[myI], myYs[myI]]);
+
+}
+
+myS.hasMapping = myChToElec.size>0;
+
+}
+
+}catch(myE){ console.warn('Could not parse mapping table:', myE); }
+}
+
+myS.channelToElectrode = myChToElec;
+
+// ---- spike-sorted path (preferred: small, exact, no on-demand detection needed) ----
+let mySpikeEnt = myFindByNameHint(myEntries, ['spiketimes','spikes/times','/spikes','spike']);
+
+if(mySpikeEnt){
+try{
+
+let myFrames = myReadCompoundField(mySpikeEnt.node, ['frameno','frame','time']);
+let myChans = myReadCompoundField(mySpikeEnt.node, ['channel']);
+
+if(myFrames && myChans && myFrames.length===myChans.length && myFrames.length>0){
+
+let myAllMs = new Float64Array(myFrames.length);
+let myAllCh = new Int32Array(myFrames.length);
+let myMaxFrame = 0;
+
+for(let myI=0; myI<myFrames.length; myI++){
+myAllMs[myI] = myFrames[myI]/myS.samplingHz*1000;
+myAllCh[myI] = myChans[myI];
+if(myFrames[myI]>myMaxFrame) myMaxFrame = myFrames[myI];
+}
+
+myS.spikeMode = true;
+myS.spikeCount = myFrames.length;
+myS.allSpikeMs = myAllMs;
+myS.allSpikeChannel = myAllCh;
+myS.totalDurationMs = Math.max(myH5WindowMs, myMaxFrame/myS.samplingHz*1000);
+myS.channelList = Array.from(new Set(Array.from(myAllCh)));
+
+return;
+
+}
+
+}catch(myE){ console.warn('Could not parse spike-sorted dataset, falling back to raw:', myE); }
+}
+
+// ---- raw-trace fallback: 2D int array, spikes detected on demand per window ----
+let myRawCandidates = myEntries.filter(myE=>myE.shape && myE.shape.length===2);
+myRawCandidates.sort((myA,myB)=>(myB.shape[0]*myB.shape[1])-(myA.shape[0]*myA.shape[1]));
+
+if(myRawCandidates.length===0){
+throw new Error('No spike-sorted dataset and no 2D raw trace dataset found. Datasets seen: '+myEntries.map(myE=>myE.path).join(', '));
+}
+
+let myRaw = myRawCandidates[0];
+let myChCount = myChToElec.size>0 ? myChToElec.size : null;
+
+// Prefer matching the known mapping-table channel count against the two raw
+// dataset dimensions to pick which axis is "channel". Falls back to "smaller
+// dimension is channels" only when there's no mapping table to check against
+// -- that fallback guesses wrong on short test files (e.g. a 1024-channel x
+// 3-frame test recording, where the frame count is the smaller number).
+if(myChCount && myRaw.shape[0]===myChCount){
+myS.rawChannelAxis = 0;
+}else if(myChCount && myRaw.shape[1]===myChCount){
+myS.rawChannelAxis = 1;
+}else{
+myS.rawChannelAxis = myRaw.shape[0]<=myRaw.shape[1] ? 0 : 1;
+}
+
+let myNumFrames = myS.rawChannelAxis===0 ? myRaw.shape[1] : myRaw.shape[0];
+let myNumChannels = myS.rawChannelAxis===0 ? myRaw.shape[0] : myRaw.shape[1];
+
+myS.rawDataset = myRaw.node;
+myS.rawFrameCount = myNumFrames; // used to clamp windows near/at end of a short recording
+myS.totalDurationMs = Math.max(myH5WindowMs, myNumFrames/myS.samplingHz*1000);
+myS.channelList = [];
+for(let myC=0; myC<myNumChannels; myC++) myS.channelList.push(myC);
+
+if(myNumFrames<Math.round(myH5WindowMs/1000*myS.samplingHz)){
+myS.shortRecordingWarning = 'This recording only has '+myNumFrames+' samples ('+
+(myNumFrames/myS.samplingHz*1000).toFixed(2)+'ms) -- shorter than the 10s window, '+
+'so the baseline will be built from whatever is actually present.';
+}
+
+}
+
+function myOnH5WindowSlider(myValue){
+
+let myStartMs = Number(myValue);
+document.getElementById('myH5WindowStartLabel').textContent = (myStartMs/1000).toFixed(2)+'s';
+document.getElementById('myH5WindowEndLabel').textContent = ((myStartMs+myH5WindowMs)/1000).toFixed(2)+'s';
+
+}
+
+function myGetSelectedWindowStartMs(){
+return Number(document.getElementById('myH5WindowSlider').value);
+}
+
+// Fast, approximate look at population activity for the current slider
+// position, so the user can find an interesting (or a quiet) stretch before
+// committing to the heavier full extraction in myConfirmBaselineWindow().
+function myPreviewBaselineWindow(){
+
+let myS = myH5State;
+if(!myS) return;
+
+let myStartMs = myGetSelectedWindowStartMs();
+let myEndMs = myStartMs+myH5WindowMs;
+let myDiv = document.getElementById('myH5PreviewDiv');
+
+myDiv.textContent = 'Scanning window...';
+
+setTimeout(function(){
+
+if(myS.spikeMode){
+
+let myCount = 0;
+let myActiveCh = new Set();
+
+for(let myI=0; myI<myS.allSpikeMs.length; myI++){
+if(myS.allSpikeMs[myI]>=myStartMs && myS.allSpikeMs[myI]<myEndMs){
+myCount++;
+myActiveCh.add(myS.allSpikeChannel[myI]);
+}
+}
+
+myDiv.textContent = 'Preview: '+myCount+' spikes across '+myActiveCh.size+' channels in this 10s window ('+
+(myCount/10).toFixed(1)+' spikes/s population rate).';
+
+}else{
+
+// subsample channels for speed; full detection happens on Confirm
+let myStep = Math.max(1, Math.floor(myS.channelList.length/48));
+let mySampleChannels = myS.channelList.filter((myC,myI)=>myI%myStep===0);
+let myResult = myDetectSpikesInWindow(myS, myStartMs, mySampleChannels);
+let myTotalSpikes = 0;
+for(let myK of Object.keys(myResult)) myTotalSpikes += myResult[myK].length;
+
+myDiv.textContent = 'Preview (estimated from '+mySampleChannels.length+'/'+myS.channelList.length+
+' channels): ~'+myTotalSpikes+' threshold crossings in this 10s window. Click "Use this window" to run full detection on all channels.';
+
+}
+
+},10);
+
+}
+
+// Threshold-based spike detection on raw traces for one 10-second window.
+// Uses a median-absolute-deviation threshold on the negative deflection,
+// which is the standard quick-and-dirty extracellular spike detector --
+// good enough for a hypothesis-generation sandbox, not a validated sorter.
+function myDetectSpikesInWindow(myS, myStartMs, myChannels){
+
+let myFrameStart = Math.max(0, Math.round(myStartMs/1000*myS.samplingHz));
+let myFrameCount = Math.round(myH5WindowMs/1000*myS.samplingHz);
+
+// clamp to what the dataset actually has -- matters for short/test recordings
+// where the requested 10s window runs past the last available sample
+if(myS.rawFrameCount!==undefined){
+myFrameCount = Math.min(myFrameCount, Math.max(0, myS.rawFrameCount-myFrameStart));
+}
+
+let myByElectrode = {};
+let myRefractoryFrames = Math.round(0.001*myS.samplingHz); // 1ms refractory
+
+if(myFrameCount<=0) return myByElectrode;
+
+for(let myCh of myChannels){
+
+let mySlice;
+
+try{
+let myRanges = myS.rawChannelAxis===0 ?
+[[myCh,myCh+1],[myFrameStart,myFrameStart+myFrameCount]] :
+[[myFrameStart,myFrameStart+myFrameCount],[myCh,myCh+1]];
+mySlice = myS.rawDataset.slice(myRanges);
+}catch(myE){ continue; }
+
+if(!mySlice || mySlice.length===0) continue;
+
+// median absolute deviation, computed on a subsample for speed
+let mySample = [];
+for(let myI=0; myI<mySlice.length; myI+=7) mySample.push(mySlice[myI]);
+mySample.sort((myA,myB)=>myA-myB);
+let myMedian = mySample[Math.floor(mySample.length/2)] || 0;
+
+let myDevs = mySample.map(myV=>Math.abs(myV-myMedian));
+myDevs.sort((myA,myB)=>myA-myB);
+let myMad = myDevs[Math.floor(myDevs.length/2)] || 1;
+
+let myThreshold = myMedian - Math.max(1, 4.5*myMad/0.6745);
+
+let myGridId = (myS.channelToElectrode && myS.channelToElectrode.has(myCh)) ?
+myS.channelToElectrode.get(myCh) : (myCh % myElectrodeCount);
+
+let myLastSpikeFrame = -Infinity;
+
+for(let myI=0; myI<mySlice.length; myI++){
+
+if(mySlice[myI]<myThreshold && (myI-myLastSpikeFrame)>myRefractoryFrames){
+
+myLastSpikeFrame = myI;
+let myMs = myI/myS.samplingHz*1000;
+
+if(!myByElectrode[myGridId]) myByElectrode[myGridId] = [];
+myByElectrode[myGridId].push(myMs);
+
+}
+
+}
+
+}
+
+return myByElectrode;
+
+}
+
+function myConfirmBaselineWindow(){
+
+let myS = myH5State;
+if(!myS) return;
+
+let myStartMs = myGetSelectedWindowStartMs();
+let myByElectrode = {};
+
+if(myS.spikeMode){
+
+let myEndMs = myStartMs+myH5WindowMs;
+
+for(let myI=0; myI<myS.allSpikeMs.length; myI++){
+
+let myT = myS.allSpikeMs[myI];
+if(myT<myStartMs || myT>=myEndMs) continue;
+
+let myCh = myS.allSpikeChannel[myI];
+let myGridId = (myS.channelToElectrode && myS.channelToElectrode.has(myCh)) ?
+myS.channelToElectrode.get(myCh) : (myCh % myElectrodeCount);
+
+if(!myByElectrode[myGridId]) myByElectrode[myGridId] = [];
+myByElectrode[myGridId].push(myT-myStartMs); // shift so window starts at t=0
+
+}
+
+}else{
+
+document.getElementById('myH5PreviewDiv').textContent = 'Running full threshold detection on '+myS.channelList.length+' channels...';
+
+myByElectrode = myDetectSpikesInWindow(myS, myStartMs, myS.channelList);
+
+}
+
+for(let myK of Object.keys(myByElectrode)){
+myByElectrode[myK].sort((myA,myB)=>myA-myB);
+}
+
+myBuildBaselineFromSpikes(myByElectrode, myH5WindowMs, false);
+
+document.getElementById('myH5PickerPanel').style.display = 'none';
+
+}
+
+function myCancelBaselinePicker(){
+
+if(myH5State && myH5State.mounted){
+try{ myH5State.f.close(); }catch(myE1){}
+try{
+let myNameToRemove = myH5State.fileName;
+h5wasm.ready.then(function(myM){ try{ myM.FS.unlink('/'+myNameToRemove); }catch(myE2){} });
+}catch(myE3){}
+}
+
+myH5State = null;
+document.getElementById('myH5PickerPanel').style.display = 'none';
+
+}
+
+function myBuildBaselineFromSpikes(myByElectrode, myDurationMs, myTruncated){
+
+let myBinMs = 10;
+let myNumBins = Math.ceil(myDurationMs/myBinMs);
+let myPop = new Float32Array(myNumBins);
+
+for(let myK of Object.keys(myByElectrode)){
+for(let myT of myByElectrode[myK]){
+let myBin = Math.min(myNumBins-1, Math.floor(myT/myBinMs));
+myPop[myBin]++;
+}
+}
+
+let mySmooth = new Float32Array(myNumBins);
+
+for(let myI=0; myI<myNumBins; myI++){
+let myLo = Math.max(0,myI-1);
+let myHi = Math.min(myNumBins-1,myI+1);
+let mySum=0, myCnt=0;
+for(let myJ=myLo; myJ<=myHi; myJ++){ mySum+=myPop[myJ]; myCnt++; }
+mySmooth[myI] = mySum/myCnt;
+}
+
+let myMean = mySmooth.reduce((myA,myB)=>myA+myB,0)/Math.max(1,myNumBins);
+let myVar = mySmooth.reduce((myA,myB)=>myA+(myB-myMean)*(myB-myMean),0)/Math.max(1,myNumBins);
+let myStd = Math.sqrt(myVar);
+let myThreshold = myMean + Math.max(1.2*myStd,1);
+
+let myBursts = [];
+let myInBurst = false;
+let myBurstStartBin = 0;
+
+for(let myI=0; myI<myNumBins; myI++){
+
+if(!myInBurst && mySmooth[myI]>myThreshold){
+myInBurst = true;
+myBurstStartBin = myI;
+}else if(myInBurst && mySmooth[myI]<=myThreshold){
+myInBurst = false;
+let myT0 = myBurstStartBin*myBinMs;
+let myWidth = Math.max(myBinMs,(myI-myBurstStartBin)*myBinMs);
+if(myBursts.length && (myT0-(myBursts[myBursts.length-1].t0+myBursts[myBursts.length-1].width))<30){
+myBursts[myBursts.length-1].width = myT0+myWidth-myBursts[myBursts.length-1].t0;
+}else{
+myBursts.push({t0:myT0, width:myWidth, originIdx:-1});
+}
+}
+
+}
+
+if(myInBurst){
+let myT0 = myBurstStartBin*myBinMs;
+myBursts.push({t0:myT0, width:Math.max(myBinMs,(myNumBins-myBurstStartBin)*myBinMs), originIdx:-1});
+}
+
+myBursts = myBursts.slice(0,80);
+
+let myFiringRate = new Float32Array(myElectrodeCount);
+let myBurstParticipation = new Float32Array(myElectrodeCount);
+let myBurstOnset = new Float32Array(myElectrodeCount);
+let myElectrodeBurstSets = [];
+
+for(let myE=0; myE<myElectrodeCount; myE++){
+
+let myTimes = myByElectrode[myE] || [];
+
+myFiringRate[myE] = myTimes.length/(myDurationMs/1000);
+
+let myPartCount = 0;
+let myOnsetCount = 0;
+let mySet = [];
+
+for(let myBi=0; myBi<myBursts.length; myBi++){
+
+let myBurst = myBursts[myBi];
+let myFirstInBurst = -1;
+
+for(let myT of myTimes){
+if(myT>=myBurst.t0 && myT<=myBurst.t0+myBurst.width){
+if(myFirstInBurst<0) myFirstInBurst = myT;
+}else if(myT>myBurst.t0+myBurst.width){
+break;
+}
+}
+
+if(myFirstInBurst>=0){
+myPartCount++;
+mySet.push(myBi);
+if((myFirstInBurst-myBurst.t0)<=45) myOnsetCount++;
+}
+
+}
+
+myBurstParticipation[myE] = myBursts.length ? myPartCount/myBursts.length : 0;
+myBurstOnset[myE] = myBursts.length ? myOnsetCount/myBursts.length : 0;
+myElectrodeBurstSets.push(mySet);
+
+}
+
+for(let myBurst of myBursts){
+
+let myBestT = Infinity;
+let myBestE = -1;
+
+for(let myE=0; myE<myElectrodeCount; myE++){
+
+let myTimes = myByElectrode[myE];
+if(!myTimes) continue;
+
+for(let myT of myTimes){
+if(myT>=myBurst.t0 && myT<=myBurst.t0+myBurst.width && myT<myBestT){
+myBestT = myT;
+myBestE = myE;
+}
+}
+
+}
+
+myBurst.originIdx = myBestE;
+
+}
+
+myBaseline = {
+source:'upload',
+seed: mySeed,
+durationMs: myDurationMs,
+rows: myRows,
+cols: myCols,
+params: null,
+hotspots: null,
+bursts: myBursts,
+firingRate: myFiringRate,
+burstParticipation: myBurstParticipation,
+burstOnset: myBurstOnset,
+electrodeBurstSets: myElectrodeBurstSets,
+spikes: myByElectrode,
+truncated: myTruncated
+};
+
+myFinishBaselineLoad();
+
+}
+
+function myFinishBaselineLoad(){
+
+myComputeBaselineOverallStats();
+
+myZoneConnCache = null;
+myBaselineTime = 0;
+myBaselineInitialized = false;
+
+let mySlider = document.getElementById('myBaselineTimeSlider');
+if(mySlider){
+mySlider.max = myBaseline.durationMs;
+mySlider.value = 0;
+}
+
+document.getElementById('myBaselineTimeLabel').textContent = '0.00s';
+
+myRenderBaselineStats();
+myComputeZoneSuggestions();
+myRenderBaselineSuggestions();
+myInitializeFromBaseline();
+myRenderBaselineStats();
+myRenderResearchDashboard();
+myUpdateVisualization();
+
+}
+
+function myComputeBaselineOverallStats(){
+
+if(!myBaseline) return;
+
+let myN = myElectrodeCount;
+let mySumRate=0, mySumPart=0, myActiveCount=0;
+
+for(let myE=0; myE<myN; myE++){
+mySumRate += myBaseline.firingRate[myE];
+mySumPart += myBaseline.burstParticipation[myE];
+if(myBaseline.firingRate[myE]>0.05) myActiveCount++;
+}
+
+myBaseline.meanFiringRate = mySumRate/myN;
+myBaseline.syncIndex = mySumPart/myN;
+myBaseline.activeFraction = myActiveCount/myN;
+myBaseline.burstRate = myBaseline.bursts.length/(myBaseline.durationMs/1000);
+
+}
+
+function myClearBaseline(){
+
+myBaseline = null;
+myZoneConnCache = null;
+myZoneSuggestions = [];
+myBaselinePlaying = false;
+myBaselineInitialized = false;
+
+let myReplayBtn = document.getElementById('myBaselineReplayBtn');
+if(myReplayBtn) myReplayBtn.value = 'Replay activity';
+
+let myStatus = document.getElementById('myBaselineStatusDiv');
+if(myStatus) myStatus.textContent = 'Baseline: None';
+
+document.getElementById('myBaselineStatsDiv').innerHTML = 'No baseline loaded.';
+document.getElementById('myBaselineSuggestDiv').innerHTML = 'Load or generate a baseline first.';
+
+myUpdateVisualization();
+myRenderResearchDashboard();
+
+}
+
+function myRenderBaselineStats(){
+
+let myDiv = document.getElementById('myBaselineStatsDiv');
+if(!myDiv) return;
+
+if(!myBaseline){
+myDiv.innerHTML = 'No baseline loaded.';
+return;
+}
+
+myDiv.innerHTML =
+'Source: '+myBaseline.source+'<br>'+
+'Recording duration: '+(myBaseline.durationMs/1000).toFixed(1)+' s<br>'+
+'Detected bursts: '+myBaseline.bursts.length+'<br>'+
+'Mean firing rate: '+myBaseline.meanFiringRate.toFixed(3)+' Hz<br>'+
+'Active electrode %: '+(myBaseline.activeFraction*100).toFixed(1)+'%<br>'+
+'Burst synchronization index: '+myBaseline.syncIndex.toFixed(3)+
+(myBaseline.truncated ? '<br><span style="color:#e0a040;">Upload truncated.</span>' : '');
+
+}
+
+// ---- zone-level baseline aggregation & connectivity ----
+
+function myZoneMeanOfArray(myArr){
+
+return function(myZone){
+
+if(myZone.electrodes.length===0) return 0;
+
+let mySum=0;
+for(let myE of myZone.electrodes) mySum += myArr[myE.id];
+
+return mySum/myZone.electrodes.length;
+
+};
+
+}
+
+function myPearson(myA,myB){
+
+let myN = myA.length;
+if(myN===0) return 0;
+
+let myMeanA = myA.reduce((myA1,myB1)=>myA1+myB1,0)/myN;
+let myMeanB = myB.reduce((myA1,myB1)=>myA1+myB1,0)/myN;
+
+let myNum=0, myDenA=0, myDenB=0;
+
+for(let myI=0; myI<myN; myI++){
+let myDa = myA[myI]-myMeanA;
+let myDb = myB[myI]-myMeanB;
+myNum += myDa*myDb;
+myDenA += myDa*myDa;
+myDenB += myDb*myDb;
+}
+
+let myDen = Math.sqrt(myDenA*myDenB);
+
+return myDen<1e-9 ? 0 : myNum/myDen;
+
+}
+
+function myComputeZoneConnectivity(){
+
+if(!myBaseline) return null;
+
+let myCacheKey = myTopology+'_'+myBaseline.bursts.length+'_'+myBaseline.source+'_'+(myBaseline.seed||0);
+
+if(myZoneConnCache && myZoneConnCache.key===myCacheKey) return myZoneConnCache.matrix;
+
+let myNumBursts = myBaseline.bursts.length;
+
+let myZoneActive = myZones.map(myZone=>{
+
+let myArr = new Array(myNumBursts).fill(0);
+
+for(let myE of myZone.electrodes){
+for(let myBi of myBaseline.electrodeBurstSets[myE.id]){
+myArr[myBi] = 1;
+}
+}
+
+return myArr;
+
+});
+
+let myMatrix = myZones.map(()=>new Array(myZones.length).fill(0));
+
+for(let myI=0; myI<myZones.length; myI++){
+for(let myJ=0; myJ<myZones.length; myJ++){
+if(myI===myJ){ myMatrix[myI][myJ]=1; continue; }
+myMatrix[myI][myJ] = myPearson(myZoneActive[myI],myZoneActive[myJ]);
+}
+}
+
+myZoneConnCache = {key:myCacheKey, matrix:myMatrix};
+
+return myMatrix;
+
+}
+
+// ---- automatic zone suggestions ----
+
+function myComputeZoneSuggestions(){
+
+myZoneSuggestions = [];
+
+if(!myBaseline || myZones.length===0) return;
+
+let myOnsetMean = myZoneMeanOfArray(myBaseline.burstOnset);
+let myPartMean = myZoneMeanOfArray(myBaseline.burstParticipation);
+let myRateMean = myZoneMeanOfArray(myBaseline.firingRate);
+
+let myConn = myComputeZoneConnectivity();
+
+let myScored = myZones.map(myZone=>({
+zone: myZone.index,
+onset: myOnsetMean(myZone),
+part: myPartMean(myZone),
+rate: myRateMean(myZone),
+connDegree: myConn ? myConn[myZone.index].reduce((myA,myB,myJ)=> myJ===myZone.index ? myA : myA+Math.abs(myB), 0) : 0
+}));
+
+let myN = Math.max(1, Math.round(myZones.length/6));
+
+let myByOnset = myScored.slice().sort((myA,myB)=>myB.onset-myA.onset);
+let myTopOnset = myByOnset.slice(0,myN).map(myS=>myS.zone);
+
+let myByPart = myScored.slice().sort((myA,myB)=>myB.part-myA.part).filter(myS=>!myTopOnset.includes(myS.zone));
+let myTopProp = myByPart.slice(0,myN).map(myS=>myS.zone);
+
+let myByConn = myScored.slice().sort((myA,myB)=>myB.connDegree-myA.connDegree);
+let myTopConn = myByConn.slice(0,myN).map(myS=>myS.zone);
+
+let myByRateAsc = myScored.slice().sort((myA,myB)=>myA.rate-myB.rate);
+let myLowActivity = myByRateAsc.slice(0,myN).map(myS=>myS.zone);
+
+for(let myZi of myTopOnset){
+let myS = myScored.find(myX=>myX.zone===myZi);
+myZoneSuggestions.push({zone:myZi, category:'Burst initiation', metric:'onset '+myS.onset.toFixed(2), suggestedRole:'stim'});
+}
+
+for(let myZi of myTopProp){
+let myS = myScored.find(myX=>myX.zone===myZi);
+myZoneSuggestions.push({zone:myZi, category:'Burst propagation', metric:'participation '+myS.part.toFixed(2), suggestedRole:'encourage'});
+}
+
+for(let myZi of myTopConn){
+let myS = myScored.find(myX=>myX.zone===myZi);
+myZoneSuggestions.push({zone:myZi, category:'High connectivity', metric:'degree '+myS.connDegree.toFixed(2), suggestedRole:'sensor'});
+}
+
+for(let myZi of myLowActivity){
+let myS = myScored.find(myX=>myX.zone===myZi);
+myZoneSuggestions.push({zone:myZi, category:'Low-activity control', metric:'rate '+myS.rate.toFixed(2)+' Hz', suggestedRole:'unused'});
+}
+
+}
+
+function myRenderBaselineSuggestions(){
+
+let myDiv = document.getElementById('myBaselineSuggestDiv');
+if(!myDiv) return;
+
+if(!myBaseline){
+myDiv.innerHTML = 'Load or generate a baseline first.';
+return;
+}
+
+if(myZoneSuggestions.length===0){
+myDiv.innerHTML = 'No suggestions for the current topology.';
+return;
+}
+
+let myHtml = '';
+
+myZoneSuggestions.forEach((myS,myIdx)=>{
+
+myHtml +=
+"<div style='border-bottom:1px solid #223040;padding:4px 0;'>"+
+'<b>Zone '+myS.zone+'</b> — '+myS.category+' ('+myS.metric+')<br>'+
+"<input type='button' value='Accept as "+myS.suggestedRole+"' onclick='myAcceptSuggestion("+myIdx+")' style='font-size:10px;'>"+
+"<input type='button' value='Select' onclick='mySelectZoneFromSuggestion("+myS.zone+")' style='font-size:10px;'>"+
+"<input type='button' value='Ignore' onclick='myIgnoreSuggestion("+myIdx+")' style='font-size:10px;'>"+
+'</div>';
+
+});
+
+myDiv.innerHTML = myHtml;
+
+}
+
+function myAcceptSuggestion(myIdx){
+
+let myS = myZoneSuggestions[myIdx];
+if(!myS) return;
+
+mySelectedZone = myS.zone;
+myint_SetZoneRole(myS.suggestedRole);
+
+myIgnoreSuggestion(myIdx);
+
+}
+
+function mySelectZoneFromSuggestion(myZi){
+
+mySelectedZone = myZi;
+myUpdateSelectedZonePanel();
+myUpdateVisualization();
+
+}
+
+function myIgnoreSuggestion(myIdx){
+
+myZoneSuggestions.splice(myIdx,1);
+myRenderBaselineSuggestions();
+
+}
+
+// ---- baseline initialization of the simulation ----
+
+function myInitializeFromBaseline(){
+
+if(!myBaseline) return;
+
+let myRateMean = myZoneMeanOfArray(myBaseline.firingRate);
+let myPartMean = myZoneMeanOfArray(myBaseline.burstParticipation);
+
+for(let myZone of myZones){
+myZone.baselineBias = Math.min(1, myRateMean(myZone)/3 + myPartMean(myZone)*0.3);
+}
+
+let myConn = myComputeZoneConnectivity();
+
+if(myConn && myStimZones.length>0 && mySensorZones.length>0){
+for(let myI=0; myI<myStimZones.length; myI++){
+for(let myJ=0; myJ<mySensorZones.length; myJ++){
+let myC = myConn[myStimZones[myI]][mySensorZones[myJ]];
+let myW = Math.max(-1,Math.min(1, myC*0.6));
+mySetInfluence(myI,myJ,myW);
+}
+}
+}
+
+myBaselineInitialized = true;
+
+let myStatus = document.getElementById('myBaselineStatusDiv');
+if(myStatus) myStatus.innerHTML = 'Baseline: '+myBaseline.source+' ✓<br>Baseline incorporated ✓';
+
+myRenderInfluenceHeatmap();
+myUpdateVisualization();
+myRenderResearchDashboard();
+
+}
+
+// Compatibility wrapper. V24 calls myInitializeFromBaseline automatically;
+// this function remains so saved/older code cannot break if it references it.
+function myUseBaselineToInitialize(){
+myInitializeFromBaseline();
+}
+
+
+function myUpdateBaselineSpike(myE,myColor,myHeight,myVisible){
+
+    if(!myE.mySpikeMesh){
+
+        let mySpikeGeometry = new THREE.CylinderGeometry(
+            0.008,
+            0.008,
+            0.10,
+            5
+        );
+
+        let mySpikeMaterial = new THREE.MeshBasicMaterial({
+            color:myColor,
+            transparent:true,
+            opacity:0.95
+        });
+
+        myE.mySpikeMesh = new THREE.Mesh(
+            mySpikeGeometry,
+            mySpikeMaterial
+        );
+
+        myE.mySpikeMesh.visible = false;
+
+        myElectrodeGroup.add(myE.mySpikeMesh);
+    }
+
+    myE.mySpikeMesh.material.color.setHex(myColor);
+
+    myE.mySpikeMesh.scale.set(
+        1,
+        myHeight/0.10,
+        1
+    );
+
+    myE.mySpikeMesh.position.set(
+        myE.x,
+        0.04 + myHeight/2,
+        myE.z
+    );
+
+    myE.mySpikeMesh.visible = myVisible;
+}
+
+
+
+
+// V24 uses one visualization: baseline activity is an electrode layer and
+// experimental zones remain visible on top. There is intentionally no
+// baseline/zones view toggle anymore.
+
+
+
+function myToggleBaselineReplay(){
+
+    if(!myBaseline){
+
+        alert('Generate or upload a baseline first.');
+
+        return;
+    }
+
+    myBaselinePlaying = !myBaselinePlaying;
+
+    let myBtn = document.getElementById('myBaselineReplayBtn');
+
+    if(myBtn){
+        myBtn.value =
+            myBaselinePlaying ?
+            'Pause activity' :
+            'Replay activity';
+    }
+
+    if(myBaselinePlaying){
+
+        /*
+         * Keep the current slider position.
+         * If we are already at the end, restart at zero.
+         */
+
+        if(myBaselineTime>=myBaseline.durationMs){
+            myBaselineTime = 0;
+        }
+
+        /*
+         * Force the animation loop to calculate a fresh
+         * frame interval.
+         */
+
+        myLastBaselineFrameTime = 0;
+
+        /*
+         * Immediately show the first replay frame.
+         */
+
+        myUpdateVisualization();
+
+    }else{
+
+        /*
+         * When replay is paused, keep the current time visible.
+         */
+
+        myLastBaselineFrameTime = 0;
+
+        myUpdateVisualization();
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+function myOnBaselineTimeSlider(myValue){
+
+myBaselinePlaying = false;
+
+let myBtn = document.getElementById('myBaselineReplayBtn');
+if(myBtn) myBtn.value = 'Replay activity';
+
+myBaselineTime = Number(myValue);
+
+let myLabel = document.getElementById('myBaselineTimeLabel');
+if(myLabel) myLabel.textContent = (myBaselineTime/1000).toFixed(2)+'s';
+
+myUpdateVisualization();
+
+}
+
+function myIsElectrodeActiveAtTime(myElectrodeId, myT){
+
+if(!myBaseline) return false;
+
+if(myBaseline.source==='synthetic'){
+
+let myRow = Math.floor(myElectrodeId/myCols);
+let myCol = myElectrodeId%myCols;
+let mySigma = myAgeSigma(myBaseline.params.age);
+
+for(let myBurst of myBaseline.bursts){
+
+if(myBurst.originIdx<0) continue;
+if(myT<myBurst.t0 || myT>myBurst.t0+myBurst.width+60) continue;
+
+let myH = myBaseline.hotspots[myBurst.originIdx];
+let myD = Math.hypot((myRow-myH.row),(myCol-myH.col)/2);
+let myW = Math.exp(-(myD*myD)/(2*mySigma*mySigma));
+let myDelay = (1-myW)*myBurst.width*1.3;
+let myFireT = myBurst.t0+myDelay;
+
+if(Math.abs(myT-myFireT)<25) return true;
+
+}
+
+return false;
+
+}else{
+
+let myTimes = myBaseline.spikes[myElectrodeId];
+if(!myTimes) return false;
+
+for(let myTs of myTimes){
+if(Math.abs(myTs-myT)<15) return true;
+}
+
+return false;
+
+}
+
+}
+
+
+
+
+function myUpdateBaselineVisualization(){
+
+    if(!myBaseline){
+
+        myUpdateVisualization();
+
+        return;
+    }
+
+
+    let myMaxRate = 0.5;
+
+
+    for(let myE=0; myE<myElectrodeCount; myE++){
+
+        let myRate =
+            myBaseline.firingRate[myE] || 0;
+
+        if(myRate>myMaxRate){
+            myMaxRate = myRate;
+        }
+    }
+
+
+    for(let myE of myElectrodes){
+
+        let myRate =
+            myBaseline.firingRate[myE.id] || 0;
+
+        let myNorm =
+            Math.min(1,myRate/myMaxRate);
+
+
+        let myColor;
+
+        let mySpikeColor;
+
+        let mySpikeHeight =
+            0.035;
+
+        let mySpikeVisible =
+            false;
+
+
+        /*
+         * Frequency color.
+         */
+
+        if(myNorm<0.08){
+
+            myColor = 0x3050ff;
+
+            mySpikeColor = 0x3050ff;
+
+        }else if(myNorm<0.30){
+
+            myColor = 0x30ff90;
+
+            mySpikeColor = 0x30ff90;
+
+            mySpikeHeight = 0.055;
+
+        }else if(myNorm<0.65){
+
+            myColor = 0xffe030;
+
+            mySpikeColor = 0xffe030;
+
+            mySpikeHeight = 0.080;
+
+        }else{
+
+            myColor = 0xff4060;
+
+            mySpikeColor = 0xff4060;
+
+            mySpikeHeight = 0.110;
+        }
+
+
+        /*
+         * Replay event.
+         */
+
+        if(
+            myBaselinePlaying &&
+            myIsElectrodeActiveAtTime(
+                myE.id,
+                myBaselineTime
+            )
+        ){
+
+            mySpikeVisible = true;
+
+
+            if(myRate<2){
+
+                mySpikeHeight = 0.055;
+
+                mySpikeColor =
+                    myColor;
+
+            }else if(myRate<5){
+
+                mySpikeHeight = 0.10;
+
+                mySpikeColor =
+                    myColor;
+
+            }else if(myRate<10){
+
+                mySpikeHeight = 0.18;
+
+                mySpikeColor =
+                    0xffffff;
+
+            }else{
+
+                mySpikeHeight = 0.25;
+
+                mySpikeColor =
+                    0xffffff;
+            }
+        }
+
+
+        /*
+         * Keep sphere frequency color.
+         */
+
+        myE.mesh.material.color.setHex(
+            myColor
+        );
+
+
+        /*
+         * Draw temporal spike.
+         */
+
+        myUpdateBaselineSpike(
+            myE,
+            mySpikeColor,
+            mySpikeHeight,
+            mySpikeVisible
+        );
+    }
+
+
+    /*
+     * Keep zones visible.
+     */
+
+    for(let myI=0; myI<myZones.length; myI++){
+
+        let myZone =
+            myZones[myI];
+
+        let myDisc =
+            myZoneGroup.children[myI*2];
+
+        let myRing =
+            myZoneGroup.children[myI*2+1];
+
+
+        let myMean = 0;
+
+
+        for(let myE of myZone.electrodes){
+
+            myMean +=
+                myBaseline.firingRate[myE.id];
+        }
+
+
+        myMean =
+            myZone.electrodes.length ?
+            myMean/myZone.electrodes.length :
+            0;
+
+
+        let myNorm =
+            Math.min(
+                1,
+                myMean/myMaxRate
+            );
+
+
+        let myColor =
+            myNorm<0.08 ?
+            0x3050ff :
+            myNorm<0.30 ?
+            0x30ff90 :
+            myNorm<0.65 ?
+            0xffe030 :
+            0xff4060;
+
+
+        myDisc.material.color.setHex(
+            myColor
+        );
+
+
+        myRing.material.color.setHex(
+            myI===mySelectedZone ?
+            0xffffff :
+            myColor
+        );
+
+
+        let myScale =
+            1 + myNorm*0.6;
+
+
+        myDisc.scale.set(
+            myScale,
+            myScale,
+            myScale
+        );
+
+        myRing.scale.set(
+            myScale,
+            myScale,
+            myScale
+        );
+    }
+}
+
+
+
+
+
+
+// ---- experimental objectives (Phase 2) ----
+
+function myOnObjectiveModeChange(){
+
+myObjectiveMode = document.getElementById('myObjectiveSelect').value;
+
+myRenderResearchDashboard();
+
+}
+
+function myComputeDesiredOutput(myKey, myActual){
+
+let myM = mySensorZones.length;
+
+if(myObjectiveMode==='connectivity'){
+return new Array(myM).fill(1);
+}
+
+if(myObjectiveMode==='directionality'){
+let myD = new Array(myM).fill(0);
+if(myInputPattern[0]) myD[0] = 1;
+return myD;
+}
+
+if(myObjectiveMode==='burstlocalization'){
+let myBest = 0;
+for(let myJ=1; myJ<myM; myJ++){
+if(myActual[myJ]>myActual[myBest]) myBest = myJ;
+}
+let myD = new Array(myM).fill(0);
+if(myM>0) myD[myBest] = 1;
+return myD;
+}
+
+if(myObjectiveMode==='stability'){
+return myActual.map(myV=>Math.round(myV));
+}
+
+// 'latency' reuses the truth table as its target (only the learning rate
+// changes, see myRunOnce), and 'truthtable' is the plain default.
+return myTruthTable[myKey] || new Array(myM).fill(0);
+
+}
+
+// ---- research dashboard ----
+
+function myRenderResearchDashboard(){
+
+let myDiv = document.getElementById('myDashboardDiv');
+if(!myDiv) return;
+
+let myLatestErr = myErrorHistory.length ? myErrorHistory[myErrorHistory.length-1] : null;
+
+let myConnChangeText = '—';
+
+if(myBaseline){
+
+let myConn = myComputeZoneConnectivity();
+
+if(myConn && myStimZones.length && mySensorZones.length){
+
+let mySum=0, myCnt=0;
+
+for(let myI=0; myI<myStimZones.length; myI++){
+for(let myJ=0; myJ<mySensorZones.length; myJ++){
+let myBaselineC = myConn[myStimZones[myI]][mySensorZones[myJ]];
+let myCurrent = myGetInfluence(myI,myJ);
+mySum += (myCurrent-myBaselineC*0.6);
+myCnt++;
+}
+}
+
+myConnChangeText = myCnt ? (mySum/myCnt).toFixed(3) : '—';
+
+}
+
+}
+
+let myGroups = Math.max(1, Math.ceil((myStimZones.length ? myZones[myStimZones[0]].electrodes.length : 1)/myBurstElectrodesPerGroup));
+let myEfficiency = (1/(myGroups*Math.max(1,myBurstDwellMs))).toFixed(5);
+
+myDiv.innerHTML =
+'<b>Baseline</b><br>'+
+'Mean firing rate: '+(myBaseline ? myBaseline.meanFiringRate.toFixed(3)+' Hz' : '—')+'<br>'+
+'Burst rate: '+(myBaseline ? myBaseline.burstRate.toFixed(3)+' /s' : '—')+'<br>'+
+'Sync index: '+(myBaseline ? myBaseline.syncIndex.toFixed(3) : '—')+'<br>'+
+'Active electrode fraction: '+(myBaseline ? (myBaseline.activeFraction*100).toFixed(1)+'%' : '—')+
+'<br><br><b>Training</b><br>'+
+'Objective mode: '+myObjectiveMode+'<br>'+
+'Latest error: '+(myLatestErr!==null ? myLatestErr.toFixed(3) : '—')+'<br>'+
+'Connectivity change (avg, vs baseline): '+myConnChangeText+'<br>'+
+'Protocol efficiency (1/(groups·dwell)): '+myEfficiency+'<br>'+
+'Baseline-initialized: '+(myBaselineInitialized ? 'Yes' : 'No');
+
+}
+
+// ---- experimental comparison mode ----
+
+function myAddExperimentToComparison(){
+
+myExperiments.push({
+name: 'Exp '+(myExperiments.length+1),
+topology: myTopology,
+stimCount: myStimZones.length,
+sensorCount: mySensorZones.length,
+burstSchedule: myBurstElectrodesPerGroup+' e/grp, '+myBurstDwellMs+'ms dwell',
+objective: myObjectiveMode,
+baselineUsed: myBaseline ? myBaseline.source : 'none',
+latestError: myErrorHistory.length ? myErrorHistory[myErrorHistory.length-1] : null
+});
+
+if(myExperiments.length>8) myExperiments.shift();
+
+myRenderComparisonTable();
+
+}
+
+function myRemoveExperiment(myIdx){
+
+myExperiments.splice(myIdx,1);
+myRenderComparisonTable();
+
+}
+
+function myRenderComparisonTable(){
+
+let myDiv = document.getElementById('myComparisonDiv');
+if(!myDiv) return;
+
+if(myExperiments.length===0){
+myDiv.innerHTML = 'No experiments stored yet. Click "Store current run" to add one.';
+return;
+}
+
+let myHtml = "<table class='mySmallTable'><tr><th>Name</th><th>Topology</th><th>Stim</th><th>Sensor</th><th>Schedule</th><th>Objective</th><th>Baseline</th><th>Err</th><th></th></tr>";
+
+myExperiments.forEach((myExp,myIdx)=>{
+
+myHtml +=
+'<tr><td>'+myExp.name+'</td>'+
+'<td>'+myExp.topology+'×'+myExp.topology+'</td>'+
+'<td>'+myExp.stimCount+'</td>'+
+'<td>'+myExp.sensorCount+'</td>'+
+'<td>'+myExp.burstSchedule+'</td>'+
+'<td>'+myExp.objective+'</td>'+
+'<td>'+myExp.baselineUsed+'</td>'+
+'<td>'+(myExp.latestError!==null ? myExp.latestError.toFixed(3) : '—')+'</td>'+
+"<td><input type='button' value='×' onclick='myRemoveExperiment("+myIdx+")'></td></tr>";
+
+});
+
+myHtml += '</table>';
+
+myDiv.innerHTML = myHtml;
+
+}
+
+// ---- animation loop ----
+
+function myAnimate(myTime){
+
+requestAnimationFrame(myAnimate);
+
+if(myRunning){
+
+if(myTime-myLastTime>400){
+
+myLastTime = myTime;
+myRunOnce();
+
+}
+
+}
+
+if(myAutoRotate){
+myArrayGroup.rotation.y += 0.0006;
+}
+
+if(myBaselinePlaying && myBaseline){
+
+let myDelta = myLastBaselineFrameTime ? (myTime-myLastBaselineFrameTime) : 16;
+myLastBaselineFrameTime = myTime;
+
+myBaselineTime += myDelta;
+
+if(myBaselineTime>myBaseline.durationMs){
+myBaselineTime = 0;
+}
+
+let mySlider = document.getElementById('myBaselineTimeSlider');
+if(mySlider) mySlider.value = myBaselineTime;
+
+let myLabel = document.getElementById('myBaselineTimeLabel');
+if(myLabel) myLabel.textContent = (myBaselineTime/1000).toFixed(2)+'s';
+
+myUpdateVisualization();
+
+}else{
+myLastBaselineFrameTime = myTime;
+}
+
+myControls.update();
+
+myRenderer.render(
+myScene,
+myCamera
+);
+
+}
+
+function myResize(){
+
+myCamera.aspect =
+window.innerWidth/window.innerHeight;
+
+myCamera.updateProjectionMatrix();
+
+myRenderer.setSize(
+window.innerWidth,
+window.innerHeight
+);
+
+}
+
+myInitialize();
+myPopulateDataFolderManifest();
+
+</script>
+
+</body>
+</html>
