@@ -1954,7 +1954,19 @@ let myColors = myRoleColors[myZone.role];
 myDisc.material.color.setHex(myColors.bright);
 myRing.material.color.setHex(myI===mySelectedZone ? 0xffffff : myColors.bright);
 
-let myScale = 1 + myZone.activity*0.6;
+// V30: myZone.activity is only written once per trial inside myRunOnce,
+// so previously the disc/ring sat frozen between trials -- including
+// whenever Run wasn't toggled at all -- no matter how much background
+// burst wave was sweeping through that zone's own electrodes right now
+// (those flash correctly every frame; this marker didn't). Blend in the
+// zone's *live* background burst fraction each frame so the disc/ring
+// actually reacts to the wave in real time, same as the electrodes do,
+// without disturbing myZone.activity itself (still needed as-is for the
+// training math and the trial-based stats/readouts elsewhere).
+let myLiveBurst = myZoneBackgroundBurstFraction(myZone);
+let myDisplayActivity = Math.max(myZone.activity, myLiveBurst);
+
+let myScale = 1 + myDisplayActivity*0.6;
 myDisc.scale.set(myScale,myScale,myScale);
 myRing.scale.set(myScale,myScale,myScale);
 
