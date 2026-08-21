@@ -181,8 +181,10 @@ Replay time: <span id='myBaselineTimeLabel'>0.00s</span><br>
 <input type='button' value='Run / Stop' onclick='myToggleRun()'>
 <input type='button' value='Single Trial' onclick='myRunOnce()'>
 <input type='button' id='myRotateBtn' value='Rotation: Off' onclick='myToggleAutoRotate()' style='background:#3a2a2a;color:#fff;'>
+<input type='button' id='myStimBgBtn' value='Wave drives stim: Off' onclick='myToggleStimTracksBackground()' style='background:#3a2a2a;color:#fff;'>
 <br>
 <label style='font-size:12px;'><input type='checkbox' id='myCycleCheckbox' checked onchange='mySyncCycleCheckbox(this)'> Cycle truth-table patterns each trial</label>
+<div style='font-size:11px;color:#8fa0bf;margin-top:4px;'>"Wave drives stim" off (default): stim zones only do what the Input Pattern below commands -- clean, deliberate control. On: the background burst wave can also trigger stim zones on its own, so training can run autonomously off the culture's own spontaneous activity, closed-loop style, without you cycling patterns by hand.</div>
 
 <h3>Baseline Activity</h3>
 <div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Ongoing spontaneous firing across the whole well, independent of stimulation. Real cultured neurons on an HD-MEA typically show baseline spontaneous rates around 0.1–5 Hz per electrode, well before any deliberate stimulation — raise this to make more electrodes light up each trial.</div>
@@ -277,6 +279,7 @@ No trials run yet.
 <input type='button' value='Run / Stop' onclick='myToggleRun()'>
 <input type='button' value='Single Trial' onclick='myRunOnce()'>
 <input type='button' id='myRotateBtn2' value='Rotation: Off' onclick='myToggleAutoRotate()' style='background:#3a2a2a;color:#fff;'>
+<input type='button' id='myStimBgBtn2' value='Wave drives stim: Off' onclick='myToggleStimTracksBackground()' style='background:#3a2a2a;color:#fff;'>
 <br>
 <label style='font-size:12px;'><input type='checkbox' id='myCycleCheckbox2' checked onchange='mySyncCycleCheckbox(this)'> Cycle truth-table patterns each trial</label>
 
@@ -349,6 +352,15 @@ let myBurstElectrodesPerGroup = 1;
 let myBurstDwellMs = 20;
 let myBurstPulseWidthUs = 100;
 let myAutoRotate = false;
+
+// V31: whether the persistent background burst wave is allowed to drive
+// stimulation zones (both their visible firing and, if on, the actual
+// training input). Off by default -- with it off, stim zones only do
+// exactly what the manual/cycled Input Pattern commands, so protocol
+// design stays deliberate and easy to read. Sensor/encourage/discourage/
+// unused zones always show the wave regardless of this toggle; it only
+// gates the "stim" role.
+let myStimTracksBackground = false;
 let myMode = 'training';
 
 let myEpoch = 0;
@@ -1261,7 +1273,7 @@ document.getElementById('mySelectedZone').innerHTML =
 'Zone: '+myZone.index+'<br>'+
 'Role: '+myZone.role+'<br>'+
 'Assigned electrodes: '+myZone.electrodes.length+'<br>'+
-'Activity: '+myZone.activity.toFixed(3)+'<br>'+
+'Activity: <span id="mySelectedZoneActivityVal">'+myZone.activity.toFixed(3)+'</span><br>'+
 'Training frequency: '+myZone.freq+' Hz'+
 (myZone.role==='stim' ? '<br>Stim index: '+myZone.stimIndex : '')+
 (myZone.role==='sensor' ? '<br>Sensor index: '+myZone.sensorIndex : '');
@@ -1278,6 +1290,27 @@ document.getElementById('myFreqSlider').value = myZone.freq;
 document.getElementById('myFreqLabel').textContent = String(myZone.freq);
 
 myUpdateBurstSchedule();
+
+}
+
+// V31: cheap per-frame refresh of just the "Activity:" number in the
+// Selected Zone panel, without rebuilding the whole panel (which would
+// also stomp on the Freq slider mid-drag). Mirrors the same live-wave
+// blend used for the 3D disc/ring so the text panel and the visual agree.
+function myUpdateSelectedZoneActivityLive(){
+
+if(mySelectedZone<0) return;
+
+let myZone = myZones[mySelectedZone];
+if(!myZone) return;
+
+let mySpan = document.getElementById('mySelectedZoneActivityVal');
+if(!mySpan) return;
+
+let myLiveBurst = (myZone.role==='stim' && !myStimTracksBackground) ? 0 : myZoneBackgroundBurstFraction(myZone);
+let myDisplayActivity = Math.max(myZone.activity, myLiveBurst);
+
+mySpan.textContent = myDisplayActivity.toFixed(3);
 
 }
 
@@ -1638,6 +1671,24 @@ myBtn.style.color = myAutoRotate ? '' : '#fff';
 
 }
 
+function myToggleStimTracksBackground(){
+
+myStimTracksBackground = !myStimTracksBackground;
+
+for(let myId of ['myStimBgBtn','myStimBgBtn2']){
+
+let myBtn = document.getElementById(myId);
+
+if(!myBtn) continue;
+
+myBtn.value = 'Wave drives stim: ' + (myStimTracksBackground ? 'On' : 'Off');
+myBtn.style.background = myStimTracksBackground ? '' : '#3a2a2a';
+myBtn.style.color = myStimTracksBackground ? '' : '#fff';
+
+}
+
+}
+
 function mySyncCycleCheckbox(mySource){
 
 let myOtherId = (mySource.id==='myCycleCheckbox') ? 'myCycleCheckbox2' : 'myCycleCheckbox';
@@ -1698,6 +1749,25 @@ myInputPattern = myIntToBits(myCurrentPatternIndex % myPatternCount, myN);
 
 let myKey = myInputPattern.join(',');
 
+// V31: when "Wave drives stim" is on, a stim zone's own spontaneous
+// background burst can act as an extra, autonomous stimulation event on
+// top of whatever the manual/cycled Input Pattern commands -- this is
+// what lets the well train itself off its own activity instead of
+// needing every pattern hand-driven. myKey (used to look up the desired
+// output from the Truth Table) stays tied to the deliberate/cycled
+// pattern only, so the target doesn't drift; myEffectivePattern is what
+// actually drives the sensor readout and the weight update below.
+let myEffectivePattern = myInputPattern.map((myBit,myIdx)=>{
+
+if(!myStimTracksBackground) return myBit;
+
+let myStimZone = myZones[myStimZones[myIdx]];
+let myLiveBurst = myStimZone ? myZoneBackgroundBurstFraction(myStimZone) : 0;
+
+return Math.max(myBit, myLiveBurst>0.3 ? 1 : 0);
+
+});
+
 let myActual = new Array(myM).fill(0);
 
 for(let myJ=0; myJ<myM; myJ++){
@@ -1705,7 +1775,7 @@ for(let myJ=0; myJ<myM; myJ++){
 let myRaw = 0;
 
 for(let myI=0; myI<myN; myI++){
-myRaw += myInputPattern[myI]*myGetInfluence(myI,myJ);
+myRaw += myEffectivePattern[myI]*myGetInfluence(myI,myJ);
 }
 
 // V29: spontaneous background burst activity in this sensor zone rides on
@@ -1738,7 +1808,7 @@ myEta *= (50/Math.max(5,myBurstDwellMs));
 
 for(let myI=0; myI<myN; myI++){
 
-if(myInputPattern[myI]===0) continue;
+if(myEffectivePattern[myI]===0) continue;
 
 for(let myJ=0; myJ<myM; myJ++){
 
@@ -1763,7 +1833,7 @@ mySetInfluence(myI,myJ,myNext);
 for(let myZone of myZones){
 
 if(myZone.role==='stim'){
-myZone.activity = (myInputPattern[myZone.stimIndex]||0)*(0.85+myRandom()*0.15);
+myZone.activity = (myEffectivePattern[myZone.stimIndex]||0)*(0.85+myRandom()*0.15);
 }else if(myZone.role==='sensor'){
 myZone.activity = myActual[myZone.sensorIndex]||0;
 }else if(myZone.role==='encourage' || myZone.role==='discourage'){
@@ -1785,6 +1855,12 @@ for(let myE of myZone.electrodes){
 // disappearing the moment Run is pressed.
 let myStimDriven = myRandom() < Math.min(0.95, 0.02 + myBaselineRate*0.3 + myZone.activity*0.3 + (myZone.baselineBias||0)*0.15);
 let myBackgroundBurst = myBaseline && myIsElectrodeActiveAtTime(myE.id, myBackgroundBurstTime);
+
+// V31: stim-zone electrodes only pick up the wave when "Wave drives
+// stim" is on. With it off, a stim zone lights up ONLY when the Input
+// Pattern actually commands it, so the well shows exactly your protocol
+// and nothing else.
+if(myZone.role==='stim' && !myStimTracksBackground) myBackgroundBurst = false;
 
 myE.firing = myStimDriven || myBackgroundBurst;
 
@@ -1822,7 +1898,7 @@ myRenderInfluenceHeatmap();
 myUpdateVisualization();
 myUpdateSelectedZonePanel();
 myUpdateStats();
-myUpdateTrialLog(myKey,myDesired,myActual);
+myUpdateTrialLog(myKey,myDesired,myActual,myEffectivePattern);
 myRenderErrorChart();
 
 }
@@ -1861,18 +1937,24 @@ myDiv.innerHTML = myHtml;
 
 }
 
-function myUpdateTrialLog(myKey,myDesired,myActual){
+function myUpdateTrialLog(myKey,myDesired,myActual,myEffectivePattern){
 
 let myErrText = myDesired.map((myD,myJ)=>{
 let myA = myActual[myJ]!==undefined ? myActual[myJ].toFixed(2) : '-';
 return 'S'+myJ+': desired='+myD+' actual='+myA;
 }).join('\n');
 
+// V31: when "Wave drives stim" is on and the culture's own background
+// burst added a bit the manual/cycled pattern didn't command, surface
+// that here so it's clear the trial wasn't purely hand-driven.
+let myEffKey = myEffectivePattern ? myEffectivePattern.join(',') : myKey;
+let myEffLine = (myEffKey!==myKey) ? '\nEffective (w/ spontaneous): ['+myEffKey+']' : '';
+
 document.getElementById('myTrial').textContent =
 'Epoch: '+myEpoch+'\n'+
 'Trial: '+myTrial+'\n'+
 'Mode: '+myMode+'\n'+
-'Input pattern: ['+myKey+']\n\n'+
+'Input pattern: ['+myKey+']'+myEffLine+'\n\n'+
 myErrText;
 
 }
@@ -1923,9 +2005,16 @@ myE.mesh.material.color.setHex(myColor);
 // just the manual Replay scrub, so the wave pattern keeps visibly ticking
 // over at all times -- including mid-training -- and not only while the
 // user has Replay activity switched on.
+// V31: the live background-burst term is skipped for stim-zone
+// electrodes when "Wave drives stim" is off, so stim zones only flash
+// from the Input Pattern / myE.firing, not from ambient culture activity.
+// The Phase 1 Replay scrub (myBaselinePlaying) is left ungated -- that's
+// you deliberately reviewing recorded baseline data, not live drive.
+let myBurstAppliesToThisZone = !(myZone && myZone.role==='stim' && !myStimTracksBackground);
+
 let myFiringNow = myE.firing ||
 (myBaselinePlaying && myBaseline && myIsElectrodeActiveAtTime(myE.id,myBaselineTime)) ||
-(myBaseline && myIsElectrodeActiveAtTime(myE.id,myBackgroundBurstTime));
+(myBurstAppliesToThisZone && myBaseline && myIsElectrodeActiveAtTime(myE.id,myBackgroundBurstTime));
 
 if(myFiringNow){
 myE.spikeLevel = 1;
@@ -1963,7 +2052,11 @@ myRing.material.color.setHex(myI===mySelectedZone ? 0xffffff : myColors.bright);
 // actually reacts to the wave in real time, same as the electrodes do,
 // without disturbing myZone.activity itself (still needed as-is for the
 // training math and the trial-based stats/readouts elsewhere).
-let myLiveBurst = myZoneBackgroundBurstFraction(myZone);
+// V31: for a stim zone specifically, only blend in the live wave when
+// "Wave drives stim" is on -- otherwise the marker reflects only the
+// Input Pattern-driven, trial-committed myZone.activity, matching the
+// electrodes in that zone.
+let myLiveBurst = (myZone.role==='stim' && !myStimTracksBackground) ? 0 : myZoneBackgroundBurstFraction(myZone);
 let myDisplayActivity = Math.max(myZone.activity, myLiveBurst);
 
 let myScale = 1 + myDisplayActivity*0.6;
@@ -4094,6 +4187,10 @@ myLastBackgroundFrameTime = myTime;
 // V27: run every frame (not just while baseline is replaying) so a firing
 // spike smoothly decays instead of jump-cutting, e.g. right after a trial.
 myUpdateVisualization();
+
+// V31: keep the Selected Zone panel's Activity number live too, same
+// cadence as the 3D disc/ring.
+myUpdateSelectedZoneActivityLive();
 
 myControls.update();
 
