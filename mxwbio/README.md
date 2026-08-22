@@ -2,7 +2,7 @@
 
 An open-source, browser-native HD-MEA (High-Density Microelectrode Array) protocol hypothesis generator and experimental design sandbox. Designed for exploring closed-loop neural stimulation, baseline observation, and Hebbian-style training rules without hardware barriers.
 
-👉 **Try this live version:** [maxone-sim.html](maxone-sim.html)  
+👉 **Try this live version:** [https://hpssjellis.github.io/neuro-ml/mxwbio/maxone-sim.html](https://hpssjellis.github.io/neuro-ml/mxwbio/maxone-sim.html)  
 📺 **Watch the engineering playlist:** [NeuralML Playlist](https://www.youtube.com/playlist?list=PLEGHz6jvYW9s)
 
 ---
@@ -16,9 +16,8 @@ An open-source, browser-native HD-MEA (High-Density Microelectrode Array) protoc
 ---
 
 ## Testing & Version Index
-* **Claude-assisted builds:** [maxone-sim-v##.html](https://hpssjellis.github.io/neuro-ml/mxwbio/) *(where number increases as things improve)*
-* **ChatGPT-assisted builds:** [maxone-sim-v##-chatgpt.html](https://hpssjellis.github.io/neuro-ml/mxwbio/) *(where number increases as things improve)*
-* **Stable Production Build:** [maxone-sim.html](https://hpssjellis.github.io/neuro-ml/mxwbio/maxone-sim.html)
+* **Claude-assisted builds:** [maxone-sim-v##.html](https://hpssjellis.github.io/neuro-ml/mxwbio/maxone-sim-v##.html) *(where number increases as things improve)*
+* **Stable Production Build:** [maxone-sim.html](https://hpssjellis.github.io/neuro-ml/mxwbio/maxone-sim.html) *Same as above live demo
 
 ---
 
