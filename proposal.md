@@ -332,6 +332,75 @@ Cortical Labs' own Chief Scientific Officer has publicly and directly addressed 
 This project creates a sustainable educational-to-research pipeline in which secondary-school students participate in authentic neuroscience while contributing directly to the development of next-generation bio-hybrid learning experiments — starting from a zero-cost, zero-risk simulation environment and progressing, for validated designs, to living tissue.
 
 
+<br><br>
+<hr>
+
+## References
+
+**Primary published research (DishBrain / Cortical Labs)**
+
+- Kagan, B.J. et al. (2022). *[In vitro neurons learn and exhibit sentience when embodied in a simulated game-world](https://www.cell.com/neuron/fulltext/S0896-6273(22)00806-6).* Neuron. Open access, CC BY 4.0.
+- Khajehnejad, M., Habibollahi, F., Loeffler, A., Paul, A., Razi, A., Kagan, B.J. (2024). *[Biological Neurons Compete with Deep Reinforcement Learning in Sample Efficiency in a Simulated Gameworld](https://arxiv.org/pdf/2405.16946).* arXiv:2405.16946.
+- Khajehnejad, M. et al. (2025). *[Dynamic Network Plasticity and Sample Efficiency in Biological Neural Cultures: A Comparative Study with Deep Reinforcement Learning](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12320521/).* Cyborg and Bionic Systems.
+- [Cortical Labs Research page](https://corticallabs.com/research) — full list of published papers, including the CL API real-time closed-loop paper.
+
+**CL1 platform (specifications and launch coverage)**
+
+- [Cortical Labs — CL1 product page](https://corticallabs.com/cl1) — official specs, Python SDK, Cortical Cloud / Wetware-as-a-Service access.
+- [IEEE Spectrum: "Biological Computer for Sale"](https://spectrum.ieee.org/biological-computer-for-sale) — independent technical coverage confirming the expansion from 8 inputs (DishBrain) to 59 bidirectional electrodes (CL1), and the drop from ~5 ms to sub-millisecond latency.
+- [Cortical Labs CL1 — Good Design Awards project page](https://good-design.org/projects/cortical-labs-cl1/) — design/engineering details, active charge-balancing, biOS touchscreen, peripheral support.
+- [CL1 Biological Computer — Premier's Design Awards entry](https://premiersdesignawards.vic.gov.au/entries/2025/product-design/cortical-labs-cl1-biological-computer) — life-support system, six-month culture viability, Cortical Cloud details.
+- ["Exclusive Look at CL1: One-on-One with Cortical Labs' Chief Scientist"](https://deniseholt.us/exclusive-inside-look-one-on-one-with-cortical-labs-chief-scientist-from-dishbrain-to-cl1/) — Brett Kagan on the Python API and the ethics/consciousness question.
+- ["Researchers teach a biological computer called CL1 ... to play Doom"](https://cerebrodigital.net/en/researchers-teach-a-biological-computer-called-cl1-made-with-human-brain-cells-to-play-doom/) — CL1 Doom demonstration and clarification of what "deploying code" to neurons actually means.
+- [Reply and University of Milan — CL1 research collaboration announcement](https://secure.businesswire.com/news/home/20260128715625/en/Reply-and-the-University-of-Milan-Launch-Experimental-Research-on-Biological-Computing-Based-on-Cortical-Labs-CL1-Platform) — example of an academic partnership built on the CL1 platform, useful as a precedent for a school-lab partnership pitch.
+
+**Coverage and context (original DishBrain result)**
+
+- [UCL News: "Human brain cells in a dish learn to play Pong"](https://www.ucl.ac.uk/news/2022/oct/human-brain-cells-dish-learn-play-pong)
+- [Monash University: "Brain cells in a dish learn to play Pong"](https://www.monash.edu/medicine/news/latest/2022-articles/brain-cells-in-a-dish-learn-to-play-pong)
+- [Nature News & Views: "Neurons in a dish learn to play Pong — what's next?"](https://www.nature.com/articles/d41586-022-03229-y)
+- [ScienceDaily: "Human brain cells in a dish learn to play Pong in real time"](https://www.sciencedaily.com/releases/2022/10/221012132528.htm)
+
+**Video**
+
+- [Cortical Labs official YouTube channel](https://www.youtube.com/channel/UCq4mqLeGRdq47sHumYMIDJw) — DishBrain demos, CL1 launch, neurons playing Doom with source on GitHub.
+- ["Brain in a Dish Plays Pong: Cortical Labs' CL1 Biocomputer"](https://www.youtube.com/watch?v=W-NGW_VHYOw) — lab walkthrough, Melbourne.
+- ["Cortical Labs' CL1 Just Made Traditional Computers Obsolete"](https://www.youtube.com/watch?v=6wUrgu0pvI4) — CL1 launch coverage.
+
+**Hardware / platform**
+
+###  Multi-Electrode Array Platforms for Neural Network Research
+
+- **[MaxWell Biosystems](https://www.mxwbio.com/products/maxone)** — Manufacturer of the MaxOne (single-well) and MaxTwo (multi-well) HD-MEA platforms, widely cited for high-resolution, long-term neuronal network monitoring.
+- **[Cortical Labs](https://corticallabs.com/cl1)** — Developer of the CL1 biological computer, which utilizes a closed-loop stimulation paradigm directly integrated with neurons on a silicon chip.
+- **[3Brain](https://www.3brain.com/products/multiwell/coreplate-tm-multiwell-96w)** — Provider of the CorePlate™ 96W, a high-throughput HD-MEA system capable of simultaneous recording across all wells.
+- **[Multi Channel Systems](https://www.multichannelsystems.com/products/mesh-mea)** — Manufacturer of the Mesh MEA, specifically designed for 3D organoid electrophysiology, allowing recordings from within the structure.
+- **[Axion BioSystems](https://axionbiosystems.com/products/mea/maestro-pro)** — Maker of the *Maestro Pro* and *Maestro Edge* platforms; standard equipment for automated, high-throughput closed-loop stimulation and neuronal recording assays.
+- **[Blackrock Neurotech](https://blackrockneurotech.com/products/neuroport-electrode/)** — Manufacturer of the Utah Array and high-density penetrating probes, primarily utilized for in-vivo neural interfacing.
+- **[Neuronexus](https://neuronexus.com/products/)** — Provides a wide range of silicon-based neural probes (planar and 3D) optimized for diverse in-vitro and in-vivo network recording applications.
+- **[Cambridge NeuroTech](https://cambridgeneurotech.com)** — Specializes in ultra-dense silicon probes and specialized microelectrode arrays, highly regarded for signal-to-noise ratio in network-level recordings.
+- **[Alpha MED Scientific](https://www.med64.com)** — Originators of the MED64 system, offering established platforms for high-sensitivity recordings from stem-cell-derived models and brain slices.
+- **[TissueLabs](https://tissuelabs.com)** — Focused on organoid-compatible platforms and biofabrication, relevant for researchers integrating electrophysiology into custom organ-on-chip neural models.
+- **[Harvard Bioscience](https://www.harvardbioscience.com/products/organoid-electrophysiology)** — Distributor of the Mesh MEA technology (see Multi Channel Systems) for organoid-specific electrophysiology.
+- **[BMSeed](https://www.bmseed.com/overview)** — In Vitro Research Tools with True In Vivo Relevance. 
+- **[]()** —
+- **[]()** —
+- **[]()** —
+- **[]()** —
+- **[]()** —
+- **[]()** —
+
+
+
+## HDF5 File Viewers
+
+
+- **[https://myhdf5.hdfgroup.org/view](https://myhdf5.hdfgroup.org/view)** -Seems to be the best online hdf5 viewer
+- **[https://myhdf5.hdfgroup.org/help#remote](https://myhdf5.hdfgroup.org/help#remote)** —Possible links 
+- **[https://hdfviewer.com/](https://hdfviewer.com/)** — Online hdf5 viewer
+- **[https://perchance.org/hdf5-file-viewer](https://perchance.org/hdf5-file-viewer)** — another hdf5 viewer
+- 
+
 
 
 
