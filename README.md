@@ -11,7 +11,7 @@ Github Repository of this site [https://github.com/hpssjellis/neuro-ml](https://
 
 ## All Demos [https://hpssjellis.github.io/neuro-ml/public/index.html](https://hpssjellis.github.io/neuro-ml/public/index.html)
 
-## My Youtube n=Neural-ML Playlist:  https://www.youtube.com/playlist?list=PLEGHz6jvYW9s
+## My Youtube Neural-ML Playlist:  [https://www.youtube.com/playlist?list=PLEGHz6jvYW9s](https://www.youtube.com/playlist?list=PLEGHz6jvYW9s)
 
 
 ## 1990 Manual Neural Network webpage 
