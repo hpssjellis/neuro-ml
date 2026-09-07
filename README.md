@@ -126,9 +126,11 @@ That generated the following image:
 <img width="854" height="480" alt="cl1-viz" src="https://github.com/user-attachments/assets/11ada12c-e2d2-4b27-9e75-eb90b79abad2" />
 
 
+-----
+
 ## Cool things other people are working on connected in any way to bioComputing
 
-
+-----
 
 ### Xenova
 
@@ -141,12 +143,25 @@ Fly Demo [https://huggingface.co/spaces/Xenova/fruit-fly-simulation](https://hug
 
 <img width="1874" height="807" alt="image" src="https://github.com/user-attachments/assets/607f094c-74da-46bf-bf23-a3262de12c5c" />
 
+------
 
 
-### [https://biollm.com/](https://biollm.com/)
 
-By Garrett Pete   4R7I5T 
+
+.
+
+
+
+
+
+### BioLLM
+
+By Garrett Pete   4R7I5T   [https://biollm.com/](https://biollm.com/)
 
 About [https://www.reuters.com/press-releases/biollm-studio-ibm-partner-plus-silver-2026-08-28/](https://www.reuters.com/press-releases/biollm-studio-ibm-partner-plus-silver-2026-08-28/)
 
+<img href="https://biollm.com/assets/studio/01-cl1-visualizer.jpg">
 
+
+
+----
