@@ -139,6 +139,7 @@ Fly Demo Explain   [https://blog.google/innovation-and-ai/technology/research/ma
 Fly Demo [https://huggingface.co/spaces/Xenova/fruit-fly-simulation](https://huggingface.co/spaces/Xenova/fruit-fly-simulation)   76 MB Download so not very big compared to webLLM files.
 
 
+<img width="1874" height="807" alt="image" src="https://github.com/user-attachments/assets/607f094c-74da-46bf-bf23-a3262de12c5c" />
 
 
 
