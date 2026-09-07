@@ -160,7 +160,7 @@ By Garrett Pete   4R7I5T   [https://biollm.com/](https://biollm.com/)
 
 About [https://www.reuters.com/press-releases/biollm-studio-ibm-partner-plus-silver-2026-08-28/](https://www.reuters.com/press-releases/biollm-studio-ibm-partner-plus-silver-2026-08-28/)
 
-<img href="https://biollm.com/assets/studio/01-cl1-visualizer.jpg">
+<img src="https://biollm.com/assets/studio/01-cl1-visualizer.jpg">
 
 
 
