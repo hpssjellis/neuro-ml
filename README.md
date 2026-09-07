@@ -130,7 +130,9 @@ That generated the following image:
 
 
 
-[Josh Lochner  Xenova on Linkedin](https://www.linkedin.com/in/xenova?miniProfileUrn=urn%3Ali%3Afsd_profile%3AACoAAEMjV90BUXXBxM1bKu-oplqNfHu2HRra96o&lipi=urn%3Ali%3Apage%3Ad_flagship3_detail_base%3BKmKdJpw1TYi8oU03dYcIIA%3D%3D), Josh on [Huggingface](https://huggingface.co/Xenova)  
+### Xenova
+
+[Josh Lochner   on Linkedin](https://www.linkedin.com/in/xenova?miniProfileUrn=urn%3Ali%3Afsd_profile%3AACoAAEMjV90BUXXBxM1bKu-oplqNfHu2HRra96o&lipi=urn%3Ali%3Apage%3Ad_flagship3_detail_base%3BKmKdJpw1TYi8oU03dYcIIA%3D%3D), Josh on [Huggingface](https://huggingface.co/Xenova)  
 
 Fly Demo Explain   [https://blog.google/innovation-and-ai/technology/research/male-fruit-fly-brain-map/](https://blog.google/innovation-and-ai/technology/research/male-fruit-fly-brain-map/)
 
