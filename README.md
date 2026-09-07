@@ -126,6 +126,18 @@ That generated the following image:
 <img width="854" height="480" alt="cl1-viz" src="https://github.com/user-attachments/assets/11ada12c-e2d2-4b27-9e75-eb90b79abad2" />
 
 
+## Cool things other people are worki9ng on connected in any way to bioComputing
+
+
+
+[Josh Lochner  Xenova on Linkedin](https://www.linkedin.com/in/xenova?miniProfileUrn=urn%3Ali%3Afsd_profile%3AACoAAEMjV90BUXXBxM1bKu-oplqNfHu2HRra96o&lipi=urn%3Ali%3Apage%3Ad_flagship3_detail_base%3BKmKdJpw1TYi8oU03dYcIIA%3D%3D), Josh on [Huggingface](https://huggingface.co/Xenova)  
+
+Fly Demo Explain   [https://blog.google/innovation-and-ai/technology/research/male-fruit-fly-brain-map/](https://blog.google/innovation-and-ai/technology/research/male-fruit-fly-brain-map/)
+
+Fly Demo [https://huggingface.co/spaces/Xenova/fruit-fly-simulation](https://huggingface.co/spaces/Xenova/fruit-fly-simulation)   76 MB Download so not very big compared to webLLM files.
+
+
+
 
 
 
