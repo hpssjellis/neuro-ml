@@ -126,7 +126,7 @@ That generated the following image:
 <img width="854" height="480" alt="cl1-viz" src="https://github.com/user-attachments/assets/11ada12c-e2d2-4b27-9e75-eb90b79abad2" />
 
 
-## Cool things other people are worki9ng on connected in any way to bioComputing
+## Cool things other people are working on connected in any way to bioComputing
 
 
 
