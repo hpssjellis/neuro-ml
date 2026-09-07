@@ -143,4 +143,10 @@ Fly Demo [https://huggingface.co/spaces/Xenova/fruit-fly-simulation](https://hug
 
 
 
+### [https://biollm.com/](https://biollm.com/)
+
+By Garrett Pete   4R7I5T 
+
+About [https://www.reuters.com/press-releases/biollm-studio-ibm-partner-plus-silver-2026-08-28/](https://www.reuters.com/press-releases/biollm-studio-ibm-partner-plus-silver-2026-08-28/)
+
 
