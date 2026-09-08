@@ -1,0 +1,1915 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='UTF-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0'>
+<title>Layered Brain-Flow Simulator V1</title>
+
+<script src='https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js'></script>
+<script src='https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js'></script>
+
+<style>
+body{margin:0;overflow:hidden;background:#050810;color:white;font-family:Arial,sans-serif;}
+.myCellBtn{width:26px;height:26px;border:1px solid #2a3550;cursor:pointer;padding:0;}
+.myLevelRow{border-bottom:1px solid #1c2740;padding:4px 0;}
+.mySmallTable{border-collapse:collapse;font-size:11px;font-family:monospace;}
+.mySmallTable td,.mySmallTable th{border:1px solid #2a3550;padding:3px 6px;text-align:center;}
+input[type=number]{width:46px;}
+</style>
+</head>
+
+<body>
+
+<div id='myHoverTooltip' style='position:fixed;pointer-events:none;background:rgba(10,14,24,0.95);border:1px solid #39445d;padding:6px 8px;font-size:11px;font-family:monospace;border-radius:4px;display:none;z-index:20;white-space:nowrap;line-height:1.5;'></div>
+
+<div id='myPanel' style='position:absolute;left:10px;top:10px;width:420px;z-index:10;box-sizing:border-box;'>
+
+<div id='myResizeHandle' title='Drag to resize' style='position:absolute;top:0;bottom:0;right:-5px;width:10px;cursor:ew-resize;background:rgba(127,208,255,0.18);border-radius:4px;z-index:12;'></div>
+
+<div id='myPanelInner' style='background:rgba(5,9,18,0.95);padding:12px;border:1px solid #39445d;border-radius:8px;max-height:96vh;overflow:auto;box-sizing:border-box;'>
+
+<h2 style='margin-top:0'>Layered Brain-Flow Simulator</h2>
+
+<div style='font-size:12px;margin-bottom:10px;'>
+GitHub: <a href='https://github.com/hpssjellis/neuro-ml' target='_blank' rel='noopener' style='color:#7fd0ff;'>hpssjellis/neuro-ml</a>
+&nbsp;|&nbsp;
+LinkedIn: <a href='https://www.linkedin.com/in/jeremy-ellis-4237a9bb/' target='_blank' rel='noopener' style='color:#7fd0ff;'>Jeremy Ellis</a>
+</div>
+
+<div style='font-size:12px;color:#ffd699;background:#1c1408;border:1px solid #4a3410;padding:8px;margin-bottom:10px;line-height:1.5;'>
+<b>What this tool is:</b> a small, fully-in-browser <b>feedforward network visualizer</b> that stacks arrays of "neurons" into <b>levels</b>, top (input) to bottom (output), and animates the signal cascading down level by level so you can <i>watch</i> a forward pass instead of just reading numbers. It is a loose teaching metaphor for how sensory input might flow through stacked layers of a nervous system (retina &rarr; relay &rarr; cortex-style organization, or a much simpler version of the layered wiring you'd see in something like a fruit fly's mushroom body) &mdash; <b>not</b> a model of any real circuit, connectome, or biological learning rule. Real brains are recurrent, sparse, and nothing like a dense matrix multiply. This is plain backpropagation on a small multilayer perceptron, dressed up so the flow of activation is visible.
+</div>
+
+<h3>1. Architecture</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Start small, then grow it. Each level is a rows&times;cols array of neurons; levels are fully connected to the next level down. Top level = input, bottom level = output.</div>
+
+<div style='margin-bottom:6px;'>
+Quick size:
+<input type='button' value='Small' onclick="myQuickArchitecture('small')">
+<input type='button' value='Medium' onclick="myQuickArchitecture('medium')">
+<input type='button' value='Large' onclick="myQuickArchitecture('large')">
+<input type='button' value='XL' onclick="myQuickArchitecture('xl')">
+</div>
+
+<div style='margin-bottom:6px;font-size:12px;'>
+Output type:
+<select id='myOutputModeSelect' onchange='myOnOutputModeChange()'>
+<option value='color'>Color swatch (3 outputs: R,G,B)</option>
+<option value='image'>Pixel image (grid of outputs)</option>
+<option value='creature'>Creature (dynamic classes)</option>
+</select>
+</div>
+
+<div id='myLevelTableDiv'></div>
+
+<div style='margin-top:6px;'>
+<input type='button' value='+ Add hidden level' onclick='myAddHiddenLevel()'>
+<input type='button' value='&minus; Remove hidden level' onclick='myRemoveHiddenLevel()'>
+<input type='button' value='Apply Architecture' onclick='myApplyArchitectureFromTable()' style='background:#2a6b3a;color:#fff;'>
+</div>
+<div style='margin-top:6px;'>
+<input type='button' value='🎲 Randomize Weights' onclick='myRandomizeWeights()' style='background:#4a2f66;color:#fff;'>
+</div>
+
+<div id='myArchStatsDiv' style='background:#08101b;padding:8px;font-family:monospace;font-size:11px;margin-top:8px;line-height:1.5;'></div>
+
+<h3>2. Input Pattern (top level)</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Click a cell to cycle its value (0 &rarr; 0.25 &rarr; 0.5 &rarr; 0.75 &rarr; 1). Shift-click to cycle backward.</div>
+<div id='myInputGridDiv'></div>
+<input type='button' value='🎲 Randomize Input' onclick='myRandomizeInputGrid()' style='margin-top:6px;'>
+<input type='button' value='Clear Input' onclick='myClearInputGrid()' style='margin-top:6px;'>
+
+<div style='font-size:11px;color:#ffd699;background:#1c1408;border:1px solid #4a3410;padding:8px;margin-top:8px;line-height:1.5;'>
+<b>Live Wasp Input:</b> a small striped wasp hovers above the input array and follows your mouse. Its distance from the array's center paints a proximity "hot spot" onto the input grid in real time — closer = brighter/bigger, farther = fades to nothing — instead of you clicking cells by hand. Loosely modeled on real looming-object-detector neurons in insect vision (e.g. the locust LGMD). Turn it on below, then move your mouse over the 3D view. <b>Click anywhere in the 3D view to freeze the wasp in place</b> so you have time to reach the menu (click again to release it). Press the <b>+</b> key at any moment to capture the current input as a training example, without needing to find the button.
+</div>
+<input type='button' id='myLiveWaspBtn' value='Live Wasp Input: Off' onclick='myToggleLiveWasp()' style='margin-top:6px;background:#5c3a12;color:#fff;'>
+<div id='myWaspStatusLabel' style='font-size:11px;color:#8fa0bf;margin-top:4px;'></div>
+
+<h3>3. Desired Output (for training)</h3>
+<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>What you want the bottom level to produce for the input pattern above.</div>
+<div id='myDesiredOutputDiv'></div>
+
+<div style='margin-top:8px;'>
+<input type='button' value='+ Add training example (+)' onclick='myAddTrainingExample()' style='background:#2a4a6b;color:#fff;'>
+<input type='button' value='Clear all examples' onclick='myClearTrainingExamples()'>
+</div>
+<div id='myExampleListDiv' style='background:#08101b;padding:8px;overflow:auto;max-height:160px;margin-top:6px;font-size:11px;'>No training examples yet.</div>
+
+<h3>4. Train</h3>
+<div style='font-size:12px;'>
+Learning rate: <span id='myEtaLabel'>0.5</span><br>
+<input type='range' min='0.05' max='2' step='0.05' value='0.5' id='myEtaSlider' style='width:100%;' oninput="document.getElementById('myEtaLabel').textContent=this.value">
+Epochs per click: <span id='myEpochLabel'>200</span><br>
+<input type='range' min='10' max='2000' step='10' value='200' id='myEpochSlider' style='width:100%;' oninput="document.getElementById('myEpochLabel').textContent=this.value">
+</div>
+<input type='button' value='Train on stored examples' onclick='myTrainNow()' style='margin-top:6px;background:#2a6b3a;color:#fff;'>
+<div id='myErrorChartDiv' style='background:#08101b;padding:8px;margin-top:8px;'>No training run yet.</div>
+
+<h3>5. Run / Watch it flow</h3>
+<div style='font-size:12px;'>
+Propagation speed (ms/level): <span id='myStepLabel'>250</span><br>
+<input type='range' min='60' max='800' step='10' value='250' id='myStepSlider' style='width:100%;' oninput="myStepMs=Number(this.value);document.getElementById('myStepLabel').textContent=this.value">
+Pause between trials (ms): <span id='myPauseLabel'>600</span><br>
+<input type='range' min='0' max='3000' step='50' value='600' id='myPauseSlider' style='width:100%;' oninput="myPauseMs=Number(this.value);document.getElementById('myPauseLabel').textContent=this.value">
+</div>
+<input type='button' value='Single Trial (current input)' onclick='myTriggerTrial(myGetInputVectorFromGrid())' style='margin-top:6px;'>
+<input type='button' id='myRunBtn' value='Run / Stop (cycle examples)' onclick='myToggleRun()' style='margin-top:6px;'>
+<input type='button' id='myRotateBtn' value='Rotation: Off' onclick='myToggleAutoRotate()' style='margin-top:6px;background:#3a2a2a;color:#fff;'>
+
+<h3>Physical Output</h3>
+<div id='myColorOutputWrap' style='margin-top:6px;'>
+<div id='myOutputColorSwatch' style='width:100%;height:70px;border:1px solid #39445d;border-radius:6px;background:#101827;'></div>
+<div id='myOutputColorLabel' style='font-family:monospace;font-size:11px;margin-top:4px;'>rgb(0,0,0)</div>
+</div>
+<div id='myImageOutputWrap' style='margin-top:6px;display:none;'>
+<canvas id='myOutputCanvas' width='160' height='160' style='width:100%;image-rendering:pixelated;border:1px solid #39445d;border-radius:6px;background:#000;'></canvas>
+</div>
+<div id='myCreatureOutputWrap' style='margin-top:6px;display:none;'>
+<div style='font-size:11px;color:#8fa0bf;'>Look to the right of the neuron array in the 3D view — the creature's moves are driven live by the output level.</div>
+<div id='myCreatureBehaviorLabel' style='font-family:monospace;font-size:11px;margin-top:4px;color:#7fd0ff;'></div>
+</div>
+
+<h3>Stats</h3>
+<div id='myStatsDiv' style='background:#08101b;padding:8px;font-family:monospace;font-size:12px;line-height:1.5;'></div>
+
+<h3>Save / Load</h3>
+<input type='button' value='Save JSON' onclick='mySaveJSON()'>
+<input type='button' value='Load JSON' onclick="document.getElementById('myLoadFile').click()">
+<input type='file' id='myLoadFile' accept='.json' style='display:none;' onchange='myLoadJSON(event)'>
+
+<h3>How this works</h3>
+<div style='font-size:11px;color:#9fb0c9;background:#08101b;padding:8px;line-height:1.5;'>
+Each level is a plain dense layer: every neuron in level <i>i</i> connects to every neuron in level <i>i+1</i> with its own weight, plus a bias per neuron, squashed through a sigmoid. A forward pass computes every level instantly &mdash; the top-to-bottom "wave" you see is a deliberate playback delay added purely for visualization, not a real propagation time. Training uses standard backpropagation (mean-squared error between the bottom level's output and your desired output) across whatever example pairs you've stored. Connection lines are colored by weight sign (warm = excitatory, cool = inhibitory) and brighten as the wave reaches them. For dense layers this is capped to a random sample of the connections for rendering speed &mdash; the underlying math still uses every weight.
+</div>
+
+<div style='font-size:11px;color:#ffb066;background:#1c1408;border:1px solid #4a3410;padding:8px;margin-top:8px;line-height:1.5;'>
+⚠️ This is a teaching toy, not a brain model. It has no recurrence, no spiking, no biological plasticity rule, and no relationship to real cortical or connectome wiring beyond "information flows through stacked layers of units." Loosely inspired by the idea behind connectome-driven demos such as the <a href='https://huggingface.co/spaces/Xenova/fruit-fly-simulation' target='_blank' rel='noopener' style='color:#7fd0ff;'>fruit fly connectome simulation</a>, but vastly simplified and trainable rather than fixed.
+</div>
+
+</div>
+</div>
+
+<script>
+
+// =====================================================================
+// Global state
+// =====================================================================
+
+let myScene, myCamera, myRenderer, myControls;
+let myArrayGroup, myNodeGroup, myConnGroup;
+let myRaycaster = new THREE.Raycaster();
+let myMouse = new THREE.Vector2();
+let myAutoRotate = false;
+
+const myFootprintWidth = 6;
+const myFootprintDepth = 6;
+const myLevelTopY = 4.2;
+const myLevelGap = 2.4;
+const myMaxLinesPerPair = 900;
+
+let myOutputMode = 'color';          // 'color' | 'image'
+let myLevelDefs = [];                // [{rows,cols}, ...] used by the architecture table (pre-Apply)
+let myLevels = [];                   // built levels: [{rows,cols,count,y,neurons:[...],group}]
+let myWeights = [];                  // myWeights[p] Float32Array length prev.count*next.count, connects level p -> p+1
+let myBiases = [];                   // myBiases[levelIdx] Float32Array length levels[levelIdx].count (levelIdx>=1)
+let myConnections = [];              // myConnections[p] = {pairs, lineSegs}
+
+let myInputGridValues = [];          // flattened, length = level0 count
+let myDesiredOutputValues = [];      // flattened, length = last level count
+
+let myTrainingExamples = [];         // [{input:[...], target:[...]}]
+let myErrorHistory = [];
+
+let mySelectedNode = null;           // {levelIdx, idx}
+
+let myStepMs = 250;
+let myPauseMs = 600;
+let myRunning = false;
+let myNextTrialAt = 0;
+
+let myTrialActive = false;
+let myTrialStartTime = 0;
+let myTrialCycleIndex = 0;
+
+const myGridLevels = [0, 0.25, 0.5, 0.75, 1];
+
+const myCreatureBehaviorNames = ['Idle','Walk','Fly','Alarm','Forage','Curl','Spin','Jump'];
+const myMaxCreatureClasses = myCreatureBehaviorNames.length;
+let myCreatureRoot = null;
+let myCreatureParts = null;
+let myCreatureBaseY = 0;
+let myCreatureBaseRootY = 0;
+
+let myWaspMesh = null;
+let myWaspPlane = null;
+let myWaspMaxDist = 8.5;
+let myLiveWaspMode = false;
+let myWaspFrozen = false;
+let myLiveWaspPattern = null;
+let myWaspTriggerIntervalMs = 350;
+let myLastWaspTriggerAt = 0;
+let myWaspThreat = 0;
+let myWaspDistance = 0;
+
+// =====================================================================
+// Math helpers
+// =====================================================================
+
+function mySigmoid(x){
+return 1/(1+Math.exp(-x));
+}
+
+function myLerp(a,b,t){
+return a+(b-a)*t;
+}
+
+function mySmoothstep(t){
+t = Math.max(0,Math.min(1,t));
+return t*t*(3-2*t);
+}
+
+function myClamp01(v){
+return Math.max(0,Math.min(1,v));
+}
+
+// =====================================================================
+// Architecture presets & table
+// =====================================================================
+
+function myDefaultLastLevel(){
+if(myOutputMode==='color') return {rows:1,cols:3};
+if(myOutputMode==='creature') return {rows:1,cols:3};
+return {rows:4,cols:4};
+}
+
+function myQuickArchitecture(mySize){
+
+if(mySize==='small'){
+myLevelDefs = [{rows:4,cols:4},{rows:4,cols:4}];
+}else if(mySize==='medium'){
+myLevelDefs = [{rows:5,cols:5},{rows:4,cols:4},{rows:4,cols:4}];
+}else if(mySize==='large'){
+myLevelDefs = [{rows:6,cols:6},{rows:5,cols:5},{rows:4,cols:4},{rows:4,cols:4}];
+}else{
+myLevelDefs = [{rows:8,cols:8},{rows:6,cols:6},{rows:5,cols:5},{rows:4,cols:4},{rows:4,cols:4}];
+}
+
+myLevelDefs[myLevelDefs.length-1] = myDefaultLastLevel();
+
+myRenderLevelTable();
+myBuildArchitecture();
+
+}
+
+function myAddHiddenLevel(){
+
+if(myLevelDefs.length===0) myQuickArchitecture('small');
+
+let myNewLevel = {rows:3,cols:3};
+myLevelDefs.splice(myLevelDefs.length-1, 0, myNewLevel);
+
+myRenderLevelTable();
+
+}
+
+function myRemoveHiddenLevel(){
+
+if(myLevelDefs.length<=2){
+alert('Need at least an input level and an output level.');
+return;
+}
+
+myLevelDefs.splice(myLevelDefs.length-2, 1);
+
+myRenderLevelTable();
+
+}
+
+function myOnOutputModeChange(){
+
+myOutputMode = document.getElementById('myOutputModeSelect').value;
+
+if(myLevelDefs.length===0){
+myQuickArchitecture('small');
+return;
+}
+
+myLevelDefs[myLevelDefs.length-1] = myDefaultLastLevel();
+
+document.getElementById('myColorOutputWrap').style.display = myOutputMode==='color' ? 'block' : 'none';
+document.getElementById('myImageOutputWrap').style.display = myOutputMode==='image' ? 'block' : 'none';
+document.getElementById('myCreatureOutputWrap').style.display = myOutputMode==='creature' ? 'block' : 'none';
+if(myCreatureRoot) myCreatureRoot.visible = (myOutputMode==='creature');
+
+myRenderLevelTable();
+
+}
+
+function myOnLevelDimInput(myIdx, myField, myValue){
+
+let myV = Math.max(1, Math.min(12, Math.round(Number(myValue)||1)));
+
+let myIsCreatureOutput = (myIdx===myLevelDefs.length-1 && myOutputMode==='creature');
+if(myIsCreatureOutput){
+if(myField==='rows'){ myV = 1; }
+else{ myV = Math.min(myV, myMaxCreatureClasses); }
+}
+
+myLevelDefs[myIdx][myField] = myV;
+
+}
+
+function myRenderLevelTable(){
+
+let myDiv = document.getElementById('myLevelTableDiv');
+let myHtml = '';
+
+for(let myI=0; myI<myLevelDefs.length; myI++){
+
+let myDef = myLevelDefs[myI];
+let myLabel = (myI===0) ? 'Input (Level 0)' : (myI===myLevelDefs.length-1 ? 'Output (Level '+myI+')' : 'Hidden Level '+myI);
+let myIsLockedOutput = (myI===myLevelDefs.length-1 && myOutputMode==='color');
+let myIsCreatureOutput = (myI===myLevelDefs.length-1 && myOutputMode==='creature');
+
+myHtml += "<div class='myLevelRow'>"+myLabel+' &nbsp; ';
+
+if(myIsLockedOutput){
+myHtml += "rows: <b>1</b> &nbsp; cols: <b>3</b> &nbsp; <span style='color:#8fa0bf;'>(locked to R,G,B)</span>";
+}else if(myIsCreatureOutput){
+myHtml += "rows: <b>1</b> &nbsp; classes: <input type='number' min='1' max='"+myMaxCreatureClasses+"' value='"+myDef.cols+"' onchange='myOnLevelDimInput("+myI+",\"cols\",this.value)'> ";
+myHtml += "<span style='color:#8fa0bf;'>(each class unlocks one more behavior, max "+myMaxCreatureClasses+")</span>";
+}else{
+myHtml += "rows: <input type='number' min='1' max='12' value='"+myDef.rows+"' onchange='myOnLevelDimInput("+myI+",\"rows\",this.value)'> ";
+myHtml += "cols: <input type='number' min='1' max='12' value='"+myDef.cols+"' onchange='myOnLevelDimInput("+myI+",\"cols\",this.value)'>";
+}
+
+myHtml += '</div>';
+
+}
+
+myDiv.innerHTML = myHtml;
+
+}
+
+function myApplyArchitectureFromTable(){
+
+if(myOutputMode==='color'){
+myLevelDefs[myLevelDefs.length-1] = {rows:1,cols:3};
+}else if(myOutputMode==='creature'){
+let myLast = myLevelDefs[myLevelDefs.length-1];
+myLast.rows = 1;
+myLast.cols = Math.max(1, Math.min(myMaxCreatureClasses, myLast.cols));
+}
+
+myBuildArchitecture();
+
+}
+
+// =====================================================================
+// Build network + 3D scene from myLevelDefs
+// =====================================================================
+
+function myBuildArchitecture(){
+
+myRunning = false;
+myTrialActive = false;
+myTrainingExamples = [];
+myErrorHistory = [];
+mySelectedNode = null;
+
+if(myArrayGroup){
+myScene.remove(myArrayGroup);
+}
+
+myArrayGroup = new THREE.Group();
+myScene.add(myArrayGroup);
+
+myNodeGroup = new THREE.Group();
+myConnGroup = new THREE.Group();
+myArrayGroup.add(myConnGroup);
+myArrayGroup.add(myNodeGroup);
+
+myLevels = [];
+
+for(let myI=0; myI<myLevelDefs.length; myI++){
+
+let myDef = myLevelDefs[myI];
+let myRows = myDef.rows;
+let myCols = myDef.cols;
+let myY = myLevelTopY - myI*myLevelGap;
+
+let myLevel = {rows:myRows, cols:myCols, count:myRows*myCols, y:myY, neurons:[], group:new THREE.Group()};
+
+let myRadius = Math.max(0.10, Math.min(0.32, (myFootprintWidth/Math.max(myRows,myCols))*0.28));
+
+for(let myR=0; myR<myRows; myR++){
+for(let myC=0; myC<myCols; myC++){
+
+let myX = (myCols===1) ? 0 : ((myC/(myCols-1))-0.5)*myFootprintWidth;
+let myZ = (myRows===1) ? 0 : ((myR/(myRows-1))-0.5)*myFootprintDepth;
+
+let myMesh = new THREE.Mesh(
+new THREE.SphereGeometry(myRadius,12,12),
+new THREE.MeshBasicMaterial({color:0x1c3050})
+);
+
+myMesh.position.set(myX,myY,myZ);
+myMesh.userData.levelIdx = myI;
+myMesh.userData.idx = myR*myCols+myC;
+
+myLevel.group.add(myMesh);
+
+myLevel.neurons.push({
+row:myR, col:myC, x:myX, z:myZ,
+activation:0, display:0, prevDisplay:0,
+mesh:myMesh
+});
+
+}
+}
+
+myNodeGroup.add(myLevel.group);
+myLevels.push(myLevel);
+
+}
+
+// weights & biases between consecutive levels
+myWeights = [];
+myBiases = new Array(myLevels.length);
+
+for(let myP=0; myP<myLevels.length-1; myP++){
+
+let myCountPrev = myLevels[myP].count;
+let myCountNext = myLevels[myP+1].count;
+
+let myW = new Float32Array(myCountPrev*myCountNext);
+for(let myK=0; myK<myW.length; myK++){
+myW[myK] = (Math.random()*2-1)*0.6;
+}
+myWeights.push(myW);
+
+let myB = new Float32Array(myCountNext);
+for(let myK=0; myK<myB.length; myK++){
+myB[myK] = (Math.random()*2-1)*0.2;
+}
+myBiases[myP+1] = myB;
+
+}
+
+// input / desired-output editable buffers
+myInputGridValues = new Array(myLevels[0].count).fill(0);
+myDesiredOutputValues = new Array(myLevels[myLevels.length-1].count).fill(0);
+
+myBuildConnections();
+
+myRenderInputGrid();
+myRenderDesiredOutputGrid();
+myRenderExampleList();
+myRenderErrorChart();
+myUpdateArchStats();
+myUpdateStats();
+
+document.getElementById('myColorOutputWrap').style.display = myOutputMode==='color' ? 'block' : 'none';
+document.getElementById('myImageOutputWrap').style.display = myOutputMode==='image' ? 'block' : 'none';
+document.getElementById('myCreatureOutputWrap').style.display = myOutputMode==='creature' ? 'block' : 'none';
+if(myCreatureRoot) myCreatureRoot.visible = (myOutputMode==='creature');
+
+myForwardPass(myInputGridValues);
+for(let myLevel of myLevels){
+for(let myN of myLevel.neurons){
+myN.display = myN.activation;
+myN.prevDisplay = myN.activation;
+}
+}
+
+myUpdateNodeVisuals(1);
+myUpdateConnectionVisuals(1);
+myUpdatePhysicalOutput();
+
+}
+
+function myBuildConnections(){
+
+for(let myConn of myConnections){
+if(myConn && myConn.lineSegs){
+myConnGroup.remove(myConn.lineSegs);
+}
+}
+
+myConnections = [];
+
+for(let myP=0; myP<myLevels.length-1; myP++){
+
+let myPrev = myLevels[myP];
+let myNext = myLevels[myP+1];
+let myTotal = myPrev.count*myNext.count;
+
+let myPairs = [];
+
+if(myTotal<=myMaxLinesPerPair){
+for(let myI=0; myI<myPrev.count; myI++){
+for(let myJ=0; myJ<myNext.count; myJ++){
+myPairs.push([myI,myJ]);
+}
+}
+}else{
+let mySeen = new Set();
+let myGuard = 0;
+while(myPairs.length<myMaxLinesPerPair && myGuard<myMaxLinesPerPair*20){
+myGuard++;
+let myI = Math.floor(Math.random()*myPrev.count);
+let myJ = Math.floor(Math.random()*myNext.count);
+let myKey = myI+'_'+myJ;
+if(mySeen.has(myKey)) continue;
+mySeen.add(myKey);
+myPairs.push([myI,myJ]);
+}
+}
+
+let myPositions = new Float32Array(myPairs.length*6);
+
+for(let myK=0; myK<myPairs.length; myK++){
+
+let myI = myPairs[myK][0];
+let myJ = myPairs[myK][1];
+let mySrc = myPrev.neurons[myI];
+let myDst = myNext.neurons[myJ];
+
+myPositions[myK*6+0] = mySrc.x;
+myPositions[myK*6+1] = myPrev.y;
+myPositions[myK*6+2] = mySrc.z;
+myPositions[myK*6+3] = myDst.x;
+myPositions[myK*6+4] = myNext.y;
+myPositions[myK*6+5] = myDst.z;
+
+}
+
+let myColors = new Float32Array(myPairs.length*6).fill(0.25);
+
+let myGeometry = new THREE.BufferGeometry();
+myGeometry.setAttribute('position', new THREE.BufferAttribute(myPositions,3));
+myGeometry.setAttribute('color', new THREE.BufferAttribute(myColors,3));
+
+let myMaterial = new THREE.LineBasicMaterial({vertexColors:true, transparent:true, opacity:0.6});
+let myLineSegs = new THREE.LineSegments(myGeometry, myMaterial);
+
+myConnGroup.add(myLineSegs);
+
+myConnections.push({pairs:myPairs, lineSegs:myLineSegs, geometry:myGeometry});
+
+}
+
+}
+
+function myRandomizeWeights(){
+
+for(let myP=0; myP<myWeights.length; myP++){
+for(let myK=0; myK<myWeights[myP].length; myK++){
+myWeights[myP][myK] = (Math.random()*2-1)*0.6;
+}
+for(let myK=0; myK<myBiases[myP+1].length; myK++){
+myBiases[myP+1][myK] = (Math.random()*2-1)*0.2;
+}
+}
+
+myErrorHistory = [];
+myRenderErrorChart();
+myTriggerTrial(myGetInputVectorFromGrid());
+
+}
+
+function myUpdateArchStats(){
+
+let myDiv = document.getElementById('myArchStatsDiv');
+if(!myDiv) return;
+
+let myParamCount = 0;
+let mySummary = [];
+
+for(let myL of myLevels){
+mySummary.push(myL.rows+'x'+myL.cols);
+}
+
+for(let myP=0; myP<myWeights.length; myP++){
+myParamCount += myWeights[myP].length + myBiases[myP+1].length;
+}
+
+myDiv.innerHTML =
+'Levels: '+mySummary.join(' &rarr; ')+'<br>'+
+'Total neurons: '+myLevels.reduce((mySum,myL)=>mySum+myL.count,0)+'<br>'+
+'Trainable parameters: '+myParamCount;
+
+}
+
+// =====================================================================
+// Input / desired-output grid editors
+// =====================================================================
+
+function myCellColorForValue(myV){
+
+// blue (0) -> cyan -> yellow -> red (1), same family as heat scales elsewhere
+if(myV<=0.001) return '#18305c';
+if(myV<=0.3) return '#207050';
+if(myV<=0.6) return '#9a8620';
+if(myV<=0.85) return '#a52d45';
+return '#f0f0f0';
+
+}
+
+function myRenderTinyGrid(myValues, myRows, myCols){
+
+let myHtml = "<table style='border-collapse:collapse;display:inline-table;vertical-align:middle;'>";
+
+for(let myR=0; myR<myRows; myR++){
+myHtml += '<tr>';
+for(let myC=0; myC<myCols; myC++){
+let myIdx = myR*myCols+myC;
+let myV = myValues[myIdx]||0;
+myHtml += "<td style='width:7px;height:7px;padding:0;background:"+myCellColorForValue(myV)+";border:1px solid #0a1220;'></td>";
+}
+myHtml += '</tr>';
+}
+
+myHtml += '</table>';
+
+return myHtml;
+
+}
+
+function myRenderInputGrid(){
+
+let myLevel = myLevels[0];
+let myDiv = document.getElementById('myInputGridDiv');
+
+let myHtml = "<table class='mySmallTable'>";
+
+for(let myR=0; myR<myLevel.rows; myR++){
+myHtml += '<tr>';
+for(let myC=0; myC<myLevel.cols; myC++){
+let myIdx = myR*myLevel.cols+myC;
+let myV = myInputGridValues[myIdx]||0;
+myHtml += "<td><button class='myCellBtn' style='background:"+myCellColorForValue(myV)+";' onclick='myOnInputCellClick(event,"+myIdx+")'></button></td>";
+}
+myHtml += '</tr>';
+}
+
+myHtml += '</table>';
+
+myDiv.innerHTML = myHtml;
+
+}
+
+function myCycleValue(myCurrent, myBackward){
+
+let myIdx = myGridLevels.indexOf(myCurrent);
+if(myIdx<0) myIdx = 0;
+
+myIdx = myBackward ? (myIdx-1+myGridLevels.length)%myGridLevels.length : (myIdx+1)%myGridLevels.length;
+
+return myGridLevels[myIdx];
+
+}
+
+function myOnInputCellClick(myEvent, myIdx){
+
+myInputGridValues[myIdx] = myCycleValue(myInputGridValues[myIdx]||0, myEvent && myEvent.shiftKey);
+
+myRenderInputGrid();
+
+}
+
+function myRandomizeInputGrid(){
+
+for(let myI=0; myI<myInputGridValues.length; myI++){
+myInputGridValues[myI] = myGridLevels[Math.floor(Math.random()*myGridLevels.length)];
+}
+
+myRenderInputGrid();
+
+}
+
+function myClearInputGrid(){
+
+myInputGridValues = myInputGridValues.map(()=>0);
+myRenderInputGrid();
+
+}
+
+function myGetInputVectorFromGrid(){
+return myInputGridValues.slice();
+}
+
+function myRenderDesiredOutputGrid(){
+
+let myDiv = document.getElementById('myDesiredOutputDiv');
+let myLastLevel = myLevels[myLevels.length-1];
+
+if(myOutputMode==='color'){
+
+let myR = Math.round((myDesiredOutputValues[0]||0)*255);
+let myG = Math.round((myDesiredOutputValues[1]||0)*255);
+let myB = Math.round((myDesiredOutputValues[2]||0)*255);
+let myHex = '#'+[myR,myG,myB].map(myV=>myV.toString(16).padStart(2,'0')).join('');
+
+myDiv.innerHTML =
+"<input type='color' id='myDesiredColorPicker' value='"+myHex+"' onchange='myOnDesiredColorChange(this.value)' style='width:100%;height:34px;'>";
+
+}else if(myOutputMode==='creature'){
+
+let myHtml = "<div style='font-size:11px;color:#8fa0bf;margin-bottom:4px;'>Pick the target behavior for this input pattern:</div>";
+
+for(let myI=0; myI<myLastLevel.count; myI++){
+let myActive = (myDesiredOutputValues[myI]||0) > 0.5;
+let myName = myCreatureBehaviorNames[Math.min(myI, myCreatureBehaviorNames.length-1)];
+myHtml += "<input type='button' value='"+(myI+1)+": "+myName+"' onclick='myOnDesiredClassClick("+myI+")' style='margin:2px 4px 2px 0;"+(myActive?"background:#2a6b3a;color:#fff;":"")+"'>";
+}
+
+myDiv.innerHTML = myHtml;
+
+}else{
+
+let myHtml = "<table class='mySmallTable'>";
+
+for(let myR=0; myR<myLastLevel.rows; myR++){
+myHtml += '<tr>';
+for(let myC=0; myC<myLastLevel.cols; myC++){
+let myIdx = myR*myLastLevel.cols+myC;
+let myV = myDesiredOutputValues[myIdx]||0;
+myHtml += "<td><button class='myCellBtn' style='background:"+myCellColorForValue(myV)+";' onclick='myOnDesiredCellClick(event,"+myIdx+")'></button></td>";
+}
+myHtml += '</tr>';
+}
+
+myHtml += '</table>';
+
+myDiv.innerHTML = myHtml;
+
+}
+
+}
+
+function myOnDesiredCellClick(myEvent, myIdx){
+
+myDesiredOutputValues[myIdx] = myCycleValue(myDesiredOutputValues[myIdx]||0, myEvent && myEvent.shiftKey);
+
+myRenderDesiredOutputGrid();
+
+}
+
+function myOnDesiredColorChange(myHex){
+
+let myR = parseInt(myHex.substr(1,2),16)/255;
+let myG = parseInt(myHex.substr(3,2),16)/255;
+let myB = parseInt(myHex.substr(5,2),16)/255;
+
+myDesiredOutputValues = [myR,myG,myB];
+
+}
+
+function myOnDesiredClassClick(myIdx){
+
+let myLastLevel = myLevels[myLevels.length-1];
+myDesiredOutputValues = new Array(myLastLevel.count).fill(0);
+myDesiredOutputValues[myIdx] = 1;
+
+myRenderDesiredOutputGrid();
+
+}
+
+// =====================================================================
+// Training examples
+// =====================================================================
+
+function myAddTrainingExample(){
+
+myTrainingExamples.push({
+input: myInputGridValues.slice(),
+target: myDesiredOutputValues.slice()
+});
+
+if(myTrainingExamples.length>40) myTrainingExamples.shift();
+
+myRenderExampleList();
+
+}
+
+function myRemoveTrainingExample(myIdx){
+
+myTrainingExamples.splice(myIdx,1);
+myRenderExampleList();
+
+}
+
+function myClearTrainingExamples(){
+
+myTrainingExamples = [];
+myRenderExampleList();
+
+}
+
+function myLoadExampleIntoEditors(myIdx){
+
+let myEx = myTrainingExamples[myIdx];
+if(!myEx) return;
+
+myInputGridValues = myEx.input.slice();
+myDesiredOutputValues = myEx.target.slice();
+
+myRenderInputGrid();
+myRenderDesiredOutputGrid();
+
+}
+
+function myRenderExampleList(){
+
+let myDiv = document.getElementById('myExampleListDiv');
+
+if(myTrainingExamples.length===0){
+myDiv.innerHTML = 'No training examples yet.';
+return;
+}
+
+let myHtml = '';
+
+myTrainingExamples.forEach((myEx,myIdx)=>{
+
+let myPreview;
+
+if(myOutputMode==='color'){
+let myR = Math.round((myEx.target[0]||0)*255);
+let myG = Math.round((myEx.target[1]||0)*255);
+let myB = Math.round((myEx.target[2]||0)*255);
+myPreview = "<span style='display:inline-block;width:14px;height:14px;background:rgb("+myR+","+myG+","+myB+");border:1px solid #555;vertical-align:middle;'></span>";
+}else if(myOutputMode==='creature'){
+let myBestIdx = 0, myBestVal=-1;
+for(let myI=0; myI<myEx.target.length; myI++){
+if(myEx.target[myI]>myBestVal){ myBestVal=myEx.target[myI]; myBestIdx=myI; }
+}
+myPreview = 'target: '+myCreatureBehaviorNames[Math.min(myBestIdx, myCreatureBehaviorNames.length-1)];
+}else{
+myPreview = 'image target ('+myEx.target.length+' px)';
+}
+
+myHtml += "<div style='border-bottom:1px solid #223040;padding:3px 0;'>"+
+myRenderTinyGrid(myEx.input, myLevels[0].rows, myLevels[0].cols)+' &nbsp; '+
+'Example '+(myIdx+1)+' &nbsp; '+myPreview+' &nbsp; '+
+"<input type='button' value='Load' onclick='myLoadExampleIntoEditors("+myIdx+")' style='font-size:10px;'>"+
+"<input type='button' value='Remove' onclick='myRemoveTrainingExample("+myIdx+")' style='font-size:10px;'>"+
+'</div>';
+
+});
+
+myDiv.innerHTML = myHtml;
+
+}
+
+// =====================================================================
+// Forward pass / backprop
+// =====================================================================
+
+function myForwardPass(myInputVec){
+
+let myL = myLevels.length;
+let myLvl0 = myLevels[0];
+
+for(let myJ=0; myJ<myLvl0.count; myJ++){
+myLvl0.neurons[myJ].activation = myClamp01(myInputVec[myJ]||0);
+}
+
+for(let myP=0; myP<myL-1; myP++){
+
+let myPrev = myLevels[myP];
+let myNext = myLevels[myP+1];
+let myW = myWeights[myP];
+let myB = myBiases[myP+1];
+
+for(let myJ=0; myJ<myNext.count; myJ++){
+
+let mySum = myB[myJ];
+
+for(let myI=0; myI<myPrev.count; myI++){
+mySum += myPrev.neurons[myI].activation*myW[myI*myNext.count+myJ];
+}
+
+myNext.neurons[myJ].activation = mySigmoid(mySum);
+
+}
+
+}
+
+return myLevels[myL-1].neurons.map(myN=>myN.activation);
+
+}
+
+function myBackprop(myTargetVec, myEta){
+
+let myL = myLevels.length;
+let myDeltaArrays = new Array(myL);
+
+for(let myP=myL-2; myP>=0; myP--){
+
+let myLayerIdx = myP+1;
+let myLayer = myLevels[myLayerIdx];
+let myDelta = new Float32Array(myLayer.count);
+
+if(myLayerIdx===myL-1){
+
+for(let myJ=0; myJ<myLayer.count; myJ++){
+let myA = myLayer.neurons[myJ].activation;
+let myT = myTargetVec[myJ]!==undefined ? myTargetVec[myJ] : myA;
+myDelta[myJ] = (myT-myA)*myA*(1-myA);
+}
+
+}else{
+
+let myNextLayer = myLevels[myLayerIdx+1];
+let myWNext = myWeights[myLayerIdx];
+let myDeltaNext = myDeltaArrays[myLayerIdx+1];
+
+for(let myI=0; myI<myLayer.count; myI++){
+
+let myA = myLayer.neurons[myI].activation;
+let mySum = 0;
+
+for(let myK=0; myK<myNextLayer.count; myK++){
+mySum += myWNext[myI*myNextLayer.count+myK]*myDeltaNext[myK];
+}
+
+myDelta[myI] = mySum*myA*(1-myA);
+
+}
+
+}
+
+myDeltaArrays[myLayerIdx] = myDelta;
+
+let myPrevLayer = myLevels[myP];
+let myW = myWeights[myP];
+let myB = myBiases[myLayerIdx];
+
+for(let myI=0; myI<myPrevLayer.count; myI++){
+
+let myAI = myPrevLayer.neurons[myI].activation;
+
+for(let myJ=0; myJ<myLayer.count; myJ++){
+myW[myI*myLayer.count+myJ] += myEta*myAI*myDelta[myJ];
+}
+
+}
+
+for(let myJ=0; myJ<myLayer.count; myJ++){
+myB[myJ] += myEta*myDelta[myJ];
+}
+
+}
+
+}
+
+function myTrainNow(){
+
+if(myTrainingExamples.length===0){
+alert('Add at least one training example first (set an input pattern + desired output, then "Add training example").');
+return;
+}
+
+let myEta = Number(document.getElementById('myEtaSlider').value);
+let myEpochs = Number(document.getElementById('myEpochSlider').value);
+
+for(let myEpoch=0; myEpoch<myEpochs; myEpoch++){
+
+let myOrder = myTrainingExamples.map((myEx,myI)=>myI);
+for(let myI=myOrder.length-1; myI>0; myI--){
+let myJ = Math.floor(Math.random()*(myI+1));
+let myTmp = myOrder[myI]; myOrder[myI]=myOrder[myJ]; myOrder[myJ]=myTmp;
+}
+
+let myEpochErr = 0;
+
+for(let myOi of myOrder){
+
+let myEx = myTrainingExamples[myOi];
+let myOut = myForwardPass(myEx.input);
+
+let myErrSum = 0;
+for(let myJ=0; myJ<myOut.length; myJ++){
+let myD = (myEx.target[myJ]||0)-myOut[myJ];
+myErrSum += myD*myD;
+}
+myEpochErr += myErrSum/Math.max(1,myOut.length);
+
+myBackprop(myEx.target, myEta);
+
+}
+
+myErrorHistory.push(myEpochErr/myOrder.length);
+if(myErrorHistory.length>300) myErrorHistory.shift();
+
+}
+
+myForwardPass(myGetInputVectorFromGrid());
+for(let myLevel of myLevels){
+for(let myN of myLevel.neurons){
+myN.display = myN.activation;
+myN.prevDisplay = myN.activation;
+}
+}
+
+myRenderErrorChart();
+myUpdateNodeVisuals(1);
+myUpdateConnectionVisuals(1);
+myUpdatePhysicalOutput();
+myUpdateStats();
+
+}
+
+function myRenderErrorChart(){
+
+let myDiv = document.getElementById('myErrorChartDiv');
+if(!myDiv) return;
+
+if(myErrorHistory.length===0){
+myDiv.innerHTML = 'No training run yet.';
+return;
+}
+
+let myW = 300, myH = 60;
+
+let myMaxErr = Math.max(0.05, Math.max.apply(null, myErrorHistory));
+
+let myPoints = myErrorHistory.map((myErr,myI)=>{
+let myX = (myErrorHistory.length===1) ? 0 : (myI/(myErrorHistory.length-1))*myW;
+let myY = myH - (myErr/myMaxErr)*myH;
+return myX.toFixed(1)+','+myY.toFixed(1);
+}).join(' ');
+
+let myLatest = myErrorHistory[myErrorHistory.length-1];
+
+myDiv.innerHTML =
+"<svg width='100%' height='"+myH+"' viewBox='0 0 "+myW+" "+myH+"' preserveAspectRatio='none' style='display:block;'>"+
+"<line x1='0' y1='"+(myH/2)+"' x2='"+myW+"' y2='"+(myH/2)+"' stroke='#223040' stroke-width='1'/>"+
+"<polyline points='"+myPoints+"' fill='none' stroke='#4090ff' stroke-width='1.5'/>"+
+"</svg>"+
+"<div style='font-size:11px;color:#8fa0bf;margin-top:2px;'>Latest epoch MSE: "+myLatest.toFixed(4)+" &nbsp;|&nbsp; Epochs run: "+myErrorHistory.length+"</div>";
+
+}
+
+// =====================================================================
+// Trial / cascade animation
+// =====================================================================
+
+function myTriggerTrial(myInputVec){
+
+for(let myLevel of myLevels){
+for(let myN of myLevel.neurons){
+myN.prevDisplay = myN.display;
+}
+}
+
+myForwardPass(myInputVec);
+
+myTrialStartTime = performance.now();
+myTrialActive = true;
+
+}
+
+function myToggleRun(){
+
+myRunning = !myRunning;
+
+let myBtn = document.getElementById('myRunBtn');
+myBtn.style.background = myRunning ? '#2a6b3a' : '';
+myBtn.style.color = myRunning ? '#fff' : '';
+
+if(myRunning){
+myNextTrialAt = 0; // fire immediately
+
+if(myLiveWaspMode){
+myLiveWaspMode = false;
+let myWaspBtn = document.getElementById('myLiveWaspBtn');
+if(myWaspBtn){ myWaspBtn.value = 'Live Wasp Input: Off'; myWaspBtn.style.background = '#5c3a12'; }
+}
+
+}
+
+}
+
+function myToggleAutoRotate(){
+
+myAutoRotate = !myAutoRotate;
+
+let myBtn = document.getElementById('myRotateBtn');
+myBtn.value = 'Rotation: '+(myAutoRotate?'On':'Off');
+myBtn.style.background = myAutoRotate ? '' : '#3a2a2a';
+myBtn.style.color = myAutoRotate ? '' : '#fff';
+
+}
+
+function myGetNextRunInput(){
+
+if(myTrainingExamples.length>0){
+let myEx = myTrainingExamples[myTrialCycleIndex % myTrainingExamples.length];
+myTrialCycleIndex++;
+return myEx.input;
+}
+
+let myVec = new Array(myLevels[0].count);
+for(let myI=0; myI<myVec.length; myI++){
+myVec[myI] = myGridLevels[Math.floor(Math.random()*myGridLevels.length)];
+}
+return myVec;
+
+}
+
+// =====================================================================
+// Visualization
+// =====================================================================
+
+function myActivationColorHex(myV){
+
+if(myV<0.08) return 0x18305c;
+if(myV<0.3) return 0x207050;
+if(myV<0.6) return 0x9a8620;
+if(myV<0.85) return 0xa52d45;
+return 0xf0f0f0;
+
+}
+
+function myUpdateNodeVisuals(myGlobalFade){
+
+for(let myLevel of myLevels){
+for(let myN of myLevel.neurons){
+
+let myColor = myActivationColorHex(myN.display);
+myN.mesh.material.color.setHex(myColor);
+
+let myScale = 0.7+myN.display*0.9;
+myN.mesh.scale.set(myScale,myScale,myScale);
+
+}
+}
+
+}
+
+function myWeightToColorArr(myW){
+
+let myMag = Math.min(1, Math.abs(myW)*1.6);
+
+if(myW>=0){
+return [0.15+myMag*0.75, 0.35+myMag*0.35, 0.1+myMag*0.1];
+}else{
+return [0.15+myMag*0.1, 0.25+myMag*0.15, 0.4+myMag*0.6];
+}
+
+}
+
+function myUpdateConnectionVisuals(){
+
+let myNow = performance.now();
+let myElapsed = myTrialActive ? (myNow-myTrialStartTime) : Infinity;
+
+for(let myP=0; myP<myConnections.length; myP++){
+
+let myConn = myConnections[myP];
+let myPrev = myLevels[myP];
+let myNext = myLevels[myP+1];
+let myW = myWeights[myP];
+
+let myPhase = myClamp01((myElapsed-(myP+1)*myStepMs)/myStepMs);
+if(!myTrialActive) myPhase = 1;
+
+let myColors = myConn.geometry.attributes.color.array;
+
+for(let myK=0; myK<myConn.pairs.length; myK++){
+
+let myI = myConn.pairs[myK][0];
+let myJ = myConn.pairs[myK][1];
+
+let mySrcActivation = myPrev.neurons[myI].display;
+let myWeightVal = myW[myI*myNext.count+myJ];
+
+let myBase = myWeightToColorArr(myWeightVal);
+let myBrightness = mySmoothstep(myPhase)*(0.25+mySrcActivation*0.75);
+
+let myR = myBase[0]*myBrightness;
+let myG = myBase[1]*myBrightness;
+let myB = myBase[2]*myBrightness;
+
+let myOff = myK*6;
+myColors[myOff+0]=myR; myColors[myOff+1]=myG; myColors[myOff+2]=myB;
+myColors[myOff+3]=myR; myColors[myOff+4]=myG; myColors[myOff+5]=myB;
+
+}
+
+myConn.geometry.attributes.color.needsUpdate = true;
+
+}
+
+}
+
+function myUpdatePhysicalOutput(){
+
+let myLastLevel = myLevels[myLevels.length-1];
+
+if(myOutputMode==='color'){
+
+let myR = Math.round(myClamp01(myLastLevel.neurons[0] ? myLastLevel.neurons[0].display : 0)*255);
+let myG = Math.round(myClamp01(myLastLevel.neurons[1] ? myLastLevel.neurons[1].display : 0)*255);
+let myB = Math.round(myClamp01(myLastLevel.neurons[2] ? myLastLevel.neurons[2].display : 0)*255);
+
+let mySwatch = document.getElementById('myOutputColorSwatch');
+let myLabel = document.getElementById('myOutputColorLabel');
+
+if(mySwatch) mySwatch.style.background = 'rgb('+myR+','+myG+','+myB+')';
+if(myLabel) myLabel.textContent = 'rgb('+myR+','+myG+','+myB+')';
+
+}else{
+
+let myCanvas = document.getElementById('myOutputCanvas');
+if(!myCanvas) return;
+
+let myCtx = myCanvas.getContext('2d');
+let myRows = myLastLevel.rows;
+let myCols = myLastLevel.cols;
+
+let myCellW = myCanvas.width/myCols;
+let myCellH = myCanvas.height/myRows;
+
+myCtx.clearRect(0,0,myCanvas.width,myCanvas.height);
+
+for(let myR=0; myR<myRows; myR++){
+for(let myC=0; myC<myCols; myC++){
+
+let myIdx = myR*myCols+myC;
+let myV = Math.round(myClamp01(myLastLevel.neurons[myIdx].display)*255);
+
+myCtx.fillStyle = 'rgb('+myV+','+myV+','+myV+')';
+myCtx.fillRect(myC*myCellW, myR*myCellH, myCellW, myCellH);
+
+}
+}
+
+}
+
+}
+
+// =====================================================================
+// Creature output (dynamic-class articulated object)
+// =====================================================================
+
+function myBuildCreatureRig(){
+
+myCreatureRoot = new THREE.Group();
+myCreatureRoot.position.set(myFootprintWidth*1.9, 0, 0);
+myCreatureBaseRootY = 0;
+myCreatureRoot.position.y = myCreatureBaseRootY;
+myScene.add(myCreatureRoot);
+
+myCreatureBaseY = 1.4;
+
+let myBodyMesh = new THREE.Mesh(
+new THREE.SphereGeometry(0.55,16,16),
+new THREE.MeshStandardMaterial({color:0x3d6b8a, emissive:0x000000})
+);
+myBodyMesh.position.set(0, myCreatureBaseY, 0);
+myCreatureRoot.add(myBodyMesh);
+
+let myHeadGroup = new THREE.Group();
+myHeadGroup.position.set(0, myCreatureBaseY+0.35, 0.5);
+myCreatureRoot.add(myHeadGroup);
+
+let myHeadMesh = new THREE.Mesh(
+new THREE.SphereGeometry(0.28,12,12),
+new THREE.MeshStandardMaterial({color:0x4a7fa0})
+);
+myHeadMesh.position.set(0,0,0.15);
+myHeadGroup.add(myHeadMesh);
+
+let myAntennae = [];
+for(let myI=0; myI<2; myI++){
+let myAntGroup = new THREE.Group();
+myAntGroup.position.set(myI===0?-0.12:0.12, 0.15, 0.25);
+myHeadGroup.add(myAntGroup);
+let myAntMesh = new THREE.Mesh(
+new THREE.CylinderGeometry(0.02,0.02,0.5,6),
+new THREE.MeshStandardMaterial({color:0x88aacc})
+);
+myAntMesh.position.set(0,0.25,0);
+myAntGroup.add(myAntMesh);
+myAntennae.push(myAntGroup);
+}
+
+let myLegs = [];
+let myLegPositions = [[-0.4,-0.2],[0.4,-0.2],[-0.4,0.2],[0.4,0.2]];
+for(let myI=0; myI<myLegPositions.length; myI++){
+let myLegGroup = new THREE.Group();
+myLegGroup.position.set(myLegPositions[myI][0], myCreatureBaseY-0.4, myLegPositions[myI][1]);
+myCreatureRoot.add(myLegGroup);
+let myLegMesh = new THREE.Mesh(
+new THREE.CylinderGeometry(0.05,0.05,0.6,6),
+new THREE.MeshStandardMaterial({color:0x2f4f6f})
+);
+myLegMesh.position.set(0,-0.3,0);
+myLegGroup.add(myLegMesh);
+myLegs.push(myLegGroup);
+}
+
+let myWings = [];
+for(let myI=0; myI<2; myI++){
+let myWingGroup = new THREE.Group();
+myWingGroup.position.set(myI===0?-0.3:0.3, myCreatureBaseY+0.25, -0.1);
+myCreatureRoot.add(myWingGroup);
+let myWingMesh = new THREE.Mesh(
+new THREE.BoxGeometry(0.7,0.02,0.35),
+new THREE.MeshStandardMaterial({color:0xbcd8ee, transparent:true, opacity:0.75})
+);
+myWingMesh.position.set(myI===0?-0.35:0.35, 0, 0);
+myWingGroup.add(myWingMesh);
+myWings.push(myWingGroup);
+}
+
+let myTailGroup = new THREE.Group();
+myTailGroup.position.set(0, myCreatureBaseY-0.1, -0.55);
+myCreatureRoot.add(myTailGroup);
+let myTailMesh = new THREE.Mesh(
+new THREE.CylinderGeometry(0.08,0.03,0.7,6),
+new THREE.MeshStandardMaterial({color:0x2f4f6f})
+);
+myTailMesh.rotation.x = Math.PI/2;
+myTailMesh.position.set(0,0,-0.35);
+myTailGroup.add(myTailMesh);
+
+myCreatureParts = {
+bodyMesh: myBodyMesh,
+head: myHeadGroup,
+antennae: myAntennae,
+legs: myLegs,
+wings: myWings,
+tail: myTailGroup
+};
+
+myCreatureRoot.visible = (myOutputMode==='creature');
+
+}
+
+function myComputeCreatureWeights(){
+
+if(myLevels.length===0) return [];
+
+let myLast = myLevels[myLevels.length-1];
+let myVals = myLast.neurons.map(myN=>myN.display);
+
+let myMax = Math.max.apply(null, myVals);
+let myExp = myVals.map(myV=>Math.exp((myV-myMax)*4));
+let mySum = myExp.reduce((myA,myB)=>myA+myB,0) || 1;
+
+return myExp.map(myV=>myV/mySum);
+
+}
+
+function myUpdateCreatureAnimation(myNowSec){
+
+if(!myCreatureParts) return;
+
+myCreatureRoot.visible = (myOutputMode==='creature');
+if(myOutputMode!=='creature') return;
+
+let myWeights = myComputeCreatureWeights();
+let myN = myWeights.length;
+
+function myW(myIdx){
+return myIdx<myN ? myWeights[myIdx] : 0;
+}
+
+let myIdleAmp = 0.12;
+
+// behavior 0: idle body bob (always somewhat active)
+let myBodyAmp = myIdleAmp*0.5 + myW(0)*0.6;
+myCreatureParts.bodyMesh.position.y = myCreatureBaseY + Math.sin(myNowSec*1.6)*0.15*myBodyAmp;
+
+// behavior 1: walk (legs)
+let myLegAmp = myIdleAmp*0.3 + myW(1)*1.1;
+myCreatureParts.legs.forEach((myLeg,myI)=>{
+let myPhase = myI%2===0 ? 0 : Math.PI;
+myLeg.rotation.x = Math.sin(myNowSec*4+myPhase)*0.5*myLegAmp;
+});
+
+// behavior 2: fly (wings + hover lift)
+let myWingAmp = myIdleAmp*0.2 + myW(2)*1.4;
+myCreatureParts.wings.forEach((myWing,myI)=>{
+let mySign = myI===0 ? 1 : -1;
+myWing.rotation.z = mySign*(0.3+Math.sin(myNowSec*14)*0.5*myWingAmp);
+});
+myCreatureParts.bodyMesh.position.y += myW(2)*0.4*(0.5+0.5*Math.sin(myNowSec*14));
+
+// behavior 3: alarm (antennae twitch + color flash)
+let myAlarmAmp = myIdleAmp*0.2 + myW(3)*1.0;
+myCreatureParts.antennae.forEach((myAnt,myI)=>{
+let mySign = myI===0 ? 1 : -1;
+myAnt.rotation.z = mySign*0.3 + Math.sin(myNowSec*3+myI)*0.2*myAlarmAmp;
+});
+myCreatureParts.bodyMesh.material.emissive.setRGB(myW(3)*0.6, myW(3)*0.05, myW(3)*0.05);
+
+// behavior 4: forage (head dip)
+let myForageAmp = myIdleAmp*0.2 + myW(4)*1.0;
+myCreatureParts.head.rotation.x = Math.sin(myNowSec*2.2)*0.4*myForageAmp;
+
+// behavior 5: curl (tail)
+let myCurlAmp = myIdleAmp*0.2 + myW(5)*1.0;
+myCreatureParts.tail.rotation.x = -0.3 - Math.sin(myNowSec*1.8)*0.3*myCurlAmp;
+
+// behavior 6: spin (whole body yaw)
+myCreatureRoot.rotation.y += 0.002 + myW(6)*0.05;
+
+// behavior 7: jump (vertical hop)
+myCreatureRoot.position.y = myCreatureBaseRootY + Math.abs(Math.sin(myNowSec*3))*1.2*myW(7);
+
+let myLabelDiv = document.getElementById('myCreatureBehaviorLabel');
+if(myLabelDiv && myN>0){
+let myBestIdx = 0, myBestVal = -1;
+for(let myI=0; myI<myN; myI++){
+if(myWeights[myI]>myBestVal){ myBestVal=myWeights[myI]; myBestIdx=myI; }
+}
+myLabelDiv.textContent = 'Dominant behavior: '+myCreatureBehaviorNames[Math.min(myBestIdx,myCreatureBehaviorNames.length-1)]+' ('+(myBestVal*100).toFixed(0)+'%)';
+}
+
+}
+
+// =====================================================================
+// Live Wasp Input (environment-driven input, not manual clicking)
+// =====================================================================
+
+function myBuildWaspMesh(){
+
+myWaspMesh = new THREE.Group();
+
+let myBody = new THREE.Mesh(
+new THREE.SphereGeometry(0.16,10,10),
+new THREE.MeshStandardMaterial({color:0x1a1a1a})
+);
+myWaspMesh.add(myBody);
+
+let myStripe = new THREE.Mesh(
+new THREE.TorusGeometry(0.16,0.03,6,12),
+new THREE.MeshStandardMaterial({color:0xffcc00})
+);
+myStripe.rotation.x = Math.PI/2;
+myWaspMesh.add(myStripe);
+
+let myWing = new THREE.Mesh(
+new THREE.BoxGeometry(0.22,0.01,0.12),
+new THREE.MeshStandardMaterial({color:0xddeeff, transparent:true, opacity:0.6})
+);
+myWing.position.set(0,0.12,0);
+myWaspMesh.add(myWing);
+
+myWaspMesh.position.set(0, myLevelTopY, myFootprintDepth*0.9);
+myScene.add(myWaspMesh);
+
+myWaspPlane = new THREE.Plane(new THREE.Vector3(0,1,0), -myLevelTopY);
+
+}
+
+function myComputeLiveWaspPattern(myX, myZ){
+
+if(myLevels.length===0) return;
+
+let myLevel0 = myLevels[0];
+
+let myDist = Math.sqrt(myX*myX+myZ*myZ);
+myWaspDistance = myDist;
+myWaspThreat = myClamp01(1-(myDist/myWaspMaxDist));
+
+let mySigma = myLerp(0.55, 0.20, myWaspThreat);
+let myDxNorm = myClamp01((myX/myWaspMaxDist)*0.5+0.5);
+let myDzNorm = myClamp01((myZ/myWaspMaxDist)*0.5+0.5);
+
+let myPattern = new Array(myLevel0.count).fill(0);
+
+for(let myR=0; myR<myLevel0.rows; myR++){
+for(let myC=0; myC<myLevel0.cols; myC++){
+
+let myColNorm = myLevel0.cols>1 ? myC/(myLevel0.cols-1) : 0.5;
+let myRowNorm = myLevel0.rows>1 ? myR/(myLevel0.rows-1) : 0.5;
+
+let myDx2 = myColNorm-myDxNorm;
+let myDz2 = myRowNorm-myDzNorm;
+let myFalloff = Math.exp(-(myDx2*myDx2+myDz2*myDz2)/(2*mySigma*mySigma));
+
+myPattern[myR*myLevel0.cols+myC] = myClamp01(myWaspThreat*myFalloff);
+
+}
+}
+
+myLiveWaspPattern = myPattern;
+
+}
+
+function myToggleLiveWasp(){
+
+myLiveWaspMode = !myLiveWaspMode;
+myWaspFrozen = false;
+
+let myBtn = document.getElementById('myLiveWaspBtn');
+myBtn.value = 'Live Wasp Input: '+(myLiveWaspMode?'On':'Off');
+myBtn.style.background = myLiveWaspMode ? '#2a6b3a' : '#5c3a12';
+
+if(myLiveWaspMode){
+
+myRunning = false;
+let myRunBtn = document.getElementById('myRunBtn');
+if(myRunBtn){ myRunBtn.style.background=''; myRunBtn.style.color=''; }
+
+}else{
+
+let myWaspLabel = document.getElementById('myWaspStatusLabel');
+if(myWaspLabel) myWaspLabel.textContent = '';
+
+}
+
+}
+
+function myUpdateStats(){
+
+let myDiv = document.getElementById('myStatsDiv');
+if(!myDiv) return;
+
+myDiv.innerHTML =
+'Levels: '+myLevels.length+'<br>'+
+'Training examples stored: '+myTrainingExamples.length+'<br>'+
+'Epochs trained so far: '+myErrorHistory.length+'<br>'+
+'Output mode: '+myOutputMode+'<br>'+
+'Running: '+(myRunning?'Yes':'No');
+
+}
+
+// =====================================================================
+// Save / Load
+// =====================================================================
+
+function mySaveJSON(){
+
+let myData = {
+outputMode: myOutputMode,
+levelDefs: myLevelDefs,
+weights: myWeights.map(myW=>Array.from(myW)),
+biases: myBiases.map(myB=>myB?Array.from(myB):null),
+trainingExamples: myTrainingExamples,
+errorHistory: myErrorHistory
+};
+
+let myBlob = new Blob([JSON.stringify(myData,null,2)],{type:'application/json'});
+let myUrl = URL.createObjectURL(myBlob);
+
+let myA = document.createElement('a');
+myA.href = myUrl;
+myA.download = 'brain-flow-sim.json';
+myA.click();
+
+URL.revokeObjectURL(myUrl);
+
+}
+
+function myLoadJSON(myEvent){
+
+let myFile = myEvent.target.files[0];
+if(!myFile) return;
+
+let myReader = new FileReader();
+
+myReader.onload = function(myE){
+
+let myData;
+
+try{
+myData = JSON.parse(myE.target.result);
+}catch(myErr){
+alert('Could not parse JSON file.');
+return;
+}
+
+myOutputMode = myData.outputMode || 'color';
+document.getElementById('myOutputModeSelect').value = myOutputMode;
+document.getElementById('myColorOutputWrap').style.display = myOutputMode==='color' ? 'block' : 'none';
+document.getElementById('myImageOutputWrap').style.display = myOutputMode==='image' ? 'block' : 'none';
+document.getElementById('myCreatureOutputWrap').style.display = myOutputMode==='creature' ? 'block' : 'none';
+if(myCreatureRoot) myCreatureRoot.visible = (myOutputMode==='creature');
+
+myLevelDefs = myData.levelDefs || [{rows:4,cols:4},{rows:4,cols:4}];
+myRenderLevelTable();
+myBuildArchitecture();
+
+if(myData.weights){
+for(let myP=0; myP<myData.weights.length && myP<myWeights.length; myP++){
+for(let myK=0; myK<myData.weights[myP].length && myK<myWeights[myP].length; myK++){
+myWeights[myP][myK] = myData.weights[myP][myK];
+}
+}
+}
+
+if(myData.biases){
+for(let myL=0; myL<myData.biases.length && myL<myBiases.length; myL++){
+if(!myData.biases[myL] || !myBiases[myL]) continue;
+for(let myK=0; myK<myData.biases[myL].length && myK<myBiases[myL].length; myK++){
+myBiases[myL][myK] = myData.biases[myL][myK];
+}
+}
+}
+
+if(myData.trainingExamples){
+myTrainingExamples = myData.trainingExamples;
+myRenderExampleList();
+}
+
+if(myData.errorHistory){
+myErrorHistory = myData.errorHistory;
+myRenderErrorChart();
+}
+
+myForwardPass(myGetInputVectorFromGrid());
+for(let myLevel of myLevels){
+for(let myN of myLevel.neurons){
+myN.display = myN.activation;
+myN.prevDisplay = myN.activation;
+}
+}
+
+myUpdateNodeVisuals(1);
+myUpdateConnectionVisuals(1);
+myUpdatePhysicalOutput();
+myUpdateArchStats();
+myUpdateStats();
+
+};
+
+myReader.readAsText(myFile);
+myEvent.target.value = '';
+
+}
+
+// =====================================================================
+// Three.js setup, interaction, animation loop
+// =====================================================================
+
+function myInitialize(){
+
+myScene = new THREE.Scene();
+myScene.background = new THREE.Color(0x050810);
+
+myCamera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 1000);
+myCamera.position.set(0,4,14);
+
+myRenderer = new THREE.WebGLRenderer({antialias:true});
+myRenderer.setSize(window.innerWidth, window.innerHeight);
+myRenderer.setPixelRatio(window.devicePixelRatio);
+document.body.appendChild(myRenderer.domElement);
+
+myControls = new THREE.OrbitControls(myCamera, myRenderer.domElement);
+myControls.enableDamping = true;
+myControls.target.set(0,0,0);
+
+myScene.add(new THREE.AmbientLight(0xffffff,0.85));
+let myLight = new THREE.PointLight(0xffffff,1.1);
+myLight.position.set(4,12,8);
+myScene.add(myLight);
+
+myRenderer.domElement.onclick = myPickNode;
+myRenderer.domElement.addEventListener('mousemove', myOnHoverMove);
+myRenderer.domElement.addEventListener('mouseleave', function(){
+document.getElementById('myHoverTooltip').style.display = 'none';
+});
+
+window.onresize = myResize;
+
+document.addEventListener('keydown', myOnGlobalKeyDown);
+
+myInitPanelResize();
+
+myBuildCreatureRig();
+myBuildWaspMesh();
+
+myQuickArchitecture('small');
+
+myAnimate();
+
+}
+
+function myPickNode(myEvent){
+
+if(myLiveWaspMode){
+
+myWaspFrozen = !myWaspFrozen;
+
+let myWaspLabel = document.getElementById('myWaspStatusLabel');
+if(myWaspLabel){
+myWaspLabel.textContent = myWaspFrozen ?
+'Wasp FROZEN — click the 3D view again to release it.' :
+'Wasp distance: '+myWaspDistance.toFixed(2)+' | Threat: '+(myWaspThreat*100).toFixed(0)+'%';
+}
+
+}
+
+let myRect = myRenderer.domElement.getBoundingClientRect();
+myMouse.x = ((myEvent.clientX-myRect.left)/myRect.width)*2-1;
+myMouse.y = -((myEvent.clientY-myRect.top)/myRect.height)*2+1;
+
+myRaycaster.setFromCamera(myMouse, myCamera);
+let myHits = myRaycaster.intersectObjects(myNodeGroup.children.flatMap(myG=>myG.children));
+
+if(myHits.length===0) return;
+
+let myLevelIdx = myHits[0].object.userData.levelIdx;
+let myIdx = myHits[0].object.userData.idx;
+
+mySelectedNode = {levelIdx:myLevelIdx, idx:myIdx};
+
+}
+
+function myOnHoverMove(myEvent){
+
+let myRect = myRenderer.domElement.getBoundingClientRect();
+myMouse.x = ((myEvent.clientX-myRect.left)/myRect.width)*2-1;
+myMouse.y = -((myEvent.clientY-myRect.top)/myRect.height)*2+1;
+
+myRaycaster.setFromCamera(myMouse, myCamera);
+let myHits = myRaycaster.intersectObjects(myNodeGroup.children.flatMap(myG=>myG.children));
+
+let myTooltip = document.getElementById('myHoverTooltip');
+
+if(myWaspPlane && myWaspMesh && !myWaspFrozen){
+
+let myHitPoint = new THREE.Vector3();
+let myHit = myRaycaster.ray.intersectPlane(myWaspPlane, myHitPoint);
+
+if(myHit){
+
+myHitPoint.x = Math.max(-myWaspMaxDist, Math.min(myWaspMaxDist, myHitPoint.x));
+myHitPoint.z = Math.max(-myWaspMaxDist, Math.min(myWaspMaxDist, myHitPoint.z));
+
+myWaspMesh.position.set(myHitPoint.x, myLevelTopY, myHitPoint.z);
+myComputeLiveWaspPattern(myHitPoint.x, myHitPoint.z);
+
+}
+
+}
+
+if(myHits.length===0){
+myTooltip.style.display = 'none';
+return;
+}
+
+let myLevelIdx = myHits[0].object.userData.levelIdx;
+let myIdx = myHits[0].object.userData.idx;
+let myN = myLevels[myLevelIdx].neurons[myIdx];
+
+let myLabel = (myLevelIdx===0) ? 'Input' : (myLevelIdx===myLevels.length-1 ? 'Output' : 'Hidden');
+
+myTooltip.innerHTML =
+'<b>'+myLabel+' — level '+myLevelIdx+'</b><br>'+
+'row '+myN.row+', col '+myN.col+'<br>'+
+'activation: '+myN.display.toFixed(3);
+
+myTooltip.style.left = (myEvent.clientX+14)+'px';
+myTooltip.style.top = (myEvent.clientY+14)+'px';
+myTooltip.style.display = 'block';
+
+}
+
+function myInitPanelResize(){
+
+let myPanel = document.getElementById('myPanel');
+let myHandle = document.getElementById('myResizeHandle');
+
+let myResizing = false;
+let myStartX = 0;
+let myStartWidth = 0;
+
+function myStart(myClientX){
+myResizing = true;
+myStartX = myClientX;
+myStartWidth = myPanel.offsetWidth;
+document.body.style.userSelect = 'none';
+}
+
+function myMove(myClientX){
+if(!myResizing) return;
+let myDelta = myClientX-myStartX;
+let myMax = Math.max(320, window.innerWidth-40);
+let myNewWidth = Math.max(320, Math.min(myMax, myStartWidth+myDelta));
+myPanel.style.width = myNewWidth+'px';
+}
+
+function myEnd(){
+myResizing = false;
+document.body.style.userSelect = '';
+}
+
+myHandle.addEventListener('mousedown', function(myEvent){ myStart(myEvent.clientX); myEvent.preventDefault(); });
+document.addEventListener('mousemove', function(myEvent){ myMove(myEvent.clientX); });
+document.addEventListener('mouseup', myEnd);
+
+myHandle.addEventListener('touchstart', function(myEvent){ myStart(myEvent.touches[0].clientX); }, {passive:true});
+document.addEventListener('touchmove', function(myEvent){ if(myResizing) myMove(myEvent.touches[0].clientX); }, {passive:true});
+document.addEventListener('touchend', myEnd);
+
+}
+
+function myResize(){
+
+myCamera.aspect = window.innerWidth/window.innerHeight;
+myCamera.updateProjectionMatrix();
+myRenderer.setSize(window.innerWidth, window.innerHeight);
+
+}
+
+function myOnGlobalKeyDown(myEvent){
+
+let myTag = document.activeElement ? document.activeElement.tagName : '';
+if(myTag==='INPUT' || myTag==='SELECT' || myTag==='TEXTAREA') return;
+
+if(myEvent.key==='+' || myEvent.key==='=' || myEvent.code==='NumpadAdd'){
+myEvent.preventDefault();
+myAddTrainingExample();
+}
+
+}
+
+function myAnimate(){
+
+requestAnimationFrame(myAnimate);
+
+if(myAutoRotate && myArrayGroup){
+myArrayGroup.rotation.y += 0.0008;
+}
+
+let myNow = performance.now();
+
+if(myTrialActive){
+
+let myElapsed = myNow-myTrialStartTime;
+let myTotalDuration = (myLevels.length-1)*myStepMs + 120;
+
+for(let myI=0; myI<myLevels.length; myI++){
+
+let myLevel = myLevels[myI];
+let myStartDelay = myI*myStepMs;
+let myLocalT = mySmoothstep(myClamp01((myElapsed-myStartDelay)/Math.max(1,myStepMs)));
+
+for(let myN of myLevel.neurons){
+myN.display = myLerp(myN.prevDisplay, myN.activation, myLocalT);
+}
+
+}
+
+myUpdateNodeVisuals();
+myUpdateConnectionVisuals();
+myUpdatePhysicalOutput();
+
+if(myElapsed>myTotalDuration){
+
+myTrialActive = false;
+
+for(let myLevel of myLevels){
+for(let myN of myLevel.neurons){
+myN.display = myN.activation;
+myN.prevDisplay = myN.activation;
+}
+}
+
+if(myRunning){
+myNextTrialAt = myNow+myPauseMs;
+}
+
+}
+
+}else if(myRunning && myNow>=myNextTrialAt){
+
+myTriggerTrial(myGetNextRunInput());
+myNextTrialAt = Infinity;
+
+}
+
+if(myLiveWaspMode && myLiveWaspPattern && !myTrialActive && (myNow-myLastWaspTriggerAt>myWaspTriggerIntervalMs)){
+
+myInputGridValues = myLiveWaspPattern.slice();
+myTriggerTrial(myInputGridValues);
+myRenderInputGrid();
+myLastWaspTriggerAt = myNow;
+
+let myWaspLabel = document.getElementById('myWaspStatusLabel');
+if(myWaspLabel && !myWaspFrozen) myWaspLabel.textContent = 'Wasp distance: '+myWaspDistance.toFixed(2)+' | Threat: '+(myWaspThreat*100).toFixed(0)+'%';
+
+}
+
+myUpdateCreatureAnimation(myNow*0.001);
+
+myControls.update();
+myRenderer.render(myScene, myCamera);
+
+}
+
+myInitialize();
+
+</script>
+
+</body>
+</html>
