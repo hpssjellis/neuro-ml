@@ -40,7 +40,11 @@ Demo of something that I am trying with [MaxWell Biosystems](https://www.mxwbio.
 
 
 
+## Me trying to be creative. Brain layer visualizer
 
+Started Sept 7, 2026
+
+Demo  T  [https://hpssjellis.github.io/neuro-ml/vis/vis.html](https://hpssjellis.github.io/neuro-ml/vis/vis.html).
 
 
 
