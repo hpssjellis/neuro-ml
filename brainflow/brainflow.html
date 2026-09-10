@@ -92,7 +92,7 @@ Output type:
 <b>Live Wasp Input:</b> a small striped wasp hovers above the input array and follows your mouse. Its distance from the array's center paints a proximity "hot spot" onto the input grid in real time — closer = brighter/bigger, farther = fades to nothing — instead of you clicking cells by hand. Loosely modeled on real looming-object-detector neurons in insect vision (e.g. the locust LGMD). Turn it on below, then move your mouse over the 3D view. Press the <b>+</b> key at any moment to capture the current input as a training example. On small grids the wasp rarely reaches the four corner cells, so the sliders below drive those corners directly with independent environmental signals — the wasp and the sliders combine into one input pattern. A small hive sits in the far corner of the scene; while Live Wasp Input is on, the "closeness to hive" corner signal is computed automatically from the bee's real distance to that hive instead of the manual slider. When "Run/Stop" is on, it samples this live input if the wasp is on, or cycles your stored examples if it's off.
 </div>
 </details>
-<input type='button' id='myLiveWaspBtn' value='Live Wasp Input: Off' onclick='myToggleLiveWasp()' style='margin-top:6px;background:#5c3a12;color:#fff;'>
+<input type='button' id='myLiveWaspBtn' value='Live Wasp Input: On' onclick='myToggleLiveWasp()' style='margin-top:6px;background:#5c3a12;color:#fff;'>
 <div id='myWaspStatusLabel' style='font-size:11px;color:#8fa0bf;margin-top:4px;'></div>
 <div id='myCreatureBehaviorLabelNearWasp' style='font-family:monospace;font-size:11px;margin-top:2px;color:#7fd0ff;'></div>
 
@@ -242,7 +242,7 @@ let myWaspPlane = null;
 let myWaspMaxDist = 8.5;
 let myWaspHoverHeight = myLevelTopY + 0.9; // hover a bit above the input array so the wasp never sinks into the sensor nodes
 let myWaspVisualScale = 2;                 // wasp is rendered at 2x scale
-let myLiveWaspMode = false;
+let myLiveWaspMode = true;
 let myLiveWaspPattern = null;
 let myWaspTriggerIntervalMs = 350;
 let myLastWaspTriggerAt = 0;
@@ -1892,23 +1892,7 @@ URL.revokeObjectURL(myUrl);
 
 }
 
-function myLoadJSON(myEvent){
-
-let myFile = myEvent.target.files[0];
-if(!myFile) return;
-
-let myReader = new FileReader();
-
-myReader.onload = function(myE){
-
-let myData;
-
-try{
-myData = JSON.parse(myE.target.result);
-}catch(myErr){
-alert('Could not parse JSON file.');
-return;
-}
+function myApplyLoadedData(myData){
 
 myOutputMode = myData.outputMode || 'color';
 document.getElementById('myOutputModeSelect').value = myOutputMode;
@@ -1962,10 +1946,57 @@ myUpdatePhysicalOutput();
 myUpdateArchStats();
 myUpdateStats();
 
+}
+
+function myLoadJSON(myEvent){
+
+let myFile = myEvent.target.files[0];
+if(!myFile) return;
+
+let myReader = new FileReader();
+
+myReader.onload = function(myE){
+
+let myData;
+
+try{
+myData = JSON.parse(myE.target.result);
+}catch(myErr){
+alert('Could not parse JSON file.');
+return;
+}
+
+myApplyLoadedData(myData);
+
 };
 
 myReader.readAsText(myFile);
 myEvent.target.value = '';
+
+}
+
+function myLoadDemoOnStartup(){
+
+// Looks for a file called demo01.json sitting next to this HTML file and, if found,
+// loads it automatically instead of starting from the small blank default architecture.
+// This only works when the page is served over http(s) (e.g. a real web server or
+// GitHub Pages) — most browsers block fetch() of local files when you just double-click
+// the .html and open it as a file:// page, so it quietly falls back to the small default
+// architecture in that case (or if demo01.json simply isn't present).
+
+fetch('demo01.json')
+.then(function(myRes){
+if(!myRes.ok) throw new Error('demo01.json not found (HTTP '+myRes.status+')');
+return myRes.json();
+})
+.then(function(myData){
+myApplyLoadedData(myData);
+console.log('Loaded demo01.json as the startup default.');
+})
+.catch(function(myErr){
+console.log('Could not auto-load demo01.json, starting with the default small architecture instead.', myErr);
+myQuickArchitecture('small');
+});
 
 }
 
@@ -2011,7 +2042,7 @@ myBuildCreatureRig();
 myBuildHiveMesh();
 myBuildWaspMesh();
 
-myQuickArchitecture('small');
+myLoadDemoOnStartup();
 
 myAnimate();
 
