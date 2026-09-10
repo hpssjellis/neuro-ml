@@ -4,4 +4,4 @@ Demo at   https://hpssjellis.github.io/neuro-ml/brainflow/brainflow.html   This 
 
 
 
-Other demos at  https://hpssjellis.github.io/neuro-ml/brainflow/brainflow0#.html  where # is the number of the file above
+Other demos at  https://hpssjellis.github.io/neuro-ml/brainflow/brainflow##.html  where # is the number of the file above
