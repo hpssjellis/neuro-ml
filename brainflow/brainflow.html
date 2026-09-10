@@ -22,6 +22,10 @@ input[type=number]{width:46px;}
 
 <div id='myHoverTooltip' style='position:fixed;pointer-events:none;background:rgba(10,14,24,0.95);border:1px solid #39445d;padding:6px 8px;font-size:11px;font-family:monospace;border-radius:4px;display:none;z-index:20;white-space:nowrap;line-height:1.5;'></div>
 
+<div id='myWaspFloatingLabel' style='position:fixed;pointer-events:none;background:rgba(10,14,24,0.85);border:1px solid #39445d;padding:3px 7px;font-size:10px;font-family:monospace;border-radius:4px;display:none;z-index:15;white-space:nowrap;color:#7fd0ff;'></div>
+
+<div id='myHiveFloatingLabel' style='position:fixed;pointer-events:none;background:rgba(10,14,24,0.85);border:1px solid #6a4a20;padding:3px 7px;font-size:10px;font-family:monospace;border-radius:4px;display:none;z-index:15;white-space:nowrap;color:#ffd699;'>🏠 Hive</div>
+
 <div id='myPanel' style='position:absolute;left:10px;top:10px;width:420px;z-index:10;box-sizing:border-box;'>
 
 <div id='myResizeHandle' title='Drag to resize' style='position:absolute;top:0;bottom:0;right:-5px;width:10px;cursor:ew-resize;background:rgba(127,208,255,0.18);border-radius:4px;z-index:12;'></div>
@@ -57,9 +61,9 @@ Quick size:
 <div style='margin-bottom:6px;font-size:12px;'>
 Output type:
 <select id='myOutputModeSelect' onchange='myOnOutputModeChange()'>
+<option value='creature' selected>Creature (dynamic classes)</option>
 <option value='color'>Color swatch (3 outputs: R,G,B)</option>
 <option value='image'>Pixel image (grid of outputs)</option>
-<option value='creature'>Creature (dynamic classes)</option>
 </select>
 </div>
 
@@ -85,11 +89,12 @@ Output type:
 <details style='margin-top:8px;'>
 <summary style='cursor:pointer;color:#ffd699;font-size:12px;'>ℹ️ Live Wasp Input (click to expand)</summary>
 <div style='font-size:11px;color:#ffd699;background:#1c1408;border:1px solid #4a3410;padding:8px;margin-top:6px;line-height:1.5;'>
-<b>Live Wasp Input:</b> a small striped wasp hovers above the input array and follows your mouse. Its distance from the array's center paints a proximity "hot spot" onto the input grid in real time — closer = brighter/bigger, farther = fades to nothing — instead of you clicking cells by hand. Loosely modeled on real looming-object-detector neurons in insect vision (e.g. the locust LGMD). Turn it on below, then move your mouse over the 3D view. Press the <b>+</b> key at any moment to capture the current input as a training example. On small grids the wasp rarely reaches the four corner cells, so the sliders below drive those corners directly with independent environmental signals — the wasp and the sliders combine into one input pattern. When "Run/Stop" is on, it samples this live input if the wasp is on, or cycles your stored examples if it's off.
+<b>Live Wasp Input:</b> a small striped wasp hovers above the input array and follows your mouse. Its distance from the array's center paints a proximity "hot spot" onto the input grid in real time — closer = brighter/bigger, farther = fades to nothing — instead of you clicking cells by hand. Loosely modeled on real looming-object-detector neurons in insect vision (e.g. the locust LGMD). Turn it on below, then move your mouse over the 3D view. Press the <b>+</b> key at any moment to capture the current input as a training example. On small grids the wasp rarely reaches the four corner cells, so the sliders below drive those corners directly with independent environmental signals — the wasp and the sliders combine into one input pattern. A small hive sits in the far corner of the scene; while Live Wasp Input is on, the "closeness to hive" corner signal is computed automatically from the bee's real distance to that hive instead of the manual slider. When "Run/Stop" is on, it samples this live input if the wasp is on, or cycles your stored examples if it's off.
 </div>
 </details>
 <input type='button' id='myLiveWaspBtn' value='Live Wasp Input: Off' onclick='myToggleLiveWasp()' style='margin-top:6px;background:#5c3a12;color:#fff;'>
 <div id='myWaspStatusLabel' style='font-size:11px;color:#8fa0bf;margin-top:4px;'></div>
+<div id='myCreatureBehaviorLabelNearWasp' style='font-family:monospace;font-size:11px;margin-top:2px;color:#7fd0ff;'></div>
 
 <div style='margin-top:8px;font-size:12px;'>
 🌡️ Temperature — top-left corner: <span id='myTempLabel'>0.00</span><br>
@@ -98,8 +103,16 @@ Output type:
 <input type='range' min='0' max='1' step='0.05' value='0' id='myRainSlider' style='width:100%;' oninput="myOnEnvSliderChange('rain', this.value)">
 💨 Wind — bottom-left corner: <span id='myWindLabel'>0.00</span><br>
 <input type='range' min='0' max='1' step='0.05' value='0' id='myWindSlider' style='width:100%;' oninput="myOnEnvSliderChange('wind', this.value)">
-🏠 Distance to hive — bottom-right corner: <span id='myHiveLabel'>0.00</span><br>
-<input type='range' min='0' max='1' step='0.05' value='0' id='myHiveSlider' style='width:100%;' oninput="myOnEnvSliderChange('hive', this.value)">
+
+<div style='margin-top:8px;font-size:11px;color:#8fa0bf;'>The two hive signals below are independent: the wasp (your mouse cursor) and the bee (the trained creature avatar) can be at different distances from the hive. Each has its own Mode button — <b>Live</b> auto-tracks the real 3D distance whenever Live Wasp Input is on; <b>Manual</b> lets you drag the slider to any value for building training examples, whether Live Wasp Input is on or off.</div>
+
+🐝 Wasp closeness to hive — bottom-right corner: <span id='myWaspHiveLabel'>0.00</span>
+<input type='button' id='myWaspHiveModeBtn' value='Mode: Live' onclick='myToggleWaspHiveMode()' style='margin-left:6px;font-size:10px;padding:1px 6px;background:#2a6b3a;color:#fff;'><br>
+<input type='range' min='0' max='1' step='0.05' value='0' id='myWaspHiveSlider' style='width:100%;' oninput="myOnEnvSliderChange('waspHive', this.value)">
+
+🐝<sub>avatar</sub> Bee closeness to hive — center cell: <span id='myBeeHiveLabel'>0.00</span>
+<input type='button' id='myBeeHiveModeBtn' value='Mode: Live' onclick='myToggleBeeHiveMode()' style='margin-left:6px;font-size:10px;padding:1px 6px;background:#2a6b3a;color:#fff;'><br>
+<input type='range' min='0' max='1' step='0.05' value='0' id='myBeeHiveSlider' style='width:100%;' oninput="myOnEnvSliderChange('beeHive', this.value)">
 </div>
 
 <h3>3. Desired Output (for training)</h3>
@@ -189,7 +202,7 @@ const myLevelTopY = 4.2;
 const myLevelGap = 2.4;
 const myMaxLinesPerPair = 900;
 
-let myOutputMode = 'color';          // 'color' | 'image'
+let myOutputMode = 'creature';        // 'color' | 'image' | 'creature'
 let myLevelDefs = [];                // [{rows,cols}, ...] used by the architecture table (pre-Apply)
 let myLevels = [];                   // built levels: [{rows,cols,count,y,neurons:[...],group}]
 let myWeights = [];                  // myWeights[p] Float32Array length prev.count*next.count, connects level p -> p+1
@@ -201,6 +214,7 @@ let myDesiredOutputValues = [];      // flattened, length = last level count
 
 let myTrainingExamples = [];         // [{input:[...], target:[...]}]
 let myErrorHistory = [];
+let myTotalEpochsRun = 0;
 
 let mySelectedNode = null;           // {levelIdx, idx}
 
@@ -215,16 +229,19 @@ let myTrialCycleIndex = 0;
 
 const myGridLevels = [0, 0.25, 0.5, 0.75, 1];
 
-const myCreatureBehaviorNames = ['Idle','Walk','Fly','Alarm','Forage','Curl','Spin','Jump'];
+const myCreatureBehaviorNames = ['Idle','Walk','Fly Fast','Alarm/Sting','Forage','Groom','Waggle Dance','Return to Hive'];
 const myMaxCreatureClasses = myCreatureBehaviorNames.length;
 let myCreatureRoot = null;
 let myCreatureParts = null;
 let myCreatureBaseY = 0;
 let myCreatureBaseRootY = 0;
+let myCreatureBaseRootX = 0;
 
 let myWaspMesh = null;
 let myWaspPlane = null;
 let myWaspMaxDist = 8.5;
+let myWaspHoverHeight = myLevelTopY + 0.9; // hover a bit above the input array so the wasp never sinks into the sensor nodes
+let myWaspVisualScale = 2;                 // wasp is rendered at 2x scale
 let myLiveWaspMode = false;
 let myLiveWaspPattern = null;
 let myWaspTriggerIntervalMs = 350;
@@ -235,7 +252,22 @@ let myWaspDistance = 0;
 let myEnvTemperature = 0;
 let myEnvRain = 0;
 let myEnvWind = 0;
-let myEnvHiveDist = 0;
+let myEnvWaspHiveCloseness = 0;   // network input feature (bottom-right corner): wasp/mouse side
+let myEnvBeeHiveCloseness = 0;    // network input feature (center cell): bee-avatar side
+let myWaspHiveLiveMode = true;    // true = auto-tracked from the real wasp position while Live Wasp Input is on
+let myBeeHiveLiveMode = true;     // true = auto-tracked from the real bee-avatar position while Live Wasp Input is on
+
+// Hive location (in the same X/Z plane the wasp roams over) and derived closeness.
+// myWaspHiveActualCloseness / myBeeHiveActualCloseness are 1 when right at the hive, 0 when as far away as possible.
+let myHiveMesh = null;
+const myHiveWorldX = -myWaspMaxDist*0.8;
+const myHiveWorldZ = -myWaspMaxDist*0.8;
+const myHiveMaxDist = Math.sqrt(Math.pow(myWaspMaxDist-myHiveWorldX,2)+Math.pow(myWaspMaxDist-myHiveWorldZ,2));
+const myBeeHiveMaxDist = Math.sqrt(Math.pow(myFootprintWidth*1.9-myHiveWorldX,2)+Math.pow(0-myHiveWorldZ,2));
+let myWaspHiveActualCloseness = 0;
+let myBeeHiveActualCloseness = 0;
+let myCreatureRoamX = 0;
+let myCreatureRoamZ = 0;
 
 // =====================================================================
 // Math helpers
@@ -401,6 +433,7 @@ myRunning = false;
 myTrialActive = false;
 myTrainingExamples = [];
 myErrorHistory = [];
+myTotalEpochsRun = 0;
 mySelectedNode = null;
 
 if(myArrayGroup){
@@ -599,6 +632,7 @@ myBiases[myP+1][myK] = (Math.random()*2-1)*0.2;
 }
 
 myErrorHistory = [];
+myTotalEpochsRun = 0;
 myRenderErrorChart();
 myTriggerTrial(myGetInputVectorFromGrid());
 
@@ -1029,6 +1063,7 @@ myBackprop(myEx.target, myEta);
 
 myErrorHistory.push(myEpochErr/myOrder.length);
 if(myErrorHistory.length>300) myErrorHistory.shift();
+myTotalEpochsRun++;
 
 }
 
@@ -1075,7 +1110,7 @@ myDiv.innerHTML =
 "<line x1='0' y1='"+(myH/2)+"' x2='"+myW+"' y2='"+(myH/2)+"' stroke='#223040' stroke-width='1'/>"+
 "<polyline points='"+myPoints+"' fill='none' stroke='#4090ff' stroke-width='1.5'/>"+
 "</svg>"+
-"<div style='font-size:11px;color:#8fa0bf;margin-top:2px;'>Latest epoch MSE: "+myLatest.toFixed(4)+" &nbsp;|&nbsp; Epochs run: "+myErrorHistory.length+"</div>";
+"<div style='font-size:11px;color:#8fa0bf;margin-top:2px;'>Latest epoch MSE: "+myLatest.toFixed(4)+" &nbsp;|&nbsp; Epochs run: "+myTotalEpochsRun+" (chart shows last "+myErrorHistory.length+")</div>";
 
 }
 
@@ -1291,9 +1326,12 @@ myCtx.fillRect(myC*myCellW, myR*myCellH, myCellW, myCellH);
 function myBuildCreatureRig(){
 
 myCreatureRoot = new THREE.Group();
-myCreatureRoot.position.set(myFootprintWidth*1.9, 0, 0);
+myCreatureBaseRootX = myFootprintWidth*1.9;
+myCreatureRoot.position.set(myCreatureBaseRootX, 0, 0);
 myCreatureBaseRootY = 0;
 myCreatureRoot.position.y = myCreatureBaseRootY;
+myCreatureRoamX = myCreatureBaseRootX;
+myCreatureRoamZ = 0;
 myScene.add(myCreatureRoot);
 
 myCreatureBaseY = 1.4;
@@ -1403,7 +1441,12 @@ function myUpdateCreatureAnimation(myNowSec){
 if(!myCreatureParts) return;
 
 myCreatureRoot.visible = (myOutputMode==='creature');
-if(myOutputMode!=='creature') return;
+
+if(myOutputMode!=='creature'){
+let myFloatingLabel = document.getElementById('myWaspFloatingLabel');
+if(myFloatingLabel) myFloatingLabel.style.display = 'none';
+return;
+}
 
 let myWeights = myComputeCreatureWeights();
 let myN = myWeights.length;
@@ -1425,13 +1468,25 @@ let myPhase = myI%2===0 ? 0 : Math.PI;
 myLeg.rotation.x = Math.sin(myNowSec*4+myPhase)*0.5*myLegAmp;
 });
 
-// behavior 2: fly (wings + hover lift)
+// The bee avatar slowly roams between its foraging spot and the hive, driven by how
+// strongly the trained network currently favors "Return to Hive". This roam position
+// (not the wiggle added later) is what myBeeHiveActualCloseness is measured from.
+let myReturnWeight = myW(7);
+let myCreatureTargetX = myLerp(myCreatureBaseRootX, myHiveWorldX, myReturnWeight);
+let myCreatureTargetZ = myLerp(0, myHiveWorldZ, myReturnWeight);
+myCreatureRoamX = myLerp(myCreatureRoamX, myCreatureTargetX, 0.02);
+myCreatureRoamZ = myLerp(myCreatureRoamZ, myCreatureTargetZ, 0.02);
+myUpdateBeeHiveCloseness();
+
+// behavior 2: fly fast (wings + hover lift) — wingbeat speeds up the farther the BEE
+// AVATAR itself currently is from the hive (its own position, not the wasp's/mouse's)
 let myWingAmp = myIdleAmp*0.2 + myW(2)*1.4;
+let myFlightSpeedMultiplier = myLerp(1.0, 2.4, myClamp01(1-myBeeHiveActualCloseness));
 myCreatureParts.wings.forEach((myWing,myI)=>{
 let mySign = myI===0 ? 1 : -1;
-myWing.rotation.z = mySign*(0.3+Math.sin(myNowSec*14)*0.5*myWingAmp);
+myWing.rotation.z = mySign*(0.3+Math.sin(myNowSec*14*myFlightSpeedMultiplier)*0.5*myWingAmp);
 });
-myCreatureParts.bodyMesh.position.y += myW(2)*0.4*(0.5+0.5*Math.sin(myNowSec*14));
+myCreatureParts.bodyMesh.position.y += myW(2)*0.4*(0.5+0.5*Math.sin(myNowSec*14*myFlightSpeedMultiplier));
 
 // behavior 3: alarm (antennae twitch + color flash)
 let myAlarmAmp = myIdleAmp*0.2 + myW(3)*1.0;
@@ -1449,26 +1504,173 @@ myCreatureParts.head.rotation.x = Math.sin(myNowSec*2.2)*0.4*myForageAmp;
 let myCurlAmp = myIdleAmp*0.2 + myW(5)*1.0;
 myCreatureParts.tail.rotation.x = -0.3 - Math.sin(myNowSec*1.8)*0.3*myCurlAmp;
 
-// behavior 6: spin (whole body yaw)
-myCreatureRoot.rotation.y += 0.002 + myW(6)*0.05;
+// behavior 6: waggle dance (learned) — small figure-8 wiggle scaled by the network's weight for this class
+let myLearnedWaggleAmp = myW(6)*1.0;
+myCreatureRoot.rotation.z = Math.sin(myNowSec*8)*0.15*myLearnedWaggleAmp;
 
-// behavior 7: jump (vertical hop)
-myCreatureRoot.position.y = myCreatureBaseRootY + Math.abs(Math.sin(myNowSec*3))*1.2*myW(7);
+// behavior 7: return to hive (vertical hop, on top of the horizontal roam above)
+myCreatureRoot.position.y = myCreatureBaseRootY + Math.abs(Math.sin(myNowSec*3))*1.2*myReturnWeight;
+
+// spin removed as a trainable class (folded into waggle dance above); keep a tiny idle yaw for life
+myCreatureRoot.rotation.y += 0.0015;
+
+// --- Innate hive-distance reflex, layered on top of whatever the trained network picked ---
+// Real bees do this regardless of "training": the closer the bee avatar actually is to the
+// hive the more it waggle-dances; the farther away, the faster its wings beat (handled above).
+let myInnateWaggleStrength = Math.max(0, (myBeeHiveActualCloseness-0.75)*4);
+if(myInnateWaggleStrength>0){
+let myWaggleT = myNowSec*9;
+myCreatureRoot.position.x = myCreatureRoamX + Math.sin(myWaggleT)*0.22*myInnateWaggleStrength;
+myCreatureRoot.rotation.z += Math.sin(myWaggleT*0.5)*0.3*myInnateWaggleStrength;
+}else{
+myCreatureRoot.position.x = myCreatureRoamX;
+}
+myCreatureRoot.position.z = myCreatureRoamZ;
 
 let myLabelDiv = document.getElementById('myCreatureBehaviorLabel');
-if(myLabelDiv && myN>0){
+let myLabelDivNearWasp = document.getElementById('myCreatureBehaviorLabelNearWasp');
+
+if(myN>0){
+
 let myBestIdx = 0, myBestVal = -1;
 for(let myI=0; myI<myN; myI++){
 if(myWeights[myI]>myBestVal){ myBestVal=myWeights[myI]; myBestIdx=myI; }
 }
-myLabelDiv.textContent = 'Dominant behavior: '+myCreatureBehaviorNames[Math.min(myBestIdx,myCreatureBehaviorNames.length-1)]+' ('+(myBestVal*100).toFixed(0)+'%)';
+
+let myBehaviorText = 'Dominant behavior: '+myCreatureBehaviorNames[Math.min(myBestIdx,myCreatureBehaviorNames.length-1)]+' ('+(myBestVal*100).toFixed(0)+'%)';
+
+if(myInnateWaggleStrength>0){
+myBehaviorText += ' — 💃 bee near hive, waggle dancing!';
+}else if(myFlightSpeedMultiplier>1.6){
+myBehaviorText += ' — 🐝 bee far from hive, flying fast!';
 }
+
+if(myLabelDiv) myLabelDiv.textContent = myBehaviorText;
+if(myLabelDivNearWasp) myLabelDivNearWasp.textContent = myBehaviorText;
+
+myUpdateWaspFloatingLabel(myBehaviorText);
+
+}
+
+}
+
+function myUpdateWaspFloatingLabel(myText){
+
+let myFloatingLabel = document.getElementById('myWaspFloatingLabel');
+if(!myFloatingLabel || !myWaspMesh || !myRenderer) return;
+
+let myWorldPos = new THREE.Vector3();
+myWaspMesh.getWorldPosition(myWorldPos);
+myWorldPos.project(myCamera);
+
+let myRect = myRenderer.domElement.getBoundingClientRect();
+let myScreenX = (myWorldPos.x*0.5+0.5)*myRect.width+myRect.left;
+let myScreenY = (-(myWorldPos.y*0.5)+0.5)*myRect.height+myRect.top;
+
+myFloatingLabel.style.left = myScreenX+'px';
+myFloatingLabel.style.top = (myScreenY+20)+'px';
+myFloatingLabel.style.display = (myWorldPos.z<1) ? 'block' : 'none';
+myFloatingLabel.textContent = myText;
 
 }
 
 // =====================================================================
 // Live Wasp Input (environment-driven input, not manual clicking)
 // =====================================================================
+
+function myBuildHiveMesh(){
+
+myHiveMesh = new THREE.Group();
+
+// simple skep-style beehive: a few stacked, tapering rings plus a dark entrance hole
+let mySkepRadii = [0.66, 0.54, 0.42, 0.28];
+let mySkepColors = [0xc9a06a, 0xc2955c, 0xb98a4e, 0xb07f40];
+let myY = 0;
+
+for(let myI=0; myI<mySkepRadii.length; myI++){
+let myBottomR = myI===0 ? 0.74 : mySkepRadii[myI-1];
+let myTier = new THREE.Mesh(
+new THREE.CylinderGeometry(mySkepRadii[myI], myBottomR, 0.3, 14),
+new THREE.MeshStandardMaterial({color:mySkepColors[myI]})
+);
+myTier.position.y = myY;
+myHiveMesh.add(myTier);
+myY += 0.27;
+}
+
+let myEntrance = new THREE.Mesh(
+new THREE.CircleGeometry(0.13,14),
+new THREE.MeshStandardMaterial({color:0x1a1208})
+);
+myEntrance.position.set(0, 0.05, 0.66);
+myHiveMesh.add(myEntrance);
+
+myHiveMesh.position.set(myHiveWorldX, 0, myHiveWorldZ);
+myScene.add(myHiveMesh);
+
+}
+
+function myUpdateHiveFloatingLabel(){
+
+let myLabel = document.getElementById('myHiveFloatingLabel');
+if(!myLabel || !myHiveMesh || !myRenderer) return;
+
+let myWorldPos = new THREE.Vector3();
+myHiveMesh.getWorldPosition(myWorldPos);
+myWorldPos.y += 1.2;
+myWorldPos.project(myCamera);
+
+let myRect = myRenderer.domElement.getBoundingClientRect();
+let myScreenX = (myWorldPos.x*0.5+0.5)*myRect.width+myRect.left;
+let myScreenY = (-(myWorldPos.y*0.5)+0.5)*myRect.height+myRect.top;
+
+myLabel.style.left = myScreenX+'px';
+myLabel.style.top = myScreenY+'px';
+myLabel.style.display = (myWorldPos.z<1) ? 'block' : 'none';
+
+}
+
+function myUpdateWaspHiveCloseness(myWaspX, myWaspZ){
+
+let myDx = myWaspX-myHiveWorldX;
+let myDz = myWaspZ-myHiveWorldZ;
+let myDist = Math.sqrt(myDx*myDx+myDz*myDz);
+
+myWaspHiveActualCloseness = myClamp01(1-(myDist/myHiveMaxDist));
+
+if(myLiveWaspMode && myWaspHiveLiveMode){
+
+myEnvWaspHiveCloseness = myWaspHiveActualCloseness;
+
+let mySlider = document.getElementById('myWaspHiveSlider');
+let myLabelEl = document.getElementById('myWaspHiveLabel');
+if(mySlider) mySlider.value = myEnvWaspHiveCloseness.toFixed(2);
+if(myLabelEl) myLabelEl.textContent = myEnvWaspHiveCloseness.toFixed(2);
+
+}
+
+}
+
+function myUpdateBeeHiveCloseness(){
+
+let myDx = myCreatureRoamX-myHiveWorldX;
+let myDz = myCreatureRoamZ-myHiveWorldZ;
+let myDist = Math.sqrt(myDx*myDx+myDz*myDz);
+
+myBeeHiveActualCloseness = myClamp01(1-(myDist/myBeeHiveMaxDist));
+
+if(myLiveWaspMode && myBeeHiveLiveMode){
+
+myEnvBeeHiveCloseness = myBeeHiveActualCloseness;
+
+let mySlider = document.getElementById('myBeeHiveSlider');
+let myLabelEl = document.getElementById('myBeeHiveLabel');
+if(mySlider) mySlider.value = myEnvBeeHiveCloseness.toFixed(2);
+if(myLabelEl) myLabelEl.textContent = myEnvBeeHiveCloseness.toFixed(2);
+
+}
+
+}
 
 function myBuildWaspMesh(){
 
@@ -1494,9 +1696,13 @@ new THREE.MeshStandardMaterial({color:0xddeeff, transparent:true, opacity:0.6})
 myWing.position.set(0,0.12,0);
 myWaspMesh.add(myWing);
 
-myWaspMesh.position.set(0, myLevelTopY, myFootprintDepth*0.9);
+myWaspMesh.scale.set(myWaspVisualScale, myWaspVisualScale, myWaspVisualScale);
+myWaspMesh.position.set(0, myWaspHoverHeight, myFootprintDepth*0.9);
 myScene.add(myWaspMesh);
 
+// Raycast plane stays at the input array's own height — this is what maps mouse
+// position to grid X/Z. The mesh itself renders higher up (myWaspHoverHeight) so
+// it visibly hovers above the sensors instead of overlapping them.
 myWaspPlane = new THREE.Plane(new THREE.Vector3(0,1,0), -myLevelTopY);
 
 }
@@ -1561,11 +1767,17 @@ let myTopLeft = 0;
 let myTopRight = myCols-1;
 let myBottomLeft = (myRows-1)*myCols;
 let myBottomRight = (myRows-1)*myCols+(myCols-1);
+let myCenter = Math.floor(myRows/2)*myCols + Math.floor(myCols/2);
 
 myPattern[myTopLeft] = myEnvTemperature;
 myPattern[myTopRight] = myEnvRain;
 myPattern[myBottomLeft] = myEnvWind;
-myPattern[myBottomRight] = myEnvHiveDist;
+myPattern[myBottomRight] = myEnvWaspHiveCloseness;
+
+// second hive signal (bee/avatar side) only if the grid is big enough to give it its own cell
+if(myCenter!==myTopLeft && myCenter!==myTopRight && myCenter!==myBottomLeft && myCenter!==myBottomRight){
+myPattern[myCenter] = myEnvBeeHiveCloseness;
+}
 
 return myPattern;
 
@@ -1578,7 +1790,8 @@ let myV = myClamp01(Number(myValue));
 if(myWhich==='temperature'){ myEnvTemperature=myV; document.getElementById('myTempLabel').textContent=myV.toFixed(2); }
 else if(myWhich==='rain'){ myEnvRain=myV; document.getElementById('myRainLabel').textContent=myV.toFixed(2); }
 else if(myWhich==='wind'){ myEnvWind=myV; document.getElementById('myWindLabel').textContent=myV.toFixed(2); }
-else if(myWhich==='hive'){ myEnvHiveDist=myV; document.getElementById('myHiveLabel').textContent=myV.toFixed(2); }
+else if(myWhich==='waspHive'){ myEnvWaspHiveCloseness=myV; document.getElementById('myWaspHiveLabel').textContent=myV.toFixed(2); }
+else if(myWhich==='beeHive'){ myEnvBeeHiveCloseness=myV; document.getElementById('myBeeHiveLabel').textContent=myV.toFixed(2); }
 
 if(myLevels.length>0){
 myApplyCornerOverrides(myInputGridValues);
@@ -1595,10 +1808,46 @@ let myBtn = document.getElementById('myLiveWaspBtn');
 myBtn.value = 'Live Wasp Input: '+(myLiveWaspMode?'On':'Off');
 myBtn.style.background = myLiveWaspMode ? '#2a6b3a' : '#5c3a12';
 
+myUpdateHiveSliderDisabledStates();
+
 if(!myLiveWaspMode){
 let myWaspLabel = document.getElementById('myWaspStatusLabel');
 if(myWaspLabel) myWaspLabel.textContent = '';
 }
+
+}
+
+function myToggleWaspHiveMode(){
+
+myWaspHiveLiveMode = !myWaspHiveLiveMode;
+
+let myBtn = document.getElementById('myWaspHiveModeBtn');
+myBtn.value = 'Mode: '+(myWaspHiveLiveMode?'Live':'Manual');
+myBtn.style.background = myWaspHiveLiveMode ? '#2a6b3a' : '#5c3a12';
+
+myUpdateHiveSliderDisabledStates();
+
+}
+
+function myToggleBeeHiveMode(){
+
+myBeeHiveLiveMode = !myBeeHiveLiveMode;
+
+let myBtn = document.getElementById('myBeeHiveModeBtn');
+myBtn.value = 'Mode: '+(myBeeHiveLiveMode?'Live':'Manual');
+myBtn.style.background = myBeeHiveLiveMode ? '#2a6b3a' : '#5c3a12';
+
+myUpdateHiveSliderDisabledStates();
+
+}
+
+function myUpdateHiveSliderDisabledStates(){
+
+let myWaspSlider = document.getElementById('myWaspHiveSlider');
+let myBeeSlider = document.getElementById('myBeeHiveSlider');
+
+if(myWaspSlider) myWaspSlider.disabled = myWaspHiveLiveMode && myLiveWaspMode;
+if(myBeeSlider) myBeeSlider.disabled = myBeeHiveLiveMode && myLiveWaspMode;
 
 }
 
@@ -1610,7 +1859,7 @@ if(!myDiv) return;
 myDiv.innerHTML =
 'Levels: '+myLevels.length+'<br>'+
 'Training examples stored: '+myTrainingExamples.length+'<br>'+
-'Epochs trained so far: '+myErrorHistory.length+'<br>'+
+'Epochs trained so far: '+myTotalEpochsRun+'<br>'+
 'Output mode: '+myOutputMode+'<br>'+
 'Running: '+(myRunning?'Yes':'No');
 
@@ -1759,6 +2008,7 @@ document.addEventListener('keydown', myOnGlobalKeyDown);
 myInitPanelResize();
 
 myBuildCreatureRig();
+myBuildHiveMesh();
 myBuildWaspMesh();
 
 myQuickArchitecture('small');
@@ -1806,8 +2056,9 @@ if(myHit){
 myHitPoint.x = Math.max(-myWaspMaxDist, Math.min(myWaspMaxDist, myHitPoint.x));
 myHitPoint.z = Math.max(-myWaspMaxDist, Math.min(myWaspMaxDist, myHitPoint.z));
 
-myWaspMesh.position.set(myHitPoint.x, myLevelTopY, myHitPoint.z);
+myWaspMesh.position.set(myHitPoint.x, myWaspHoverHeight, myHitPoint.z);
 myComputeLiveWaspPattern(myHitPoint.x, myHitPoint.z);
+myUpdateWaspHiveCloseness(myHitPoint.x, myHitPoint.z);
 
 }
 
@@ -1958,11 +2209,12 @@ myRenderInputGrid();
 myLastWaspTriggerAt = myNow;
 
 let myWaspLabel = document.getElementById('myWaspStatusLabel');
-if(myWaspLabel) myWaspLabel.textContent = 'Wasp distance: '+myWaspDistance.toFixed(2)+' | Threat: '+(myWaspThreat*100).toFixed(0)+'%';
+if(myWaspLabel) myWaspLabel.textContent = 'Wasp distance: '+myWaspDistance.toFixed(2)+' | Threat: '+(myWaspThreat*100).toFixed(0)+'% | Wasp-hive: '+(myWaspHiveActualCloseness*100).toFixed(0)+'% | Bee-hive: '+(myBeeHiveActualCloseness*100).toFixed(0)+'%';
 
 }
 
 myUpdateCreatureAnimation(myNow*0.001);
+myUpdateHiveFloatingLabel();
 
 myControls.update();
 myRenderer.render(myScene, myCamera);
